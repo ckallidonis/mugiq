@@ -22,6 +22,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 #--------------------------------------------------------------
 #--------------------------------------------------------------
 
+
 # MPI/QMP options
 # Use MPI Comms by default
 if(DEFINED ENV{MUGIQ_COMMS_TYPE})
@@ -40,7 +41,7 @@ string(TOUPPER ${CMAKE_COMMS_TYPE} CHECK_COMMS_TYPE)
 list(FIND VALID_COMMS_TYPES ${CHECK_COMMS_TYPE} COMMS_TYPE_VALID)
 
 if(COMMS_TYPE_VALID LESS 0)
-  message(SEND_ERROR "A valid CMAKE_COMMS_TYPE must be specified. Valid comms types are:" "${VALID_COMMS_TYPES}")
+  message(SEND_ERROR "A valid CMAKE_COMMS_TYPE type must be specified. Valid comms types are:" "${VALID_COMMS_TYPES}")
 endif()
 #--------------------------------------------------------------
 
@@ -60,8 +61,9 @@ string(TOUPPER ${CMAKE_BUILD_TYPE} CHECK_BUILD_TYPE)
 list(FIND VALID_BUILD_TYPES ${CHECK_BUILD_TYPE} BUILD_TYPE_VALID)
 
 if(BUILD_TYPE_VALID LESS 0)
-  message(SEND_ERROR "Please specify a valid CMAKE_BUILD_TYPE type. Valid build types are:" "${VALID_BUILD_TYPES}")
+  message(SEND_ERROR "A valid CMAKE_BUILD_TYPE type must be specified. Valid build types are:" "${VALID_BUILD_TYPES}")
 endif()
+#--------------------------------------------------------------
 
 
 
@@ -78,6 +80,7 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 #--------------------------------------------------------------
 #--------------------------------------------------------------
+
 
 # Host system CPU architecture
 set(CPU_ARCH ${CMAKE_HOST_SYSTEM_PROCESSOR})
@@ -97,9 +100,9 @@ set(MUGIQ_GPU_ARCH
     ${MUGIQ_DEFAULT_GPU_ARCH}
     CACHE STRING "Set the GPU architecture (sm_20, sm_21, sm_30, sm_35, sm_37, sm_50, sm_52, sm_60, sm_70, sm_75)")
 set_property(CACHE MUGIQ_GPU_ARCH PROPERTY STRINGS sm_20 sm_21 sm_30 sm_35 sm_37 sm_50 sm_52 sm_60 sm_70 sm_75)
+#--------------------------------------------------------------
+#--------------------------------------------------------------
 
-#--------------------------------------------------------------
-#--------------------------------------------------------------
 
 # Package Build Options
 
@@ -129,6 +132,7 @@ set(MUGIQ_QMP_HOME "" CACHE PATH "path to QMP")
 set(MUGIQ_BUILD_ALL_TESTS ON CACHE BOOL "build tests by default")
 #--------------------------------------------------------------
 #--------------------------------------------------------------
+
 
 # Compilers and Flags
 
@@ -167,6 +171,7 @@ find_package(MPI)
 #--------------------------------------------------------------
 #--------------------------------------------------------------
 
+
 # Communication Options
 
 # MPI Comms
@@ -196,6 +201,7 @@ if("${CMAKE_COMMS_TYPE}" STREQUAL "QMP")
 endif()
 #--------------------------------------------------------------
 #--------------------------------------------------------------
+
 
 # Package/library-related options
 
@@ -297,7 +303,6 @@ if(MUGIQ_MAGMA)
   endif()
 
   add_definitions(-DMAGMA_LIB -DADD_ -DMAGMA_SETAFFINITY -DGPUSHMEM=300 -DHAVE_CUBLAS -DMAGMA_LIB)
-
 endif()
 
 
@@ -315,18 +320,16 @@ if(MUGIQ_PRIMME)
   else()
     find_library(LIB_PRIMME ${PRIMME_LIBRARIES} PATH ${PRIMME_LIBRARY_DIRS})
   endif()
-  include_directories(SYSTEM ${MUGIQ_PRIMME_HOME}/include)
-  LIST(APPEND MAGMA ${LIB_PRIMME})
-
   add_definitions(-DPRIMME_LIB)
 
+  include_directories(SYSTEM ${MUGIQ_PRIMME_HOME}/include)
+  LIST(APPEND LIB_MAGMA ${LIB_PRIMME})
 endif()
+#--------------------------------------------------------------
+#--------------------------------------------------------------
 
-#--------------------------------------------------------------
-#--------------------------------------------------------------
 
 # CUDA related options
-
 set(CMAKE_CUDA_HOST_COMPILER "${CMAKE_CXX_COMPILER}" CACHE FILEPATH "Host compiler to be used by nvcc")
 set(CMAKE_CUDA_STANDARD ${MUGIQ_CXX_STANDARD})
 set(CMAKE_CUDA_STANDARD_REQUIRED True)
