@@ -106,6 +106,8 @@ set_property(CACHE MUGIQ_GPU_ARCH PROPERTY STRINGS sm_20 sm_21 sm_30 sm_35 sm_37
 
 # Package Build Options
 
+set(BUILD_MUGIQ_CUDA_LIB OFF CACHE BOOL "Build the MuGiq Library" FORCE)
+
 # QUDA (foremost)
 set(MUGIQ_QUDA OFF CACHE BOOL "Whether to Link with QUDA library")
 set(MUGIQ_QUDA_HOME "" CACHE PATH "Install path to QUDA")
@@ -225,9 +227,14 @@ if(MUGIQ_QUDA)
     message(FATAL_ERROR "QUDA_TEST Library not found")
   endif()
 
+  set(MUGIQ_QUDA_LDFLAGS " -L${MUGIQ_QUDA_HOME}/lib -L${MUGIQ_QUDA_HOME}/tests " CACHE STRING "LDFLAGS for QUDA library")
+  set(MUGIQ_QUDA_LIBS " -lquda -lquda_test " CACHE STRING "LIBS for QUDA library")
+  
   add_definitions(-DHAVE_QUDA)
 
   include_directories(SYSTEM ${MUGIQ_QUDA_HOME}/include)
+
+  set(BUILD_MUGIQ_CUDA_LIB ON CACHE BOOL "Build the MuGiq Library" FORCE)
 endif()
 
 
@@ -323,7 +330,7 @@ if(MUGIQ_PRIMME)
   add_definitions(-DPRIMME_LIB)
 
   include_directories(SYSTEM ${MUGIQ_PRIMME_HOME}/include)
-  LIST(APPEND LIB_MAGMA ${LIB_PRIMME})
+  LIST(APPEND LIB_PRIMME ${LIB_PRIMME})
 endif()
 #--------------------------------------------------------------
 #--------------------------------------------------------------
@@ -361,5 +368,5 @@ include_directories(lib)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 # add tests and mugiq library folders
-#add_subdirectory(lib)
+add_subdirectory(lib)
 #add_subdirectory(tests)
