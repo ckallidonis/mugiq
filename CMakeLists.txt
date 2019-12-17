@@ -178,7 +178,7 @@ find_package(MPI)
 
 # MPI Comms
 if("${CMAKE_COMMS_TYPE}" STREQUAL "MPI")
-  add_definitions(-DMPI_COMMS)
+  add_definitions(-DMULTI_GPU -DMPI_COMMS)
   include_directories(SYSTEM ${MPI_CXX_INCLUDE_PATH})
 endif()
 
@@ -196,7 +196,7 @@ if("${CMAKE_COMMS_TYPE}" STREQUAL "QMP")
   set(MUGIQ_QMP_LDFLAGS ${MUGIQ_QMP_LDFLAGS_INTERNAL} CACHE STRING "LDFLAGS for QMP - should be derived from qmp-config --ldflags")
   set(MUGIQ_QMP_LIBS ${MUGIQ_QMP_LIBS_INTERNAL} CACHE STRING "LIBS for QMP - should be derived from qmp-config --libs")
   
-  add_definitions(-DQMP_COMMS)
+  add_definitions(-DMULTI_GPU -DQMP_COMMS)
   
   include_directories(SYSTEM ${MUGIQ_QMP_HOME}/include)
   include_directories(SYSTEM ${MPI_CXX_INCLUDE_PATH})
@@ -227,8 +227,8 @@ if(MUGIQ_QUDA)
     message(FATAL_ERROR "QUDA_TEST Library not found")
   endif()
 
-  set(MUGIQ_QUDA_LDFLAGS " -L${MUGIQ_QUDA_HOME}/lib -L${MUGIQ_QUDA_HOME}/tests " CACHE STRING "LDFLAGS for QUDA library")
-  set(MUGIQ_QUDA_LIBS " -lquda -lquda_test " CACHE STRING "LIBS for QUDA library")
+  set(MUGIQ_QUDA_LDFLAGS "-L${MUGIQ_QUDA_HOME}/lib -L${MUGIQ_QUDA_HOME}/tests" CACHE STRING "LDFLAGS for QUDA library")
+  set(MUGIQ_QUDA_LIBS "-lquda -lquda_test" CACHE STRING "LIBS for QUDA library")
   
   add_definitions(-DHAVE_QUDA)
 
