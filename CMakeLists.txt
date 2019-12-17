@@ -233,6 +233,7 @@ if(MUGIQ_QUDA)
   add_definitions(-DHAVE_QUDA)
 
   include_directories(SYSTEM ${MUGIQ_QUDA_HOME}/include)
+  include_directories(SYSTEM ${MUGIQ_QUDA_SOURCE}/tests)
 
   set(BUILD_MUGIQ_CUDA_LIB ON CACHE BOOL "Build the MuGiq Library" FORCE)
 endif()
@@ -286,12 +287,16 @@ endif(MUGIQ_QIO)
 # MAGMA Options
 if(MUGIQ_MAGMA)
   find_package(OpenMP)
+  find_package(BLAS REQUIRED)
+  find_package(LAPACK REQUIRED)
   if("${MUGIQ_MAGMA_HOME}" STREQUAL "")
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIB_MAGMA magma)
     include_directories(SYSTEM ${MAGMA_INCLUDEDIR})
     message("${MAGMA_INCLUDEDIR}")
     find_library(LIB_MAGMA ${MAGMA_LIBRARIES} PATH ${MAGMA_LIBRARY_DIRS})
+    LIST(APPEND LIB_MAGMA ${BLAS_LIBRARIES})
+    LIST(APPEND LIB_MAGMA ${LAPACK_LIBRARIES})
   else()
     find_library(LIB_MAGMA libmagma.a magma ${MUGIQ_MAGMA_HOME}/lib) # Prefer Static library
 
@@ -369,4 +374,4 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 
 # add tests and mugiq library folders
 add_subdirectory(lib)
-#add_subdirectory(tests)
+add_subdirectory(tests)
