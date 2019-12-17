@@ -385,7 +385,7 @@ int main(int argc, char **argv)
     errorQuda("ARPACK check only available in double precision");
   }
 
-  computeEvecs(host_evecs, host_evals, &eig_param);
+  computeEvecsQudaWrapper(host_evecs, host_evals, &eig_param);
   time += (double)clock();
   printfQuda("Time for %s solution = %f\n", eig_param.arpack_check ? "ARPACK" : "QUDA", time / CLOCKS_PER_SEC);
 

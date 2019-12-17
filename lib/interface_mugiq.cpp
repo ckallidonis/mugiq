@@ -37,10 +37,15 @@
 #include <mugiq.h>
 
 
-void computeEvecs(void **eVecs_host, double _Complex *eVals_host, QudaEigParam *eigParams){
-
+void computeEvecsQudaWrapper(void **eVecs_host, double _Complex *eVals_host, QudaEigParam *eigParams){
 
   // Call the QUDA function
   eigensolveQuda(eVecs_host, eVals_host, eigParams);
+}
 
+
+void computeEvecsMuGiq(void **eVecs_host, double _Complex *eVals_host, QudaEigParam *eigParams){
+
+  // Do nothing for now
+  printfQuda("%s: Not doing anything for now!\n", __func__);
 }
