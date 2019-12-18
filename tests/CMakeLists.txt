@@ -4,8 +4,12 @@
 # C. Kallidonis, William & Mary
 # Dec. 2019
 
+# Create another library that contains dependency files for tests
+set(MUGIQ_TEST_DEPS test_params_mugiq.cpp)
+cuda_add_library(mugiq_deps STATIC ${MUGIQ_TEST_DEPS})
+
 # Link with libmugiq.a
-set(EXE_LIBS mugiq)
+set(EXE_LIBS mugiq mugiq_deps)
 
 # Macro to exclude test for building, if NOT building all tests
 macro(MUGIQ_CHECKTEST TEST_TARGET MUGIQ_BUILD_ALL_TESTS_BOOL)
@@ -18,6 +22,9 @@ endmacro()
 # Test targets
 
 cuda_add_executable(eigensolve_test_QUDA eigensolve_test_QUDA.cpp)
-#wilson_dslash_reference.cpp domain_wall_dslash_reference.cpp clover_reference.cpp blas_reference.cpp)
 target_link_libraries(eigensolve_test_QUDA ${EXE_LIBS})
 mugiq_checktest(eigensolve_test_QUDA MUGIQ_BUILD_ALL_TESTS)
+
+cuda_add_executable(eigensolve eigensolve.cpp)
+target_link_libraries(eigensolve ${EXE_LIBS})
+mugiq_checktest(eigensolve MUGIQ_BUILD_ALL_TESTS)
