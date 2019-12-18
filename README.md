@@ -1,5 +1,5 @@
 # MuGiq
-An interface to perform MultiGrid deflation in GPUs using the QUDA library, for the efficient computation of disconnected diagrams and other measurements related to Lattice QCD applications.
+An interface to perform MultiGrid deflation in nVIDIA GPUs using the QUDA library, for the efficient computation of disconnected diagrams and other measurements related to Lattice QCD applications.
 
 
 ## External dependencies
@@ -24,5 +24,5 @@ Below are the steps for installing MuGiq using CMake:
 
 ## Author and Contact
 
-* **Christos Kallidonis** - College of William & Mary
+* **Christos Kallidonis** - William & Mary
 * Web: [http://christoskallidonis.com](http://christoskallidonis.com).
