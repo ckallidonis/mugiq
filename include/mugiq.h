@@ -27,7 +27,7 @@ extern "C" {
    * @param h_evals  Host side eigenvalues
    * @param param Contains all metadata regarding the type of solve.
    */
-  void computeEvecsMuGiq(void **eVecs_host, double _Complex *eVals_host, QudaEigParam *eigParams);
+  void computeEvecsMuGiq(QudaEigParam *eigParams);
 
 
   

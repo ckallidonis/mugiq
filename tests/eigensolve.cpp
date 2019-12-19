@@ -383,32 +383,28 @@ int main(int argc, char **argv)
   printfQuda("Computing the plaquette...\n");
   printfQuda("Computed plaquette is %e (spatial = %e, temporal = %e)\n", plaq[0], plaq[1], plaq[2]);
 
-  // Eigensolver test
-  //----------------------------------------------------------------------------
-
-  // Host side arrays to store the eigenpairs
-  void **host_evecs = (void **)malloc(eig_nConv * sizeof(void *));
-  for (int i = 0; i < eig_nConv; i++) {
-    host_evecs[i] = (void *)malloc(V * eig_inv_param.Ls * sss * eig_inv_param.cpu_prec);
-  }
-  double _Complex *host_evals = (double _Complex *)malloc(eig_param.nEv * sizeof(double _Complex));
-
+  // Call the Eigensolver interface-function
   double time = -((double)clock());
   if(mugiq_eig_task == MUGIQ_COMPUTE_EVECS_QUDA){
+    void **host_evecs = (void **)malloc(eig_nConv * sizeof(void *));
+    for (int i = 0; i < eig_nConv; i++) {
+      host_evecs[i] = (void *)malloc(V * eig_inv_param.Ls * sss * eig_inv_param.cpu_prec);
+    }
+    double _Complex *host_evals = (double _Complex *)malloc(eig_param.nEv * sizeof(double _Complex));
+
     computeEvecsQudaWrapper(host_evecs, host_evals, &eig_param);
-  } else if(mugiq_eig_task == MUGIQ_COMPUTE_EVECS_MUGIQ){
-    computeEvecsMuGiq(host_evecs, host_evals, &eig_param);    
+    
+    for (int i = 0; i < eig_nConv; i++) free(host_evecs[i]);
+    free(host_evecs);
+    free(host_evals);    
   }
+  else if(mugiq_eig_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq(&eig_param);    
   else errorQuda("Option --mugiq-eig-task not set! (options are computeEvecsQuda,computeEvecsMuGiq)\n");
   
   time += (double)clock();
   printfQuda("Time for solution = %f\n", time / CLOCKS_PER_SEC);
-
+  //----------------------------------------------------------------------------
   
-  // Deallocate host memory
-  for (int i = 0; i < eig_nConv; i++) free(host_evecs[i]);
-  free(host_evecs);
-  free(host_evals);
 
   freeGaugeQuda();
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) { freeCloverQuda(); }
