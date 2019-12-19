@@ -27,9 +27,6 @@
 #include <mugiq.h>
 
 //- Forward declarations of QUDA-interface functions not declared in the .h files, and are called here
-namespace quda{
-  void createDirac(Dirac *&d, Dirac *&dSloppy, Dirac *&dPre, QudaInvertParam &param, const bool pc_solve);
-}
 quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
 
 
