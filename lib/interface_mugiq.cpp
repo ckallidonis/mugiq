@@ -29,13 +29,11 @@
 //- Forward declarations of QUDA-interface functions not declared in the .h files, and are called here
 quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
 
+//- Profiling
+static quda::TimeProfile profileEigensolveMuGiq("computeEvecsMuGiq");
 
 using namespace quda;
 
-
-//- Profiling
-static TimeProfile profEigsolve("computeEvecsMuGiq");
-//-----------------------------------------------------------------------------
 
 //- Interface functions begin here
 
@@ -53,8 +51,8 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
 
   printfQuda("\n%s: Using MuGiq interface to compute eigenvectors!\n", __func__);
 
-  profEigsolve.TPSTART(QUDA_PROFILE_TOTAL);
-  profEigsolve.TPSTART(QUDA_PROFILE_INIT);
+  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
+  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);
 
   QudaInvertParam *inv_param = eigParams->invert_param;
 
@@ -108,27 +106,28 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
   //- These are the eigenvalues
   std::vector<Complex> eVals(eigParams->nConv, 0.0);
 
-  profEigsolve.TPSTOP(QUDA_PROFILE_INIT);
+  profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
   
   //- Perform eigensolve
-  EigenSolver *eig_solve = EigenSolver::create(eigParams, *m, profEigsolve);
+  EigenSolver *eig_solve = EigenSolver::create(eigParams, *m, profileEigensolveMuGiq);
   (*eig_solve)(eVecs, eVals);
 
   
   //- Clean up
-  profEigsolve.TPSTART(QUDA_PROFILE_FREE);
+  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
   delete eig_solve;
   delete m;
   delete d;
   for (int i = 0; i < eigParams->nConv; i++) delete eVecs[i];
-  profEigsolve.TPSTOP(QUDA_PROFILE_FREE);
+  profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);
+
+  
+  profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_TOTAL);
+  if (getVerbosity() >= QUDA_SUMMARIZE) profileEigensolveMuGiq.Print();
 
   popVerbosity();
-
   saveTuneCache();
-
-  profEigsolve.TPSTOP(QUDA_PROFILE_TOTAL);
 }
 
 
