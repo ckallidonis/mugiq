@@ -22,8 +22,6 @@
 #include <random_quda.h>
 #include <mpi_comm_handle.h>
 
-//#include <deflation.h>
-
 
 // MUGIQ header files
 #include <mugiq.h>
@@ -31,25 +29,17 @@
 //- Forward declarations of QUDA-interface functions not declared in the .h files, and are called here
 namespace quda{
   void createDirac(Dirac *&d, Dirac *&dSloppy, Dirac *&dPre, QudaInvertParam &param, const bool pc_solve);
-} //- namespace quda
+}
 quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
 
 
-//- For checking / printing parameter structures
-/*
-#define CHECK_PARAM
-#include <check_params.h>
-#undef CHECK_PARAM
-
-#define PRINT_PARAM
-#include <check_params.h>
-#undef PRINT_PARAM
-*/
-
 using namespace quda;
+
 
 //- Profiling
 static TimeProfile profEigsolve("computeEvecsMuGiq");
+
+
 
 
 void computeEvecsQudaWrapper(void **eVecs_host, double _Complex *eVals_host, QudaEigParam *eigParams){
@@ -59,6 +49,7 @@ void computeEvecsQudaWrapper(void **eVecs_host, double _Complex *eVals_host, Qud
   // Call the QUDA function
   eigensolveQuda(eVecs_host, eVals_host, eigParams);
 }
+
 
 //- This function is similar to the QUDA eigensolveQuda() function, but adjusted according to MuGiq needs
 void computeEvecsMuGiq(void **eVecs_host, double _Complex *eVals_host, QudaEigParam *eigParams){
@@ -86,6 +77,7 @@ void computeEvecsMuGiq(void **eVecs_host, double _Complex *eVals_host, QudaEigPa
   bool pc_solve = (inv_param->solve_type == QUDA_DIRECT_PC_SOLVE) || (inv_param->solve_type == QUDA_NORMOP_PC_SOLVE)
     || (inv_param->solve_type == QUDA_NORMERR_PC_SOLVE);
 
+  
   // Create Dirac Operator
   Dirac *d = nullptr;
   Dirac *dSloppy = nullptr;
@@ -120,27 +112,16 @@ void computeEvecsMuGiq(void **eVecs_host, double _Complex *eVals_host, QudaEigPa
 
   profEigsolve.TPSTOP(QUDA_PROFILE_INIT);
 
-  if (!eigParams->use_norm_op && !eigParams->use_dagger) {
-    DiracM m(dirac);
-    EigenSolver *eig_solve = EigenSolver::create(eigParams, m, profEigsolve);
-    (*eig_solve)(kSpace, evals);
-    delete eig_solve;
-  } else if (!eigParams->use_norm_op && eigParams->use_dagger) {
-    DiracMdag m(dirac);
-    EigenSolver *eig_solve = EigenSolver::create(eigParams, m, profEigsolve);
-    (*eig_solve)(kSpace, evals);
-    delete eig_solve;
-  } else if (eigParams->use_norm_op && !eigParams->use_dagger) {
-    DiracMdagM m(dirac);
-    EigenSolver *eig_solve = EigenSolver::create(eigParams, m, profEigsolve);
-    (*eig_solve)(kSpace, evals);
-    delete eig_solve;
-  } else if (eigParams->use_norm_op && eigParams->use_dagger) {
-    DiracMMdag m(dirac);
-    EigenSolver *eig_solve = EigenSolver::create(eigParams, m, profEigsolve);
-    (*eig_solve)(kSpace, evals);
-    delete eig_solve;
-  }
+  DiracMatrix *m;
+  if (!eigParams->use_norm_op && !eigParams->use_dagger)     m = new DiracM(dirac);
+  else if (!eigParams->use_norm_op && eigParams->use_dagger) m = new DiracMdag(dirac);
+  else if (eigParams->use_norm_op && !eigParams->use_dagger) m = new DiracMdagM(dirac);
+  else if (eigParams->use_norm_op && eigParams->use_dagger)  m = new DiracMMdag(dirac);
+  
+  //- Perform eigensolve
+  EigenSolver *eig_solve = EigenSolver::create(eigParams, *m, profEigsolve);
+  (*eig_solve)(kSpace, evals);
+
   
   // Copy eigen values back
   for (int i = 0; i < eigParams->nConv; i++) { eVals_host[i] = real(evals[i]) + imag(evals[i]) * _Complex_I; }
@@ -154,6 +135,8 @@ void computeEvecsMuGiq(void **eVecs_host, double _Complex *eVals_host, QudaEigPa
 
   profEigsolve.TPSTART(QUDA_PROFILE_FREE);
   for (int i = 0; i < eigParams->nConv; i++) delete eVecs_host_[i];
+  delete eig_solve;
+  delete m;
   delete d;
   delete dSloppy;
   delete dPre;
