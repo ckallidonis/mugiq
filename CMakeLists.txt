@@ -234,6 +234,7 @@ if(MUGIQ_QUDA)
 
   include_directories(SYSTEM ${MUGIQ_QUDA_HOME}/include)
   include_directories(SYSTEM ${MUGIQ_QUDA_SOURCE}/tests)
+  include_directories(SYSTEM ${MUGIQ_QUDA_SOURCE}/lib)
 
   set(BUILD_MUGIQ_CUDA_LIB ON CACHE BOOL "Build the MuGiq Library" FORCE)
 endif()
