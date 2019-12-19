@@ -25,6 +25,7 @@
 
 // MUGIQ header files
 #include <mugiq.h>
+#include <linalg_mugiq.h>
 
 //- Forward declarations of QUDA-interface functions not declared in the .h files, and are called here
 quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
@@ -36,7 +37,6 @@ using namespace quda;
 
 
 //- Interface functions begin here
-
 
 void computeEvecsQudaWrapper(void **eVecs_host, double _Complex *eVals_host, QudaEigParam *eigParams){
   
@@ -103,8 +103,11 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
   std::vector<ColorSpinorField *> eVecs;
   for (int i = 0; i < eigParams->nConv; i++) { eVecs.push_back(ColorSpinorField::Create(cudaParam)); }
 
-  //- These are the eigenvalues
+  //- These are the eigenvalues coming from the Quda eigensolver
   std::vector<Complex> eVals(eigParams->nConv, 0.0);
+
+  //- Eigenvalues computed from MuGiq, given the Quda eigensolver eigenvectors
+  std::vector<Complex> eVals_mugiq(eigParams->nConv, 0.0);
 
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
@@ -113,6 +116,7 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
   EigenSolver *eig_solve = EigenSolver::create(eigParams, *m, profileEigensolveMuGiq);
   (*eig_solve)(eVecs, eVals);
 
+  computeEvalsMuGiq(*m, eVecs, eVals_mugiq, eigParams);
   
   //- Clean up
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
