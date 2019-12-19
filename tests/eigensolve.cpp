@@ -75,6 +75,7 @@ QudaPrecision cpu_prec = QUDA_DOUBLE_PRECISION;
 QudaPrecision &cuda_prec = prec;
 QudaPrecision &cuda_prec_sloppy = prec_sloppy;
 QudaPrecision &cuda_prec_precondition = prec_precondition;
+QudaPrecision &cuda_prec_refinement_sloppy = prec_refinement_sloppy;
 
 void setGaugeParam(QudaGaugeParam &gauge_param)
 {
@@ -96,9 +97,11 @@ void setGaugeParam(QudaGaugeParam &gauge_param)
   gauge_param.cuda_prec_sloppy = cuda_prec_sloppy;
   gauge_param.reconstruct_sloppy = link_recon_sloppy;
 
-  gauge_param.cuda_prec_precondition = cuda_prec_precondition;
+  gauge_param.cuda_prec_precondition = (cuda_prec_precondition == QUDA_INVALID_PRECISION) ? cuda_prec_sloppy : cuda_prec_precondition;
+  gauge_param.cuda_prec_refinement_sloppy = (cuda_prec_refinement_sloppy == QUDA_INVALID_PRECISION) ? cuda_prec_sloppy : cuda_prec_refinement_sloppy;
   gauge_param.reconstruct_precondition = link_recon_precondition;
-
+  gauge_param.reconstruct_precondition = link_recon_precondition;
+  
   gauge_param.gauge_fix = QUDA_GAUGE_FIXED_NO;
 
   gauge_param.ga_pad = 0;
@@ -140,11 +143,14 @@ void setInvertParam(QudaInvertParam &inv_param)
   inv_param.cuda_prec = cuda_prec;
   inv_param.cuda_prec_sloppy = cuda_prec_sloppy;
 
-  inv_param.cuda_prec_precondition = cuda_prec_precondition;
+  inv_param.cuda_prec_precondition = (cuda_prec_precondition == QUDA_INVALID_PRECISION) ? cuda_prec_sloppy : cuda_prec_precondition;
+  inv_param.cuda_prec_refinement_sloppy = (cuda_prec_refinement_sloppy == QUDA_INVALID_PRECISION) ? cuda_prec_sloppy : cuda_prec_refinement_sloppy;
   inv_param.preserve_source = QUDA_PRESERVE_SOURCE_NO;
   inv_param.gamma_basis = QUDA_UKQCD_GAMMA_BASIS;
   inv_param.dirac_order = QUDA_DIRAC_ORDER;
 
+
+  
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
     inv_param.clover_cpu_prec = cpu_prec;
     inv_param.clover_cuda_prec = cuda_prec;
