@@ -84,17 +84,15 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
   
   // Create Dirac Operator
   Dirac *d = nullptr;
-  Dirac *dSloppy = nullptr;
-  Dirac *dPre = nullptr;
-
-  createDirac(d, dSloppy, dPre, *inv_param, pc_solve);
-  Dirac &dirac = *d;
-
+  DiracParam diracParam;
+  setDiracParam(diracParam, inv_param, pc_solve);
+  d = Dirac::create(diracParam);
+  
   DiracMatrix *m;
-  if (!eigParams->use_norm_op && !eigParams->use_dagger)     m = new DiracM(dirac);
-  else if (!eigParams->use_norm_op && eigParams->use_dagger) m = new DiracMdag(dirac);
-  else if (eigParams->use_norm_op && !eigParams->use_dagger) m = new DiracMdagM(dirac);
-  else if (eigParams->use_norm_op && eigParams->use_dagger)  m = new DiracMMdag(dirac);
+  if (!eigParams->use_norm_op && !eigParams->use_dagger)     m = new DiracM(*d);
+  else if (!eigParams->use_norm_op && eigParams->use_dagger) m = new DiracMdag(*d);
+  else if (eigParams->use_norm_op && !eigParams->use_dagger) m = new DiracMdagM(*d);
+  else if (eigParams->use_norm_op && eigParams->use_dagger)  m = new DiracMMdag(*d);
   //----------------------
 
   
@@ -126,8 +124,6 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
   delete eig_solve;
   delete m;
   delete d;
-  delete dSloppy;
-  delete dPre;
   for (int i = 0; i < eigParams->nConv; i++) delete eVecs[i];
   profEigsolve.TPSTOP(QUDA_PROFILE_FREE);
 
