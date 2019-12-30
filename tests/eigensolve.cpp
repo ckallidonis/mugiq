@@ -263,6 +263,9 @@ void setEigParam(QudaEigParam &eig_param)
   eig_param.a_min = eig_amin;
   eig_param.a_max = eig_amax;
 
+  //-Override use_poly-acc option when using PRIMME
+  if(eig_type == QUDA_EIG_PRIMME) eig_param.use_poly_acc = QUDA_BOOLEAN_NO;
+  
   eig_param.arpack_check = eig_arpack_check ? QUDA_BOOLEAN_YES : QUDA_BOOLEAN_NO;
   strcpy(eig_param.arpack_logfile, eig_arpack_logfile);
   strcpy(eig_param.QUDA_logfile, eig_QUDA_logfile);
