@@ -7,10 +7,13 @@
 #include "test_params_mugiq.h"
 
 MuGiqEigTask mugiq_eig_task = MUGIQ_COMPUTE_EVECS_INVALID;
+MuGiqEigOperator mugiq_eig_operator = MUGIQ_EIG_OPERATOR_INVALID;
 
 namespace {
   CLI::TransformPairs<MuGiqEigTask> mugiq_eig_task_map {{"computeEvecsQuda", MUGIQ_COMPUTE_EVECS_QUDA},
 							{"computeEvecs", MUGIQ_COMPUTE_EVECS_MUGIQ}};
+  CLI::TransformPairs<MuGiqEigOperator> mugiq_eig_optr_map {{"mg", MUGIQ_EIG_OPERATOR_MG},
+							    {"no_mg", MUGIQ_EIG_OPERATOR_NO_MG}};
 }
 
 
@@ -21,6 +24,9 @@ void add_eigen_option_mugiq(std::shared_ptr<QUDAApp> app)
 
   opgroup->add_option("--mugiq-eig-task", mugiq_eig_task,
 		      "Task to perform in the eigensolve test, options are computeEvecs/computeEvecsQuda (default NULL)")->transform(CLI::QUDACheckedTransformer(mugiq_eig_task_map));
+
+  opgroup->add_option("--mugiq-eig-operator", mugiq_eig_operator,
+		      "Operator of which to calculate eigen-pairs, options are no_mg/mg (default NULL)")->transform(CLI::QUDACheckedTransformer(mugiq_eig_optr_map));
 }
 
 

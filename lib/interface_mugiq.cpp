@@ -135,3 +135,9 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
 }
 
 
+//- The purpose of this function is to compute the eigenvalues and eigenvectors of the coarse Dirac operator using MG
+void computeEvecsMuGiq_MG(QudaMultigridParam mgParams){
+
+  printfQuda("\n%s: Using MuGiq interface to compute eigenvectors of coarse Operator using MG!\n", __func__);
+    
+}

@@ -16,6 +16,13 @@ extern "C" {
      MUGIQ_COMPUTE_EVECS_INVALID = MUGIQ_INVALID_ENUM
     } MuGiqEigTask;
   
+  typedef enum MuGiqEigOperator_s
+    {
+     MUGIQ_EIG_OPERATOR_MG,
+     MUGIQ_EIG_OPERATOR_NO_MG,
+     MUGIQ_EIG_OPERATOR_INVALID = MUGIQ_INVALID_ENUM
+    } MuGiqEigOperator;
+  
 
 #ifdef __cplusplus
 }

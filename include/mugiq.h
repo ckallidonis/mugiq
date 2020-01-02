@@ -23,11 +23,14 @@ extern "C" {
 
   
   /** MuGiq interface function that computes eigenvectors and eigenvalues
-   * @param h_evecs  Array of pointers to application eigenvectors
-   * @param h_evals  Host side eigenvalues
-   * @param param Contains all metadata regarding the type of solve.
+   * @param eigParams Contains all metadata regarding the type of solve.
    */
   void computeEvecsMuGiq(QudaEigParam *eigParams);
+
+  /** MuGiq interface function that computes eigenvectors and eigenvalues of coarse operators using MG
+   * @param mgParams Contains all MG metadata regarding the type of eigensolve.
+   */
+  void computeEvecsMuGiq_MG(QudaMultigridParam mgParams);
 
 
   
