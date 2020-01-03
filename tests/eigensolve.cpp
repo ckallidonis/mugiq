@@ -442,12 +442,12 @@ void setMultigridParam(QudaMultigridParam &mg_param)
     inv_param.mass = 0.5/kappa - (1 + 3/anisotropy);
   }
 
-    if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
+  if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
     inv_param.mu = mu;
     inv_param.epsilon = epsilon;
     inv_param.twist_flavor = twist_flavor;
     inv_param.Ls = (inv_param.twist_flavor == QUDA_TWIST_NONDEG_DOUBLET) ? 2 : 1;
-
+    
     if (twist_flavor == QUDA_TWIST_NONDEG_DOUBLET) {
       printfQuda("Twisted-mass doublet non supported (yet)\n");
       exit(0);
@@ -654,6 +654,7 @@ int main(int argc, char **argv)
   QudaInvertParam mg_inv_param;
   QudaEigParam mg_eig_param[mg_levels];
   if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG){
+    printfQuda("Setting MG parameters\n");
     mg_param  = newQudaMultigridParam();
     mg_inv_param = newQudaInvertParam();
 
@@ -732,12 +733,12 @@ int main(int argc, char **argv)
   // (in either the smoother or the solver) we do so
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {    
     printfQuda("Loading Clover term\n");
-    //    if((mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG) &&
-    //       (mg_param.smoother_solve_type[0] == QUDA_DIRECT_PC_SOLVE ||
-    //	solve_type == QUDA_DIRECT_PC_SOLVE)) eig_inv_param.solve_type = QUDA_DIRECT_PC_SOLVE;    
+    if((mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG) &&
+       (mg_param.smoother_solve_type[0] == QUDA_DIRECT_PC_SOLVE ||
+    	solve_type == QUDA_DIRECT_PC_SOLVE)) eig_inv_param.solve_type = QUDA_DIRECT_PC_SOLVE;    
     loadCloverQuda(clover, clover_inv, &eig_inv_param);
   }
-  //  eig_inv_param.solve_type = (eig_inv_param.solution_type == QUDA_MAT_SOLUTION ? QUDA_DIRECT_SOLVE : QUDA_DIRECT_PC_SOLVE);
+  eig_inv_param.solve_type = (eig_inv_param.solution_type == QUDA_MAT_SOLUTION ? QUDA_DIRECT_SOLVE : QUDA_DIRECT_PC_SOLVE);
 
   double plaq[3];
   plaqQuda(plaq);
