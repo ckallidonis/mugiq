@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <random_quda.h>
 #include <mpi_comm_handle.h>
-
+#include <multigrid.h>
 
 // MUGIQ header files
 #include <mugiq.h>
@@ -140,7 +140,11 @@ void computeEvecsMuGiq_MG(QudaMultigridParam mgParams){
 
   printfQuda("\n%s: Using MuGiq interface to compute eigenvectors of coarse Operator using MG!\n", __func__);
 
-  void *mg = newMultigridQuda(&mgParams);
+  void *mgV = newMultigridQuda(&mgParams);
+  multigrid_solver *mgS = static_cast<multigrid_solver*>(mgV);
+  printfQuda("\n\n\n%s: MultiGrid Created!!!\n\n", __func__);
 
-  destroyMultigridQuda(mg);
+  destroyMultigridQuda(mgV);
+  printfQuda("\n\n\n%s: MultiGrid Destroyed!!!\n\n", __func__);
+
 }
