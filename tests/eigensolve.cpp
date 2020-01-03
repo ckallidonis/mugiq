@@ -531,7 +531,7 @@ void setMultigridParam(QudaMultigridParam &mg_param)
     // set number of Schwarz cycles to apply
     mg_param.smoother_schwarz_cycle[i] = schwarz_cycle[i];
 
-        if (i == 0) { // top-level treatment
+    if (i == 0) { // top-level treatment
       if (coarse_solve_type[0] != solve_type)
         errorQuda("Mismatch between top-level MG solve type %d and outer solve type %d", coarse_solve_type[0], solve_type);
 
@@ -610,7 +610,10 @@ int main(int argc, char **argv)
   auto app = make_app();
   add_eigen_option_group(app);
   add_eigen_option_mugiq(app);
-  if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG) add_multigrid_option_group(app);
+  
+  //- Parse MG parameters
+  setDefaultMGParams(); //- Det default values before parsing
+  add_multigrid_option_group(app);
   
   try {
     app->parse(argc, argv);
@@ -626,8 +629,6 @@ int main(int argc, char **argv)
   if (link_recon_sloppy == QUDA_RECONSTRUCT_INVALID) link_recon_sloppy = link_recon;
   if (link_recon_precondition == QUDA_RECONSTRUCT_INVALID) link_recon_precondition = link_recon_sloppy;
 
-  //- Set default MG parameters
-  if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG) setDefaultMGParams();
   
   // initialize QMP/MPI, QUDA comms grid and RNG (test_util.cpp)
   initComms(argc, argv, gridsize_from_cmdline);
@@ -648,10 +649,30 @@ int main(int argc, char **argv)
 
   if (eig_param.arpack_check)
     errorQuda("MuGiq does not support ARPACK!\n");
+
+  QudaMultigridParam mg_param;
+  QudaInvertParam mg_inv_param;
+  QudaEigParam mg_eig_param[mg_levels];
+  if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG){
+    mg_param  = newQudaMultigridParam();
+    mg_inv_param = newQudaInvertParam();
+
+    for (int i = 0; i < mg_levels; i++) {
+      if (mg_eig[i]) {
+	mg_eig_param[i] = newQudaEigParam();
+	setEigParamMG(mg_eig_param[i], i);
+	mg_param.eig_param[i] = &mg_eig_param[i];
+      }
+      else mg_param.eig_param[i] = nullptr;
+    }
+    //- Set MG parameters
+    mg_param.invert_param = &mg_inv_param;
+    setMultigridParam(mg_param);
+  }
   
   // All user inputs now defined
   display_test_info();
-
+  
   // set parameters for the reference Dslash, and prepare fields to be loaded
   if (dslash_type == QUDA_DOMAIN_WALL_DSLASH || dslash_type == QUDA_DOMAIN_WALL_4D_DSLASH
       || dslash_type == QUDA_MOBIUS_DWF_DSLASH) {
@@ -742,27 +763,7 @@ int main(int argc, char **argv)
     else if(mugiq_eig_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq(&eig_param);    
     else errorQuda("Option --mugiq-eig-task not set! (options are computeEvecsQuda,computeEvecsMuGiq)\n");
   }
-  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG){
-    QudaMultigridParam mg_param  = newQudaMultigridParam();
-    QudaInvertParam mg_inv_param = newQudaInvertParam();
-    QudaEigParam mg_eig_param[mg_levels];
-    for (int i = 0; i < mg_levels; i++) {
-      if (mg_eig[i]) {
-	mg_eig_param[i] = newQudaEigParam();
-	setEigParamMG(mg_eig_param[i], i);
-	mg_param.eig_param[i] = &mg_eig_param[i];
-      } else {
-	mg_param.eig_param[i] = nullptr;
-      }
-    }
-
-    //- Set MG parameters
-    mg_param.invert_param = &mg_inv_param;
-    setMultigridParam(mg_param);
-
-    //- Call the interface function to compute Coarse operator eigenvalues
-    computeEvecsMuGiq_MG(mg_param);
-  }
+  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG) computeEvecsMuGiq_MG(mg_param); //- Compute Coarse MG operator eigenvalues
   else errorQuda("Option --mugiq-eig-operator not set! (options are mg/no_mg)\n");
     
   time += (double)clock();
