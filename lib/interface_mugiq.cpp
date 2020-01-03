@@ -139,5 +139,8 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
 void computeEvecsMuGiq_MG(QudaMultigridParam mgParams){
 
   printfQuda("\n%s: Using MuGiq interface to compute eigenvectors of coarse Operator using MG!\n", __func__);
-    
+
+  void *mg = newMultigridQuda(&mgParams);
+
+  destroyMultigridQuda(mg);
 }
