@@ -21,17 +21,19 @@
 #include <algorithm>
 #include <random_quda.h>
 #include <mpi_comm_handle.h>
-#include <multigrid.h>
+//#include <multigrid.h>
 
 // MUGIQ header files
 #include <mugiq.h>
 #include <linalg_mugiq.h>
+#include <mg_mugiq.h>
 
 //- Forward declarations of QUDA-interface functions not declared in the .h files, and are called here
 quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
 
 //- Profiling
 static quda::TimeProfile profileEigensolveMuGiq("computeEvecsMuGiq");
+static quda::TimeProfile profileMuGiqMG("newMG_Mugiq");
 
 using namespace quda;
 
@@ -134,17 +136,34 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
   saveTuneCache();
 }
 
+MG_Mugiq* newMG_Mugiq(QudaMultigridParam *mgParams) {
+
+  pushVerbosity(mgParams->invert_param->verbosity);
+
+  profileMuGiqMG.TPSTART(QUDA_PROFILE_TOTAL);
+  MG_Mugiq *mg = new MG_Mugiq(mgParams, profileMuGiqMG);
+  profileMuGiqMG.TPSTOP(QUDA_PROFILE_TOTAL);
+
+  if (getVerbosity() >= QUDA_SUMMARIZE) profileMuGiqMG.Print();
+  saveTuneCache();
+  popVerbosity();
+
+  return mg;
+}
+
+void deleteMG_Mugiq(MG_Mugiq *mg) {
+  delete mg;
+}
 
 //- The purpose of this function is to compute the eigenvalues and eigenvectors of the coarse Dirac operator using MG
 void computeEvecsMuGiq_MG(QudaMultigridParam mgParams){
 
   printfQuda("\n%s: Using MuGiq interface to compute eigenvectors of coarse Operator using MG!\n", __func__);
 
-  void *mgV = newMultigridQuda(&mgParams);
-  multigrid_solver *mgS = static_cast<multigrid_solver*>(mgV);
-  printfQuda("\n\n\n%s: MultiGrid Created!!!\n\n", __func__);
-
-  destroyMultigridQuda(mgV);
-  printfQuda("\n\n\n%s: MultiGrid Destroyed!!!\n\n", __func__);
+  MG_Mugiq *mg_mugiq = newMG_Mugiq(&mgParams);
+  printfQuda("\n\n\n%s: MuGiQ MultiGrid Created\n\n", __func__);
+  
+  deleteMG_Mugiq(mg_mugiq);
+  printfQuda("\n\n\n%s: MuGiQ MultiGrid Deleted\n\n", __func__);
 
 }
