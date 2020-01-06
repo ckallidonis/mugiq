@@ -37,6 +37,12 @@ static quda::TimeProfile profileMuGiqMG("newMG_Mugiq");
 
 using namespace quda;
 
+static void printProfileInfo(TimeProfile profile){
+  if (getVerbosity() >= QUDA_SUMMARIZE){
+    printfQuda("\nPROFILE_INFO:\n");
+    profile.Print();
+  }
+}
 
 //- Interface functions begin here
 
@@ -127,10 +133,9 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
   delete d;
   for (int i = 0; i < eigParams->nConv; i++) delete eVecs[i];
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);
-
   
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_TOTAL);
-  if (getVerbosity() >= QUDA_SUMMARIZE) profileEigensolveMuGiq.Print();
+  printProfileInfo(profileEigensolveMuGiq);
 
   popVerbosity();
   saveTuneCache();
@@ -144,7 +149,7 @@ MG_Mugiq* newMG_Mugiq(QudaMultigridParam *mgParams) {
   MG_Mugiq *mg = new MG_Mugiq(mgParams, profileMuGiqMG);
   profileMuGiqMG.TPSTOP(QUDA_PROFILE_TOTAL);
 
-  if (getVerbosity() >= QUDA_SUMMARIZE) profileMuGiqMG.Print();
+  printProfileInfo(profileMuGiqMG);
   saveTuneCache();
   popVerbosity();
 
