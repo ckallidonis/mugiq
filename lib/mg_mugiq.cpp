@@ -6,9 +6,10 @@ MG_Mugiq::MG_Mugiq(QudaMultigridParam *mgParams_, QudaEigParam *eigParams_, quda
   eigParams(eigParams_),
   mgInit(false),
   diracCoarse(nullptr),
-  matCoarse(nullptr)
+  matCoarse(nullptr),
+  mg_profile(profile_)
 {
-  mg_solver = new quda::multigrid_solver(*mgParams, profile_);
+  mg_solver = new quda::multigrid_solver(*mgParams, mg_profile);
 
   diracCoarse = mg_solver->mg->getDiracCoarse();
   if(typeid(*diracCoarse) != typeid(quda::DiracCoarse)) errorQuda("The Coarse Dirac operator must not be preconditioned!\n");

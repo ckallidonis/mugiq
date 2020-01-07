@@ -1,10 +1,14 @@
 #include <eigsolve_mugiq.h>
 #include <util_quda.h>
 
-Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_) :
+Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_, QudaEigParam *eigParams_, quda::TimeProfile &profile_) :
   eigParams(eigParams_),
-  invParams(eigParams_->invert_param)
+  invParams(eigParams_->invert_param),
+  mg(mg_),
+  eig_profile(profile_)
 {
+  if(!mg->mgInit) errorQuda("%s: MG_Mugiq must be initialized before proceeding with eigensolver.\n", __func__);
+  makeChecks();
 }
 
 Eigsolve_Mugiq::~Eigsolve_Mugiq(){

@@ -27,6 +27,7 @@
 #include <mugiq.h>
 #include <linalg_mugiq.h>
 #include <mg_mugiq.h>
+#include <eigsolve_mugiq.h>
 
 //- Forward declarations of QUDA-interface functions not declared in the .h files, and are called here
 quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
@@ -156,10 +157,6 @@ MG_Mugiq* newMG_Mugiq(QudaMultigridParam *mgParams, QudaEigParam *eigParams) {
   return mg;
 }
 
-void deleteMG_Mugiq(MG_Mugiq *mg) {
-  delete mg;
-}
-
 //- The purpose of this function is to compute the eigenvalues and eigenvectors of the coarse Dirac operator using MG
 void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
 
@@ -167,8 +164,23 @@ void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
 
   MG_Mugiq *mg_mugiq = newMG_Mugiq(&mgParams, &eigParams);
   printfQuda("\n\n\n%s: MuGiQ MultiGrid Created\n\n", __func__);
-  
-  deleteMG_Mugiq(mg_mugiq);
-  printfQuda("\n\n\n%s: MuGiQ MultiGrid Deleted\n\n", __func__);
 
+  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
+
+  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);  
+  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(mg_mugiq, &eigParams, profileEigensolveMuGiq);
+  profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
+
+
+  //- Clean-up
+  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
+  delete eigsolve;
+  delete mg_mugiq;
+  profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);
+
+  
+  profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_TOTAL);
+  printProfileInfo(profileEigensolveMuGiq);
+  
+  printfQuda("\n\n\n%s: MuGiQ MultiGrid Deleted\n\n", __func__);
 }

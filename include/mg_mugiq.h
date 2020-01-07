@@ -2,7 +2,6 @@
 #define _MG_MUGIQ_H
 
 #include <multigrid.h> //- The QUDA MG header file
-#include <eigsolve_mugiq.h>
 
 class MG_Mugiq {
 
@@ -21,7 +20,8 @@ private:
   quda::Dirac *diracCoarse; // The Coarse Dirac operator
 
   quda::DiracMatrix *matCoarse; // Wrapper for the Coarse operator
-  
+
+  quda::TimeProfile &mg_profile; // Profiling
   
 public:
   
