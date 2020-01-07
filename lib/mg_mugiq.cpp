@@ -2,7 +2,11 @@
 
 
 MG_Mugiq::MG_Mugiq(QudaMultigridParam *mgParams_, QudaEigParam *eigParams_, quda::TimeProfile &profile_) :
-  mgParams(mgParams_), eigParams(eigParams_), mgInit(false), diracCoarse(nullptr), matCoarse(nullptr)
+  mgParams(mgParams_),
+  eigParams(eigParams_),
+  mgInit(false),
+  diracCoarse(nullptr),
+  matCoarse(nullptr)
 {
   mg_solver = new quda::multigrid_solver(*mgParams, profile_);
 

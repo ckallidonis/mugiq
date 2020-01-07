@@ -2,10 +2,12 @@
 #define _MG_MUGIQ_H
 
 #include <multigrid.h> //- The QUDA MG header file
-
+#include <eigsolve_mugiq.h>
 
 class MG_Mugiq {
 
+  friend class Eigsolve_Mugiq;
+  
 private:
   
   quda::multigrid_solver *mg_solver; // The multigrid structure
