@@ -25,12 +25,10 @@
 
 // MUGIQ header files
 #include <mugiq.h>
+#include <mugiq_internal.h>
 #include <linalg_mugiq.h>
 #include <mg_mugiq.h>
 #include <eigsolve_mugiq.h>
-
-//- Forward declarations of QUDA-interface functions not declared in the .h files, and are called here
-quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
 
 //- Profiling
 static quda::TimeProfile profileEigensolveMuGiq("computeEvecsMuGiq");
@@ -162,11 +160,12 @@ void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
 
   printfQuda("\n%s: Using MuGiq interface to compute eigenvectors of coarse Operator using MG!\n", __func__);
 
+  //- Create the Multigrid environment
   MG_Mugiq *mg_mugiq = newMG_Mugiq(&mgParams, &eigParams);
-  printfQuda("\n\n\n%s: MuGiQ MultiGrid Created\n\n", __func__);
 
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
 
+  //- Create the eigensolver environment
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);  
   Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(mg_mugiq, &eigParams, profileEigensolveMuGiq);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
@@ -181,6 +180,4 @@ void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_TOTAL);
   printProfileInfo(profileEigensolveMuGiq);
-  
-  printfQuda("\n\n\n%s: MuGiQ MultiGrid Deleted\n\n", __func__);
 }
