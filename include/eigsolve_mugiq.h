@@ -5,6 +5,7 @@
 
 class Eigsolve_Mugiq {
 
+private:
   QudaEigParam *eigParams;
   QudaInvertParam *invParams;
   
