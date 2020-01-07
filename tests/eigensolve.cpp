@@ -395,7 +395,7 @@ void setDefaultMGParams(){
 
   for (int i =0; i<QUDA_MAX_MG_LEVEL; i++) {
     if (coarse_solve_type[i] == QUDA_INVALID_SOLVE) coarse_solve_type[i] = solve_type;
-    if (smoother_solve_type[i] == QUDA_INVALID_SOLVE) smoother_solve_type[i] = QUDA_DIRECT_PC_SOLVE;
+    if (smoother_solve_type[i] == QUDA_INVALID_SOLVE) smoother_solve_type[i] = solve_type;//QUDA_DIRECT_PC_SOLVE;
   }
 
 }
