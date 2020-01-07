@@ -764,7 +764,7 @@ int main(int argc, char **argv)
     else if(mugiq_eig_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq(&eig_param);    
     else errorQuda("Option --mugiq-eig-task not set! (options are computeEvecsQuda,computeEvecsMuGiq)\n");
   }
-  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG) computeEvecsMuGiq_MG(mg_param); //- Compute Coarse MG operator eigenvalues
+  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG) computeEvecsMuGiq_MG(mg_param, eig_param); //- Compute Coarse MG operator eigenvalues
   else errorQuda("Option --mugiq-eig-operator not set! (options are mg/no_mg)\n");
     
   time += (double)clock();

@@ -141,12 +141,12 @@ void computeEvecsMuGiq(QudaEigParam *eigParams){
   saveTuneCache();
 }
 
-MG_Mugiq* newMG_Mugiq(QudaMultigridParam *mgParams) {
+MG_Mugiq* newMG_Mugiq(QudaMultigridParam *mgParams, QudaEigParam *eigParams) {
 
   pushVerbosity(mgParams->invert_param->verbosity);
 
   profileMuGiqMG.TPSTART(QUDA_PROFILE_TOTAL);
-  MG_Mugiq *mg = new MG_Mugiq(mgParams, profileMuGiqMG);
+  MG_Mugiq *mg = new MG_Mugiq(mgParams, eigParams, profileMuGiqMG);
   profileMuGiqMG.TPSTOP(QUDA_PROFILE_TOTAL);
 
   printProfileInfo(profileMuGiqMG);
@@ -161,11 +161,11 @@ void deleteMG_Mugiq(MG_Mugiq *mg) {
 }
 
 //- The purpose of this function is to compute the eigenvalues and eigenvectors of the coarse Dirac operator using MG
-void computeEvecsMuGiq_MG(QudaMultigridParam mgParams){
+void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
 
   printfQuda("\n%s: Using MuGiq interface to compute eigenvectors of coarse Operator using MG!\n", __func__);
 
-  MG_Mugiq *mg_mugiq = newMG_Mugiq(&mgParams);
+  MG_Mugiq *mg_mugiq = newMG_Mugiq(&mgParams, &eigParams);
   printfQuda("\n\n\n%s: MuGiQ MultiGrid Created\n\n", __func__);
   
   deleteMG_Mugiq(mg_mugiq);

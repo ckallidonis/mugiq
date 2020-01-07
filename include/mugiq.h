@@ -30,7 +30,7 @@ extern "C" {
   /** MuGiq interface function that computes eigenvectors and eigenvalues of coarse operators using MG
    * @param mgParams Contains all MG metadata regarding the type of eigensolve.
    */
-  void computeEvecsMuGiq_MG(QudaMultigridParam mgParams);
+  void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams);
 
 
   

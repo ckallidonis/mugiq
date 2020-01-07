@@ -7,13 +7,26 @@
 class MG_Mugiq {
 
 private:
-  quda::multigrid_solver *mg_solver;
-  QudaMultigridParam *param;
+  
+  quda::multigrid_solver *mg_solver; // The multigrid structure
+
+  QudaMultigridParam *mgParams; // Multigrid parameters
+
+  QudaEigParam *eigParams; // Eigsolve parameters
+
+  bool mgInit; // Initialization switch
+
+  quda::Dirac *diracCoarse; // The Coarse Dirac operator
+
+  quda::DiracMatrix *matCoarse; // Wrapper for the Coarse operator
+  
   
 public:
-  MG_Mugiq(QudaMultigridParam *param_, quda::TimeProfile &profile_);
   
-  virtual ~MG_Mugiq();
+  MG_Mugiq(QudaMultigridParam *mgParams_, QudaEigParam *eigParams_, quda::TimeProfile &profile_); // Constructor
+  
+  virtual ~MG_Mugiq(); // Destructor
+  
 
 }; //- Class MG_Mugiq
 
