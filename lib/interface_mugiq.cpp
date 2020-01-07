@@ -170,6 +170,8 @@ void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(mg_mugiq, &eigParams, profileEigensolveMuGiq);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
+  //- Compute eigenvectors
+  eigsolve->computeCoarseEvecs();  
 
   //- Clean-up
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);

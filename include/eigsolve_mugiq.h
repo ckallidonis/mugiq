@@ -18,8 +18,10 @@ private:
 
   MG_Mugiq *mg;   // Multigrid object
 
-  std::vector<ColorSpinorField *> coarseEvecs; // Eigenvectors of the coarse Dirac operator
-  std::vector<Complex> *coarseEvals; // Eigenvalues of the coarse Dirac operator
+  DiracMatrix *mat; // The Dirac operator whose eigenpairs we are computing
+  
+  std::vector<ColorSpinorField *> eVecs; // Eigenvectors
+  std::vector<Complex> *eVals; // Eigenvalues
   
   int nConv; // Number of eigenvectors we want
   
@@ -30,6 +32,10 @@ public:
   /** @brief Perform basic checks based on parameter structure input values
    */
   void makeChecks();
+  
+  /** @brief Compute eigenvectors of the Coarse Dirac operator
+   */
+  void computeCoarseEvecs();
 
   
 }; // class Eigsolve_Mugiq 
