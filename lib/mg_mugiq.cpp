@@ -11,6 +11,7 @@ MG_Mugiq::MG_Mugiq(QudaMultigridParam *mgParams_, QudaEigParam *eigParams_, quda
   mg_solver = new quda::multigrid_solver(*mgParams, profile_);
 
   diracCoarse = mg_solver->mg->getDiracCoarse();
+  if(typeid(*diracCoarse) != typeid(quda::DiracCoarse)) errorQuda("The Coarse Dirac operator must not be preconditioned!\n");
 
   // Create the Coarse Dirac operator
   // That's the operator whose eigenvalues will be computed
