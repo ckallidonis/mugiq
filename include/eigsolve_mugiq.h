@@ -27,6 +27,8 @@ private:
   std::vector<ColorSpinorField *> eVecs; // Eigenvectors
   std::vector<Complex> *eVals; // Eigenvalues
   std::vector<Complex> *eVals_loc; // Local Eigenvalues, computed within the class
+
+  std::vector<double> *evals_res;
   
   int nConv; // Number of eigenvectors we want
   
@@ -54,6 +56,10 @@ public:
   /** @brief Accessor to get the local eigenvalues outside of the class
    */
   std::vector<Complex>* getEvals_loc(){ return eVals_loc;}
+  
+  /** @brief Accessor to get the residual of the computed eigenvalues
+   */
+  std::vector<double>* getEvalsRes(){ return evals_res;}
 
 
   

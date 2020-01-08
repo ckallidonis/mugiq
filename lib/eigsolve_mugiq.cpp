@@ -38,8 +38,9 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_, QudaEigParam *eigParams_, TimeProf
 
   //- Allocate the eigenvalues
   eVals = new std::vector<Complex>(nConv, 0.0);     // These come from the QUDA eigensolver
-  eVals_loc = new std::vector<Complex>(nConv, 0.0); // Therea are computed from the Eigsolve_Mugiq class
-
+  eVals_loc = new std::vector<Complex>(nConv, 0.0); // These are computed from the Eigsolve_Mugiq class
+  evals_res = new std::vector<double>(nConv, 0.0);   // The eigenvalues residual
+  
   makeChecks();
 
   eigInit = true;
@@ -90,6 +91,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile &profile_) 
   //- Allocate the eigenvalues
   eVals = new std::vector<Complex>(nConv, 0.0);     // These come from the QUDA eigensolver
   eVals_loc = new std::vector<Complex>(nConv, 0.0); // Therea are computed from the Eigsolve_Mugiq class
+  evals_res = new std::vector<double>(nConv, 0.0);   // The eigenvalues residual
 
   makeChecks();
 
@@ -102,6 +104,7 @@ Eigsolve_Mugiq::~Eigsolve_Mugiq(){
   for(int i=0;i<nConv;i++) delete eVecs[i];
   delete eVals;
   delete eVals_loc;
+  delete evals_res;
   if(!mgEigsolve){
     delete mat;
     delete dirac;
@@ -135,14 +138,12 @@ void Eigsolve_Mugiq::computeEvecs(){
 
 void Eigsolve_Mugiq::computeEvals(){
 
-  if (getVerbosity() >= QUDA_SUMMARIZE)
-    printfQuda("(Local) Eigenvalues from %s\n", __func__);
-
   ColorSpinorParam csParam(*eVecs[0]);
   ColorSpinorField *w;
   w = ColorSpinorField::Create(csParam);
 
   std::vector<Complex> &lambda = *eVals_loc;
+  std::vector<double> &r = *evals_res;
   
   for(int i=0; i<nConv; i++){
     (*mat)(*w,*eVecs[i]); //- w = M*v_i
@@ -150,7 +151,7 @@ void Eigsolve_Mugiq::computeEvals(){
     lambda[i] = blas::cDotProduct(*eVecs[i], *w) / sqrt(blas::norm2(*eVecs[i])); // lambda_i = (v_i^dag M v_i) / ||v_i||
     Complex Cm1(-1.0, 0.0);
     blas::caxpby(lambda[i], *eVecs[i], Cm1, *w); // w = lambda_i*v_i - A*v_i
-    double r = sqrt(blas::norm2(*w)); // r = ||w||
+    r[i] = sqrt(blas::norm2(*w)); // r = ||w||
   }
 
   delete w;

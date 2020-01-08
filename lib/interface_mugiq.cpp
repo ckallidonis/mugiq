@@ -134,10 +134,12 @@ void computeEvecsMuGiq(QudaEigParam eigParams){
   eigsolve->computeEvals();
 
   std::vector<Complex> &evals = *eigsolve->getEvals_loc();
+  std::vector<double> &res = *eigsolve->getEvalsRes();
   int nEval = static_cast<int>(evals.size());
   printfQuda("There are %d eigenvalues\n", nEval);
   for(int i=0;i<nEval;i++)
-    printfQuda("Interface: Eval[%04d] = (%+.16e,%+.16e)\n", i, evals[i].real(), evals[i].imag());
+    printfQuda("Interface: Eval[%04d] = (%+.16e,%+.16e), Residual = %+.16e\n", i,
+	       evals[i].real(), evals[i].imag(),res[i]);
 
   
   //- Clean-up
