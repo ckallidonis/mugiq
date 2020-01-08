@@ -47,6 +47,16 @@ public:
    */
   void computeEvals();
 
+  /** @brief Accessor to get the eigenvalues outside of the class
+   */
+  std::vector<Complex>* getEvals(){ return eVals;}
+
+  /** @brief Accessor to get the local eigenvalues outside of the class
+   */
+  std::vector<Complex>* getEvals_loc(){ return eVals_loc;}
+
+
+  
   
 }; // class Eigsolve_Mugiq 
 

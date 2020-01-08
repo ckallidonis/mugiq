@@ -151,9 +151,6 @@ void Eigsolve_Mugiq::computeEvals(){
     Complex Cm1(-1.0, 0.0);
     blas::caxpby(lambda[i], *eVecs[i], Cm1, *w); // w = lambda_i*v_i - A*v_i
     double r = sqrt(blas::norm2(*w)); // r = ||w||
-
-    if (getVerbosity() >= QUDA_SUMMARIZE)
-      printfQuda("Eval[%04d] = (%+.16e,%+.16e) residual = %+.16e\n", i, lambda[i].real(), lambda[i].imag(), r);
   }
 
   delete w;
