@@ -21,16 +21,16 @@ extern "C" {
    */
   void computeEvecsQudaWrapper(void **eVecs_host, double _Complex *eVals_host, QudaEigParam *eigParams);
 
-  
-  /** MuGiq interface function that computes eigenvectors and eigenvalues
+  /** MuGiq interface function that computes eigenvectors and eigenvalues of coarse operators using MG
+   * @param mgParams  Contains all MG metadata regarding the type of eigensolve.
    * @param eigParams Contains all metadata regarding the type of solve.
    */
-  void computeEvecsMuGiq(QudaEigParam *eigParams);
-
-  /** MuGiq interface function that computes eigenvectors and eigenvalues of coarse operators using MG
-   * @param mgParams Contains all MG metadata regarding the type of eigensolve.
-   */
   void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams);
+
+  /** MuGiq interface function that computes eigenvectors and eigenvalues of the Dirac operator
+   * @param eigParams Contains all metadata regarding the type of solve.
+   */
+  void computeEvecsMuGiq(QudaEigParam eigParams);
 
 
   

@@ -12,13 +12,17 @@ class Eigsolve_Mugiq {
 private:
 
   bool eigInit;                   // Initialization switch
+  bool mgEigsolve;                // MG eigsolve switch
   QudaEigParam *eigParams;        // Eigensolver parameter
   QudaInvertParam *invParams;     // Inverter parameters
   TimeProfile &eig_profile; // Used for profiling
 
   MG_Mugiq *mg;   // Multigrid object
 
+  const Dirac *dirac;
   DiracMatrix *mat; // The Dirac operator whose eigenpairs we are computing
+
+  bool pc_solve; // Whether we are running for the "full" or even-odd preconditioned Operator
   
   std::vector<ColorSpinorField *> eVecs; // Eigenvectors
   std::vector<Complex> *eVals; // Eigenvalues
@@ -27,15 +31,16 @@ private:
   
 public:
   Eigsolve_Mugiq(MG_Mugiq *mg_, QudaEigParam *eigParams_, TimeProfile &profile_);
+  Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile &profile_);
   ~Eigsolve_Mugiq();
 
   /** @brief Perform basic checks based on parameter structure input values
    */
   void makeChecks();
   
-  /** @brief Compute eigenvectors of the Coarse Dirac operator
+  /** @brief Compute eigenvectors of Dirac operator
    */
-  void computeCoarseEvecs();
+  void computeEvecs();
 
   
 }; // class Eigsolve_Mugiq 
