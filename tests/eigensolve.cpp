@@ -206,7 +206,7 @@ void setInvertParam(QudaInvertParam &inv_param)
   inv_param.clover_coeff = clover_coeff;
 
   inv_param.dagger = QUDA_DAG_NO;
-  inv_param.mass_normalization = QUDA_MASS_NORMALIZATION;
+  inv_param.mass_normalization = normalization;
 
   inv_param.solution_type = solution_type;
   inv_param.solve_type = (inv_param.solution_type == QUDA_MAT_SOLUTION ? QUDA_DIRECT_SOLVE : QUDA_DIRECT_PC_SOLVE);
