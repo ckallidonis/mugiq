@@ -49,6 +49,10 @@ public:
    */
   void computeEvals();
 
+  /** @brief Compute eigenvalues
+   */
+  void printEvals();
+
   /** @brief Accessor to get the eigenvalues outside of the class
    */
   std::vector<Complex>* getEvals(){ return eVals;}

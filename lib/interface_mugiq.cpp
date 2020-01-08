@@ -95,6 +95,7 @@ void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   //- Compute eigenvectors and (local) eigenvalues
   eigsolve->computeEvecs();
   eigsolve->computeEvals();
+  eigsolve->printEvals();
 
   //- Clean-up
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
@@ -132,15 +133,7 @@ void computeEvecsMuGiq(QudaEigParam eigParams){
   //- Compute eigenvectors and (local) eigenvalues
   eigsolve->computeEvecs();
   eigsolve->computeEvals();
-
-  std::vector<Complex> &evals = *eigsolve->getEvals_loc();
-  std::vector<double> &res = *eigsolve->getEvalsRes();
-  int nEval = static_cast<int>(evals.size());
-  printfQuda("There are %d eigenvalues\n", nEval);
-  for(int i=0;i<nEval;i++)
-    printfQuda("Interface: Eval[%04d] = (%+.16e,%+.16e), Residual = %+.16e\n", i,
-	       evals[i].real(), evals[i].imag(),res[i]);
-
+  eigsolve->printEvals();
   
   //- Clean-up
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);

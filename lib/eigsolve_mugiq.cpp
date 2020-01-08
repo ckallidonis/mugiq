@@ -158,3 +158,16 @@ void Eigsolve_Mugiq::computeEvals(){
 
   delete w;
 }
+
+void Eigsolve_Mugiq::printEvals(){
+
+  printfQuda("\nEigsolve_Mugiq - Eigenvalues:\n");
+  
+  std::vector<Complex> &evals = *eVals;
+  std::vector<Complex> &evals_loc = *eVals_loc;
+  std::vector<double> &res = *evals_res;
+  for(int i=0;i<nConv;i++)
+    printfQuda("Mugiq-Quda: Eval[%04d] = %+.16e %+.16e , %+.16e %+.16e , Residual = %+.16e\n", i,
+               evals_loc[i].real(), evals_loc[i].imag(), evals[i].real(), evals[i].imag(), res[i]);
+  
+}
