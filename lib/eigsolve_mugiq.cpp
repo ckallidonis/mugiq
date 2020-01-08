@@ -144,10 +144,12 @@ void Eigsolve_Mugiq::computeEvals(){
 
   std::vector<Complex> &lambda = *eVals_loc;
   std::vector<double> &r = *evals_res;
+
+  double kappa = invParams->kappa;
   
   for(int i=0; i<nConv; i++){
     (*mat)(*w,*eVecs[i]); //- w = M*v_i
-    //-C.K. TODO: if(mass-norm == QUDA_MASS_NORMALIZATION) blas::ax(1.0/(4.0*kappa*kappa), *w);
+    if(invParams->mass_normalization == QUDA_MASS_NORMALIZATION) blas::ax(0.25/(kappa*kappa), *w);
     lambda[i] = blas::cDotProduct(*eVecs[i], *w) / sqrt(blas::norm2(*eVecs[i])); // lambda_i = (v_i^dag M v_i) / ||v_i||
     Complex Cm1(-1.0, 0.0);
     blas::caxpby(lambda[i], *eVecs[i], Cm1, *w); // w = lambda_i*v_i - A*v_i
