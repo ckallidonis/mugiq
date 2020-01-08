@@ -36,8 +36,9 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_, QudaEigParam *eigParams_, TimeProf
   for(int i=0;i<nConv;i++)
     eVecs.push_back(ColorSpinorField::Create(cudaParam));
 
-  //- Allocate the eigenvalues These are the eigenvalues coming from the Quda eigensolver
-  eVals = new std::vector<Complex>(nConv, 0.0);
+  //- Allocate the eigenvalues
+  eVals = new std::vector<Complex>(nConv, 0.0);     // These come from the QUDA eigensolver
+  eVals_loc = new std::vector<Complex>(nConv, 0.0); // Therea are computed from the Eigsolve_Mugiq class
 
   makeChecks();
 
@@ -86,8 +87,9 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile &profile_) 
   for(int i=0;i<nConv;i++)
     eVecs.push_back(ColorSpinorField::Create(cudaParam));
 
-  //- Allocate the eigenvalues These are the eigenvalues coming from the Quda eigensolver
-  eVals = new std::vector<Complex>(nConv, 0.0);
+  //- Allocate the eigenvalues
+  eVals = new std::vector<Complex>(nConv, 0.0);     // These come from the QUDA eigensolver
+  eVals_loc = new std::vector<Complex>(nConv, 0.0); // Therea are computed from the Eigsolve_Mugiq class
 
   makeChecks();
 
@@ -99,6 +101,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile &profile_) 
 Eigsolve_Mugiq::~Eigsolve_Mugiq(){
   for(int i=0;i<nConv;i++) delete eVecs[i];
   delete eVals;
+  delete eVals_loc;
   if(!mgEigsolve){
     delete mat;
     delete dirac;
@@ -128,4 +131,30 @@ void Eigsolve_Mugiq::computeEvecs(){
   (*eigSolve)(eVecs, *eVals);
 
   delete eigSolve;
+}
+
+void Eigsolve_Mugiq::computeEvals(){
+
+  if (getVerbosity() >= QUDA_SUMMARIZE)
+    printfQuda("(Local) Eigenvalues from %s\n", __func__);
+
+  ColorSpinorParam csParam(*eVecs[0]);
+  ColorSpinorField *w;
+  w = ColorSpinorField::Create(csParam);
+
+  std::vector<Complex> &lambda = *eVals_loc;
+  
+  for(int i=0; i<nConv; i++){
+    (*mat)(*w,*eVecs[i]); //- w = M*v_i
+    //-C.K. TODO: if(mass-norm == QUDA_MASS_NORMALIZATION) blas::ax(1.0/(4.0*kappa*kappa), *w);
+    lambda[i] = blas::cDotProduct(*eVecs[i], *w) / sqrt(blas::norm2(*eVecs[i])); // lambda_i = (v_i^dag M v_i) / ||v_i||
+    Complex Cm1(-1.0, 0.0);
+    blas::caxpby(lambda[i], *eVecs[i], Cm1, *w); // w = lambda_i*v_i - A*v_i
+    double r = sqrt(blas::norm2(*w)); // r = ||w||
+
+    if (getVerbosity() >= QUDA_SUMMARIZE)
+      printfQuda("Eval[%04d] = (%+.16e,%+.16e) residual = %+.16e\n", i, lambda[i].real(), lambda[i].imag(), r);
+  }
+
+  delete w;
 }

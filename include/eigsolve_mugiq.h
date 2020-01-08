@@ -26,6 +26,7 @@ private:
   
   std::vector<ColorSpinorField *> eVecs; // Eigenvectors
   std::vector<Complex> *eVals; // Eigenvalues
+  std::vector<Complex> *eVals_loc; // Local Eigenvalues, computed within the class
   
   int nConv; // Number of eigenvectors we want
   
@@ -41,6 +42,10 @@ public:
   /** @brief Compute eigenvectors of Dirac operator
    */
   void computeEvecs();
+
+  /** @brief Compute eigenvalues
+   */
+  void computeEvals();
 
   
 }; // class Eigsolve_Mugiq 
