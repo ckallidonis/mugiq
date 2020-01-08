@@ -21,10 +21,6 @@ endmacro()
 
 # Test targets
 
-cuda_add_executable(eigensolve_test_QUDA eigensolve_test_QUDA.cpp)
-target_link_libraries(eigensolve_test_QUDA ${EXE_LIBS})
-mugiq_checktest(eigensolve_test_QUDA MUGIQ_BUILD_ALL_TESTS)
-
 cuda_add_executable(eigensolve eigensolve.cpp)
 target_link_libraries(eigensolve ${EXE_LIBS})
 mugiq_checktest(eigensolve MUGIQ_BUILD_ALL_TESTS)
