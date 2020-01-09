@@ -1,27 +1,26 @@
-#include <mg_mugiq.h>
 #include <eigsolve_mugiq.h>
 #include <util_quda.h>
 #include <mugiq_internal.h>
 #include <eigensolve_quda.h>
 
-Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_, QudaEigParam *eigParams_, TimeProfile &profile_) :
+Eigsolve_Mugiq::Eigsolve_Mugiq(QudaMultigridParam *mgParams_, TimeProfile *mg_profile_,
+			       QudaEigParam *eigParams_,      TimeProfile *eig_profile_,
+			       bool computeCoarse_) :
   eigInit(false),
   mgEigsolve(false),
+  computeCoarse(computeCoarse_),
+  mgParams(mgParams_),
   eigParams(eigParams_),
   invParams(eigParams_->invert_param),
-  eig_profile(profile_),
-  mg(mg_),
+  mg_profile(mg_profile_),
+  eig_profile(eig_profile_),
   dirac(nullptr),
   mat(nullptr),
   pc_solve(false),
   nConv(eigParams_->nConv)
 {
-  
-  if(!mg->mgInit) errorQuda("%s: MG_Mugiq must be initialized before proceeding with eigensolver.\n", __func__);
-
-  //- The Dirac operator
-  mat = mg->matCoarse;
-  dirac = mat->Expose();
+  //- Create the multigrid environment
+  mg_solver = new multigrid_solver(*mgParams, *mg_profile);
   
   cudaGaugeField *gauge = checkGauge(invParams);
   const int *X = gauge->X(); //- The Lattice Size
@@ -32,14 +31,38 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_, QudaEigParam *eigParams_, TimeProf
   cudaParam.create = QUDA_ZERO_FIELD_CREATE;
   cudaParam.setPrecision(eigParams->cuda_prec_ritz, eigParams->cuda_prec_ritz, true);
 
-  //- Allocate the eigenvectors
-  for(int i=0;i<nConv;i++)
-    eVecs.push_back(ColorSpinorField::Create(cudaParam));
 
+  if(computeCoarse){
+    // Create the Coarse Dirac operator
+    dirac = mg_solver->mg->getDiracCoarse(); // This is diracCoarseResidual of the QUDA MG class
+    if(typeid(*dirac) != typeid(DiracCoarse)) errorQuda("The Coarse Dirac operator must not be preconditioned!\n");
+
+    //- Allocate coarse eigenvectors
+    //- FIXME Allocate Coarse vectors!!!
+    for(int i=0;i<nConv;i++)
+      eVecs.push_back(ColorSpinorField::Create(cudaParam));
+  }
+  else{
+    //-The fine Dirac operator
+    dirac = mg_solver->d; // This is diracResidual of the QUDA MG class. Equivalently: dirac = mg_solver->mgParam->matResidual.Expose() = mg_solver->d
+    
+    //- Allocate fine eigenvectors
+    for(int i=0;i<nConv;i++)
+      eVecs.push_back(ColorSpinorField::Create(cudaParam));
+  }
+
+  
+  //- That's the Dirac matrix whose eigenvalues will be computed
+  if (!eigParams->use_norm_op && !eigParams->use_dagger)     mat = new DiracM(*dirac);
+  else if (!eigParams->use_norm_op && eigParams->use_dagger) mat = new DiracMdag(*dirac);
+  else if (eigParams->use_norm_op && !eigParams->use_dagger) mat = new DiracMdagM(*dirac);
+  else if (eigParams->use_norm_op && eigParams->use_dagger)  mat = new DiracMMdag(*dirac);
+
+  
   //- Allocate the eigenvalues
   eVals = new std::vector<Complex>(nConv, 0.0);     // These come from the QUDA eigensolver
   eVals_loc = new std::vector<Complex>(nConv, 0.0); // These are computed from the Eigsolve_Mugiq class
-  evals_res = new std::vector<double>(nConv, 0.0);   // The eigenvalues residual
+  evals_res = new std::vector<double>(nConv, 0.0);  // The eigenvalues residual
   
   makeChecks();
 
@@ -47,13 +70,15 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_, QudaEigParam *eigParams_, TimeProf
   mgEigsolve = true;
 }
 
-Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile &profile_) :
+
+Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_) :
   eigInit(false),
   mgEigsolve(false),
+  computeCoarse(false),
   eigParams(eigParams_),
   invParams(eigParams_->invert_param),
+  mg_profile(0),
   eig_profile(profile_),
-  mg(nullptr),
   dirac(nullptr),
   mat(nullptr),
   pc_solve(false),
@@ -105,11 +130,22 @@ Eigsolve_Mugiq::~Eigsolve_Mugiq(){
   delete eVals;
   delete eVals_loc;
   delete evals_res;
-  if(!mgEigsolve){
-    delete mat;
-    delete dirac;
+
+  if(mat) delete mat;
+  mat = nullptr;
+
+  if(mgEigsolve){
+    //- (dirac deletion is taken care by mg_solver destructor in this case)
+    if (mg_solver) delete mg_solver;
+    mg_solver = nullptr;
   }
+  else{
+    if(dirac) delete dirac;
+    dirac = nullptr;
+  } 
+
   eigInit = false;
+  mgEigsolve = false;
 }
 
 void Eigsolve_Mugiq::makeChecks(){
@@ -130,7 +166,7 @@ void Eigsolve_Mugiq::computeEvecs(){
   if(!eigInit) errorQuda("%s: Eigsolve_Mugiq must be initialized first.\n", __func__);
 
   //- Perform eigensolve
-  EigenSolver *eigSolve = EigenSolver::create(eigParams, *mat, eig_profile);
+  EigenSolver *eigSolve = EigenSolver::create(eigParams, *mat, *eig_profile);
   (*eigSolve)(eVecs, *eVals);
 
   delete eigSolve;

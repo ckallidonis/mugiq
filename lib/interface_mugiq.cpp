@@ -27,12 +27,12 @@
 #include <mugiq.h>
 #include <mugiq_internal.h>
 #include <linalg_mugiq.h>
-#include <mg_mugiq.h>
+//#include <mg_mugiq.h>
 #include <eigsolve_mugiq.h>
 
 //- Profiling
 static quda::TimeProfile profileEigensolveMuGiq("computeEvecsMuGiq");
-static quda::TimeProfile profileMuGiqMG("newMG_Mugiq");
+static quda::TimeProfile profileMuGiqMG("MugiqMG-Init");
 
 using namespace quda;
 
@@ -54,7 +54,7 @@ void computeEvecsQudaWrapper(void **eVecs_host, double _Complex *eVals_host, Qud
   eigensolveQuda(eVecs_host, eVals_host, eigParams);
 }
 
-
+/*
 MG_Mugiq* newMG_Mugiq(QudaMultigridParam *mgParams, QudaEigParam *eigParams) {
 
   pushVerbosity(mgParams->invert_param->verbosity);
@@ -69,7 +69,7 @@ MG_Mugiq* newMG_Mugiq(QudaMultigridParam *mgParams, QudaEigParam *eigParams) {
 
   return mg;
 }
-
+*/
 
 //- Compute the eigenvalues and eigenvectors of the coarse Dirac operator using MG
 void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
@@ -83,14 +83,17 @@ void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   }  
   
   //- Create the Multigrid environment
-  MG_Mugiq *mg_mugiq = newMG_Mugiq(&mgParams, &eigParams);
+  //  MG_Mugiq *mg_mugiq = newMG_Mugiq(&mgParams, &eigParams);
 
+  profileMuGiqMG.TPSTART(QUDA_PROFILE_TOTAL);
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
 
   //- Create the eigensolver environment
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);  
-  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(mg_mugiq, &eigParams, profileEigensolveMuGiq);
+  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(&mgParams , &profileMuGiqMG,
+						&eigParams, &profileEigensolveMuGiq);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
+  profileMuGiqMG.TPSTOP(QUDA_PROFILE_TOTAL);
 
   //- Compute eigenvectors and (local) eigenvalues
   eigsolve->computeEvecs();
@@ -100,11 +103,12 @@ void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   //- Clean-up
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
   delete eigsolve;
-  delete mg_mugiq;
+  //  delete mg_mugiq;
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);
 
   
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_TOTAL);
+  printProfileInfo(profileMuGiqMG);
   printProfileInfo(profileEigensolveMuGiq);
 
   popVerbosity();
@@ -124,10 +128,10 @@ void computeEvecsMuGiq(QudaEigParam eigParams){
   }  
   
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
-
+  
   //- Create the eigensolver environment
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);  
-  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(&eigParams, profileEigensolveMuGiq);
+  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(&eigParams, &profileEigensolveMuGiq);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
   //- Compute eigenvectors and (local) eigenvalues
