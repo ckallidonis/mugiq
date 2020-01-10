@@ -25,28 +25,40 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaMultigridParam *mgParams_, TimeProfile *mg_pr
   cudaGaugeField *gauge = checkGauge(invParams);
   const int *X = gauge->X(); //- The Lattice Size
 
-  ColorSpinorParam cpuParam(NULL, *invParams, X, invParams->solution_type, invParams->input_location);
-  ColorSpinorParam cudaParam(cpuParam);
-  cudaParam.location = QUDA_CUDA_FIELD_LOCATION;
-  cudaParam.create = QUDA_ZERO_FIELD_CREATE;
-  cudaParam.setPrecision(eigParams->cuda_prec_ritz, eigParams->cuda_prec_ritz, true);
-
-
   if(computeCoarse){
     // Create the Coarse Dirac operator
     dirac = mg_solver->mg->getDiracCoarse(); // This is diracCoarseResidual of the QUDA MG class
     if(typeid(*dirac) != typeid(DiracCoarse)) errorQuda("The Coarse Dirac operator must not be preconditioned!\n");
 
     //- Allocate coarse eigenvectors
-    //- FIXME Allocate Coarse vectors!!!
-    for(int i=0;i<nConv;i++)
-      eVecs.push_back(ColorSpinorField::Create(cudaParam));
+    ColorSpinorParam csParam(*(mg_solver->B[0]));
+    QudaPrecision coarsePrec = invParams->cuda_prec;
+         
+    tmpCSF.push_back(ColorSpinorField::Create(csParam));
+    for(int lev=0;lev<mgParams->n_level-1;lev++){
+      for(int i=0;i<nConv;i++){
+	eVecs.push_back(tmpCSF[lev]->CreateCoarse(mgParams->geo_block_size[lev],
+						  mgParams->spin_block_size[lev],
+						  mgParams->n_vec[lev],
+						  coarsePrec,
+						  mgParams->setup_location[lev+1]));
+      }
+      if(lev==mgParams->n_level-2) break;
+      ColorSpinorParam csParamCoarse(*(eVecs[0]));
+      tmpCSF.push_back(ColorSpinorField::Create(csParamCoarse));
+    }//-lev
   }
   else{
     //-The fine Dirac operator
     dirac = mg_solver->d; // This is diracResidual of the QUDA MG class. Equivalently: dirac = mg_solver->mgParam->matResidual.Expose() = mg_solver->d
-    
+
     //- Allocate fine eigenvectors
+    ColorSpinorParam cpuParam(NULL, *invParams, X, invParams->solution_type, invParams->input_location);
+    ColorSpinorParam cudaParam(cpuParam);
+    cudaParam.location = QUDA_CUDA_FIELD_LOCATION;
+    cudaParam.create = QUDA_ZERO_FIELD_CREATE;
+    cudaParam.setPrecision(eigParams->cuda_prec_ritz, eigParams->cuda_prec_ritz, true);
+
     for(int i=0;i<nConv;i++)
       eVecs.push_back(ColorSpinorField::Create(cudaParam));
   }
@@ -125,17 +137,19 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_) 
 }
 
 
-Eigsolve_Mugiq::~Eigsolve_Mugiq(){
+Eigsolve_Mugiq::~Eigsolve_Mugiq(){  
   for(int i=0;i<nConv;i++) delete eVecs[i];
   delete eVals;
   delete eVals_loc;
   delete evals_res;
-
+  
   if(mat) delete mat;
   mat = nullptr;
-
+  
   if(mgEigsolve){
     //- (dirac deletion is taken care by mg_solver destructor in this case)
+    int nTmp = static_cast<int>(tmpCSF.size());
+    for(int i=0;i<nTmp;i++) if(tmpCSF[i]) delete tmpCSF[i];    
     if (mg_solver) delete mg_solver;
     mg_solver = nullptr;
   }
@@ -143,7 +157,7 @@ Eigsolve_Mugiq::~Eigsolve_Mugiq(){
     if(dirac) delete dirac;
     dirac = nullptr;
   } 
-
+  
   eigInit = false;
   mgEigsolve = false;
 }

@@ -38,6 +38,8 @@ private:
   std::vector<Complex> *eVals; // Eigenvalues
   std::vector<Complex> *eVals_loc; // Local Eigenvalues, computed within the class
 
+  std::vector<ColorSpinorField *> tmpCSF; // Temporary field(s)
+  
   std::vector<double> *evals_res;
   
   int nConv; // Number of eigenvectors we want
