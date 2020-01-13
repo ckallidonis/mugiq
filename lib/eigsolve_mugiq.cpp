@@ -26,27 +26,33 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaMultigridParam *mgParams_, TimeProfile *mg_pr
   const int *X = gauge->X(); //- The Lattice Size
 
   if(computeCoarse){
+    int nCoarseLevels = mgParams->n_level-1;
+    int nextCoarse = nCoarseLevels - 1;
+    
     // Create the Coarse Dirac operator
     dirac = mg_solver->mg->getDiracCoarse(); // This is diracCoarseResidual of the QUDA MG class
     if(typeid(*dirac) != typeid(DiracCoarse)) errorQuda("The Coarse Dirac operator must not be preconditioned!\n");
 
-    //- Allocate coarse eigenvectors
     ColorSpinorParam csParam(*(mg_solver->B[0]));
     QudaPrecision coarsePrec = invParams->cuda_prec;
          
-    tmpCSF.push_back(ColorSpinorField::Create(csParam));
-    for(int lev=0;lev<mgParams->n_level-1;lev++){
-      for(int i=0;i<nConv;i++){
-	eVecs.push_back(tmpCSF[lev]->CreateCoarse(mgParams->geo_block_size[lev],
-						  mgParams->spin_block_size[lev],
-						  mgParams->n_vec[lev],
-						  coarsePrec,
-						  mgParams->setup_location[lev+1]));
-      }
-      if(lev==mgParams->n_level-2) break;
-      ColorSpinorParam csParamCoarse(*(eVecs[0]));
-      tmpCSF.push_back(ColorSpinorField::Create(csParamCoarse));
+    //-Create coarse fields and allocate coarse eigenvectors recursively
+    tmpCSF.push_back(ColorSpinorField::Create(csParam)); //- tmpCSF[0] is a fine field
+    for(int lev=0;lev<nextCoarse;lev++){
+      tmpCSF.push_back(tmpCSF[lev]->CreateCoarse(mgParams->geo_block_size[lev],
+						 mgParams->spin_block_size[lev],
+						 mgParams->n_vec[lev],
+						 coarsePrec,
+						 mgParams->setup_location[lev+1]));
     }//-lev
+
+    for(int i=0;i<nConv;i++){
+      eVecs.push_back(tmpCSF[nextCoarse]->CreateCoarse(mgParams->geo_block_size[nextCoarse],
+						       mgParams->spin_block_size[nextCoarse],
+						       mgParams->n_vec[nextCoarse],
+						       coarsePrec,
+						       mgParams->setup_location[nextCoarse+1]));
+    }    
   }
   else{
     //-The fine Dirac operator
