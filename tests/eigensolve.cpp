@@ -165,7 +165,7 @@ void setInvertParam(QudaInvertParam &inv_param)
   inv_param.cuda_prec_precondition = (cuda_prec_precondition == QUDA_INVALID_PRECISION) ? cuda_prec_sloppy : cuda_prec_precondition;
   inv_param.cuda_prec_refinement_sloppy = (cuda_prec_refinement_sloppy == QUDA_INVALID_PRECISION) ? cuda_prec_sloppy : cuda_prec_refinement_sloppy;
   inv_param.preserve_source = QUDA_PRESERVE_SOURCE_NO;
-  inv_param.gamma_basis = QUDA_UKQCD_GAMMA_BASIS;
+  inv_param.gamma_basis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;
   inv_param.dirac_order = QUDA_DIRAC_ORDER;
 
 
