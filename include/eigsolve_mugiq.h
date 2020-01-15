@@ -12,6 +12,8 @@ class Eigsolve_Mugiq {
 
 private:
 
+  MG_Mugiq *mg_env; // The Multigrid environment
+
   bool eigInit;                   // Initialization switch
   bool mgEigsolve;                // MG eigsolve switch
 
@@ -23,11 +25,8 @@ private:
   QudaEigParam *eigParams;        // Eigensolver parameter structure
   QudaInvertParam *invParams;     // Inverter parameter structure
 
-  TimeProfile *mg_profile; //  Used for profiling
-  TimeProfile *eig_profile; // Used for profiling
-
-  multigrid_solver *mg_solver; // The multigrid structure
-
+  TimeProfile *eigProfile; // Used for profiling
+  
   const Dirac *dirac;
   DiracMatrix *mat; // The Dirac operator whose eigenpairs we are computing
 
@@ -45,8 +44,8 @@ private:
   int nConv; // Number of eigenvectors we want
   
 public:
-  Eigsolve_Mugiq(QudaMultigridParam *mgParams_, TimeProfile *mg_profile_,
-		 QudaEigParam *eigParams_,      TimeProfile *eig_profile_,
+  Eigsolve_Mugiq(MG_Mugiq *mg_env_,
+		 QudaEigParam *eigParams_, TimeProfile *eigProfile_,
 		 bool computeCoarse_=true);
 
   Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_);
