@@ -8,7 +8,7 @@
 # CPP objects
 set(MUGIQ_CPP_OBJS
   # cmake-format: sortable
-  interface_mugiq.cpp linalg_mugiq.cpp mg_mugiq.cpp eigsolve_mugiq.cpp)
+  interface_mugiq.cpp linalg_mugiq.cpp eigsolve_mugiq.cpp)
 # cmake-format: on
 
 #--------------------------------------------------------------
