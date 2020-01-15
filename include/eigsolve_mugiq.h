@@ -72,6 +72,10 @@ public:
    */
   std::vector<Complex>* getEvals(){ return eVals;}
 
+  /** @brief Accessor to get the eigenvectors outside of the class
+   */
+  std::vector<ColorSpinorField *> getEvecs(){ return eVecs;}
+
   /** @brief Accessor to get the local eigenvalues outside of the class
    */
   std::vector<Complex>* getEvals_loc(){ return eVals_loc;}
