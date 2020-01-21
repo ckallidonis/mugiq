@@ -10,13 +10,6 @@
 #include <quda.h>
 #include <enum_mugiq.h>
 
-#define N_SPIN_ 4
-#define N_COLOR_ 3
-#define N_GAMMA_ 16
-#define SPINOR_SITE_LEN_ (N_SPIN_ * N_COLOR_)
-#define GAUGE_SITE_LEN_ (N_COLOR_ * N_COLOR_)
-#define GAMMA_LEN_ (N_SPIN_ * N_SPIN_)
-
 #ifdef __cplusplus
 extern "C" {
 #endif
