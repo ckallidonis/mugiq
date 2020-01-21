@@ -27,7 +27,7 @@
 #include <mugiq_internal.h>
 #include <linalg_mugiq.h>
 #include <eigsolve_mugiq.h>
-
+#include <util_mugiq.h>
 
 //- Profiling
 static quda::TimeProfile profileEigensolveMuGiq("computeEvecsMuGiq");
@@ -138,6 +138,61 @@ void computeEvecsMuGiq(QudaEigParam eigParams){
   delete eigsolve;
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);
   
+  profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_TOTAL);
+  printProfileInfo(profileEigensolveMuGiq);
+
+  popVerbosity();
+  saveTuneCache();
+}
+
+
+//- Compute ultra-local (no shifts) disconnected loops using Multigrid deflation
+void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
+
+  printfQuda("\n%s: Will compute disconnected loops using Multi-grid deflation!\n", __func__);  
+
+  pushVerbosity(eigParams.invert_param->verbosity);
+  if (getVerbosity() >= QUDA_DEBUG_VERBOSE) {
+    printQudaInvertParam(eigParams.invert_param);
+    printQudaEigParam(&eigParams);
+  }
+
+  //- Create the Multigrid environment
+  MG_Mugiq *mg_env = newMG_Mugiq(&mgParams, &eigParams);
+
+  //- Create the eigensolver environment
+  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
+  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);
+  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(mg_env, &eigParams, &profileEigensolveMuGiq);
+  profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
+
+  //- Compute eigenvectors and (local) eigenvalues
+  eigsolve->computeEvecs();
+  eigsolve->computeEvals();
+  eigsolve->printEvals();
+
+  //- Create coarse gamma-matrix unit vectors, initialize to zero
+  int nUnit = SPINOR_SITE_LEN_;
+  std::vector<ColorSpinorField*> unitGamma; // These are coarse fields
+  ColorSpinorParam ucsParam(*(eigsolve->getEvecs()[0]));
+  ucsParam.create = QUDA_ZERO_FIELD_CREATE;
+  for(int n=0;n<nUnit;n++)
+    unitGamma.push_back(ColorSpinorField::Create(ucsParam));
+
+  createGammaCoarseVectors_uLocal(unitGamma, mg_env);
+
+  //- Create the final loop
+  //- FIXME
+  //  assembleLoopCoarsePart(.......);
+  
+  //- Clean-up
+  for(int n=0;n<nUnit;n++) delete unitGamma[n];
+  
+  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
+  delete eigsolve;
+  profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);
+  delete mg_env;
+
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_TOTAL);
   printProfileInfo(profileEigensolveMuGiq);
 
