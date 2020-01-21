@@ -233,6 +233,7 @@ if(MUGIQ_QUDA)
   add_definitions(-DHAVE_QUDA)
 
   include_directories(SYSTEM ${MUGIQ_QUDA_HOME}/include)
+  include_directories(SYSTEM ${MUGIQ_QUDA_HOME}/include/externals)
   include_directories(SYSTEM ${MUGIQ_QUDA_SOURCE}/tests)
   include_directories(SYSTEM ${MUGIQ_QUDA_SOURCE}/lib)
 
