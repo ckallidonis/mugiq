@@ -1,5 +1,5 @@
-#ifndef _GAMMA_MUGIQ_H
-#define _GAMMA_MUGIQ_H
+#ifndef _KERNEL_UTIL_H
+#define _KERNEL_UTIL_H
 
 #include <mpi.h>
 #include <transfer.h>
@@ -15,51 +15,28 @@
 #include <util_quda.h>
 #include <util_mugiq.h>
 
-#define N_SPIN_ 4
-#define N_COLOR_ 3
-#define N_GAMMA_ 16
-#define SPINOR_SITE_LEN_ (N_SPIN_ * N_COLOR_)
-#define GAUGE_SITE_LEN_ (N_COLOR_ * N_COLOR_)
-#define GAMMA_LEN_ (N_SPIN_ * N_SPIN_)
-
-#define MUGIQ_MAX_FINE_VEC 24
-#define MUGIQ_MAX_COARSE_VEC 256
-
-#define THREADS_PER_BLOCK 64
-
 using namespace quda;
 
 
-template <QudaPrecision prec> struct FieldMapper {};
+//- Templates of the Fermion/Gauge mappers on the precision
+template <typename T> struct FieldMapper {};
 
-template <> struct FieldMapper<QUDA_DOUBLE_PRECISION> {
+template <> struct FieldMapper<double> {
   typedef typename colorspinor_mapper<double, N_SPIN_, N_COLOR_>::type FermionField;
   typedef ColorSpinor<double, N_SPIN_, N_COLOR_> Vector;
   
-  typedef typename gauge_mapper<double, QUDA_RECONSTRUCT_NO>::type GaugField;
+  typedef typename gauge_mapper<double, QUDA_RECONSTRUCT_NO>::type GaugeField;
   typedef Matrix<complex<double>, N_COLOR_> Link;
 };
 
+template <> struct FieldMapper<float> {
+  typedef typename colorspinor_mapper<float, N_SPIN_, N_COLOR_>::type FermionField;
+  typedef ColorSpinor<float, N_SPIN_, N_COLOR_> Vector;
+  
+  typedef typename gauge_mapper<float, QUDA_RECONSTRUCT_NO>::type GaugeField;
+  typedef Matrix<complex<float>, N_COLOR_> Link;
+};
 
-typedef typename colorspinor_mapper<double,N_SPIN_,N_COLOR_>::type Fermion;
-
-#if 0
-typedef typename colorspinor_mapper<double,N_SPIN_,N_COLOR_>::type ColorSpinor_Double;
-typedef typename colorspinor_mapper<float, N_SPIN_,N_COLOR_>::type ColorSpinor_Float;
-typedef typename colorspinor_mapper<short, N_SPIN_,N_COLOR_>::type ColorSpinor_Half;
-typedef ColorSpinor<double,N_SPIN_,N_COLOR_> Vector_Double;
-typedef ColorSpinor<float, N_SPIN_,N_COLOR_> Vector_Single;
-typedef ColorSpinor<short, N_SPIN_,N_COLOR_> Vector_Half;
-
-typedef typename gauge_mapper<double,QUDA_RECONSTRUCT_NO>::type Gauge_Double;
-typedef typename gauge_mapper<float,QUDA_RECONSTRUCT_NO>::type Gauge_Float;
-typedef typename gauge_mapper<short,QUDA_RECONSTRUCT_NO>::type Gauge_Half;
-typedef Matrix<complex<double>,N_COLOR_> Link_Double;
-typedef Matrix<complex<float>, N_COLOR_> Link_Single;
-typedef Matrix<complex<half>,  N_COLOR_> Link_Half;
-#endif
-
-#if 1
 
 //- Base structure holding geometry-related parameters
 struct ArgGeom {
@@ -116,27 +93,57 @@ struct ArgGeom {
 
 
 //- Structure used for creating the gamma matrix generators
-template <QudaPrecision prec>
+template <typename T>
 struct Arg_Gamma : public ArgGeom {
-  
-  //  typename FieldMapper<prec>::FermionField gammaGens[MUGIQ_MAX_FINE_VEC];
-  typename FieldMapper<prec>::FermionField testSpinor;
-  //Fermion testSpinor;
-  
+
+  typename FieldMapper<T>::FermionField gammaGens[SPINOR_SITE_LEN_];  
   int nVec;
   
   Arg_Gamma () {}
-  
+
   Arg_Gamma(std::vector<ColorSpinorField*> &gammaGens_)
     : ArgGeom(gammaGens_[0]),
-      testSpinor(*gammaGens_[0]),
       nVec(gammaGens_.size())
   {
+    if(nVec!=SPINOR_SITE_LEN_)
+      errorQuda("%s: Size of Gamma generators must be Nspin*Ncolor = %d", __func__, SPINOR_SITE_LEN_);
+    
+    for(int ivec=0;ivec<nVec;ivec++)
+      gammaGens[ivec].init(*gammaGens_[ivec]);
   }
   
 };
 
+
+//- Declarations of utility kernels
+template <typename T>
+__global__ void createGammaGenerators_kernel(Arg_Gamma<T> *arg);
+
+
+#endif // _KERNEL_UTIL_H
+
+
+
+#if 0
+  Arg_Gamma(ColorSpinorField **gammaGens_)
 #endif
 
+#if 0
+//  std::vector<typename FieldMapper<T>::FermionField> gammaGens;
 
-#endif // _GAMMA_MUGIQ_H
+typedef typename colorspinor_mapper<double,N_SPIN_,N_COLOR_>::type Fermion;
+
+typedef typename colorspinor_mapper<double,N_SPIN_,N_COLOR_>::type ColorSpinor_Double;
+typedef typename colorspinor_mapper<float, N_SPIN_,N_COLOR_>::type ColorSpinor_Float;
+typedef typename colorspinor_mapper<short, N_SPIN_,N_COLOR_>::type ColorSpinor_Half;
+typedef ColorSpinor<double,N_SPIN_,N_COLOR_> Vector_Double;
+typedef ColorSpinor<float, N_SPIN_,N_COLOR_> Vector_Single;
+typedef ColorSpinor<short, N_SPIN_,N_COLOR_> Vector_Half;
+
+typedef typename gauge_mapper<double,QUDA_RECONSTRUCT_NO>::type Gauge_Double;
+typedef typename gauge_mapper<float,QUDA_RECONSTRUCT_NO>::type Gauge_Float;
+typedef typename gauge_mapper<short,QUDA_RECONSTRUCT_NO>::type Gauge_Half;
+typedef Matrix<complex<double>,N_COLOR_> Link_Double;
+typedef Matrix<complex<float>, N_COLOR_> Link_Single;
+typedef Matrix<complex<half>,  N_COLOR_> Link_Half;
+#endif

@@ -11,6 +11,8 @@
 #define GAUGE_SITE_LEN_ (N_COLOR_ * N_COLOR_)
 #define GAMMA_LEN_ (N_SPIN_ * N_SPIN_)
 
+#define GAMMA_GEN_IDX(s,c)  ((c) + N_COLOR_*(s))
+
 #define MUGIQ_MAX_FINE_VEC 24
 #define MUGIQ_MAX_COARSE_VEC 256
 
@@ -23,7 +25,9 @@ quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
 
 
 //- Utility and wrapper functions
-void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma, MG_Mugiq *mg_env);
+template <typename T>
+void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
+				     MG_Mugiq *mg_env, QudaInvertParam *invParams);
 
 
 #endif // _MUGIQ_UTIL_H
