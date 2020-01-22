@@ -9,12 +9,13 @@
 extern "C" {
 #endif
 
-  typedef enum MuGiqEigTask_s
+  typedef enum MuGiqTask_s
     {
      MUGIQ_COMPUTE_EVECS_QUDA,
      MUGIQ_COMPUTE_EVECS_MUGIQ,
-     MUGIQ_COMPUTE_EVECS_INVALID = MUGIQ_INVALID_ENUM
-    } MuGiqEigTask;
+     MUGIQ_COMPUTE_LOOP_ULOCAL,
+     MUGIQ_TASK_INVALID = MUGIQ_INVALID_ENUM
+    } MuGiqTask;
   
   typedef enum MuGiqEigOperator_s
     {

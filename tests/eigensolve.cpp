@@ -748,7 +748,7 @@ int main(int argc, char **argv)
   // Call the Eigensolver interface-function
   double time = -((double)clock());
   if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_NO_MG){
-    if(mugiq_eig_task == MUGIQ_COMPUTE_EVECS_QUDA){
+    if(mugiq_task == MUGIQ_COMPUTE_EVECS_QUDA){
       void **host_evecs = (void **)malloc(eig_nConv * sizeof(void *));
       for (int i = 0; i < eig_nConv; i++) {
 	host_evecs[i] = (void *)malloc(V * eig_inv_param.Ls * sss * eig_inv_param.cpu_prec);
@@ -761,11 +761,18 @@ int main(int argc, char **argv)
       free(host_evecs);
       free(host_evals);    
     }
-    else if(mugiq_eig_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq(eig_param);    
-    else errorQuda("Option --mugiq-eig-task not set! (options are computeEvecsQuda,computeEvecsMuGiq)\n");
+    else if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq(eig_param);
+    else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeEvecsQuda, computeEvecsMuGiq)\n");
+    else errorQuda("Unsupported option for --mugiq-task! (options are computeEvecsQuda, computeEvecsMuGiq when --mugiq-eig-operator is set to MUGIQ_EIG_OPERATOR_NO_MG)\n");
   }
-  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG) computeEvecsMuGiq_MG(mg_param, eig_param); //- Compute Coarse MG operator eigenvalues
-  else errorQuda("Option --mugiq-eig-operator not set! (options are mg/no_mg)\n");
+  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG){
+    if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq_MG(mg_param, eig_param); //- Compute Coarse MG operator eigenvalues
+    else if(mugiq_task == MUGIQ_COMPUTE_LOOP_ULOCAL) computeLoop_uLocal_MG(mg_param, eig_param);
+    else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeLoopULocal)\n");
+    else errorQuda("Unsupported option for --mugiq-task! (options are computeLoopULocal when --mugiq-eig-operator is set to MUGIQ_EIG_OPERATOR_MG)\n");
+  }
+  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_INVALID) errorQuda("Option --mugiq-eig-operator not set! (options are mg/no_mg)\n");
+  else errorQuda("Unsupported option --mugiq-eig-operator! (options are mg/no_mg)\n");
     
   time += (double)clock();
   printfQuda("Time for solution = %f\n", time / CLOCKS_PER_SEC);

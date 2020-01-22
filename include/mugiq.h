@@ -9,6 +9,7 @@
 
 #include <quda.h>
 #include <enum_mugiq.h>
+//#include <util_mugiq.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +33,12 @@ extern "C" {
    */
   void computeEvecsMuGiq(QudaEigParam eigParams);
 
-
+  /** MuGiq interface function that computes disconnected quark loops using Multigrid Deflation
+   *  and for ultra-local current insertions
+   * @param mgParams  Contains all MG metadata regarding the type of eigensolve.
+   * @param eigParams Contains all metadata regarding the type of solve.
+   */
+  void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams);
   
 #ifdef __cplusplus
 }

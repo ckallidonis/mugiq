@@ -12,7 +12,7 @@
 void add_eigen_option_mugiq(std::shared_ptr<QUDAApp> app);
 
 //- External variables used in tests
-extern MuGiqEigTask mugiq_eig_task;
+extern MuGiqTask mugiq_task;
 extern MuGiqEigOperator mugiq_eig_operator;
 
 /*
