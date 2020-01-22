@@ -19,11 +19,16 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
   gammaGens.resize(nUnit);
   ColorSpinorParam cpuParam(NULL, *invParams, X,
 			    invParams->solution_type, invParams->input_location);
+  cpuParam.fieldOrder = unitGamma[0]->FieldOrder();
+  cpuParam.siteOrder  = unitGamma[0]->SiteOrder();
+  cpuParam.setPrecision(unitGamma[0]->Precision());
   ColorSpinorParam cudaParam(cpuParam);
-  cudaParam.location = QUDA_CUDA_FIELD_LOCATION;
-  cudaParam.create = QUDA_ZERO_FIELD_CREATE;
-  for(int n=0;n<nUnit;n++)
-    gammaGens[n] = ColorSpinorField::Create(cudaParam);
+  cudaParam.fieldOrder = unitGamma[0]->FieldOrder();
+  cudaParam.siteOrder  = unitGamma[0]->SiteOrder();
+  cudaParam.location   = QUDA_CUDA_FIELD_LOCATION;
+  cudaParam.create     = QUDA_ZERO_FIELD_CREATE;
+  cudaParam.setPrecision(unitGamma[0]->Precision());
+  for(int n=0;n<nUnit;n++) gammaGens[n] = ColorSpinorField::Create(cudaParam);
 
   Arg_Gamma<T>  arg(gammaGens);
   Arg_Gamma<T> *arg_dev;
@@ -41,9 +46,11 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
   cudaDeviceSynchronize();
   checkCudaError();
   
-
   //-Use transfer->restrictor to obtain unitGamma coarse vectors
-
+  for (int n=0; n<nUnit;n++){
+    blas::zero(*unitGamma[n]);
+    mg_env->transfer->R(*(unitGamma[n]), *(gammaGens[n]));
+  }
   
   //- Clean-up
   for(int n=0;n<nUnit;n++) delete gammaGens[n];
