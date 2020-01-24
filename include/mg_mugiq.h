@@ -15,7 +15,8 @@ struct MG_Mugiq {
 
   Dirac *diracCoarse; // The Coarse Dirac operator
 
-  Transfer *transfer; // Transfer Operator
+  Transfer *transfer;       // Transfer Operator at coarsest Level
+  Transfer *transferCoarse; // Transfer Operator
   
   TimeProfile &profile; // Profiling
   
@@ -24,6 +25,7 @@ struct MG_Mugiq {
     mgInit(false),
     diracCoarse(nullptr),
     transfer(nullptr),
+    //    transferLevel(nullptr),
     profile(profile_)
   {
     mg_solver = new multigrid_solver(*mgParams, profile);
@@ -31,8 +33,16 @@ struct MG_Mugiq {
     diracCoarse = mg_solver->mg->getDiracCoarse();
     if(typeid(*diracCoarse) != typeid(DiracCoarse)) errorQuda("The Coarse Dirac operator must not be preconditioned!\n");
 
-    transfer = mg_solver->mg->getTransferOperator();
-    
+    if(mgParams->n_level > 3) errorQuda("Unsupported MG levels %d\n", mgParams->n_level);
+
+    if(mgParams->n_level == 2)
+      transferCoarse = mg_solver->mg->getTransfer();
+
+    if(mgParams->n_level > 2){
+      transfer = mg_solver->mg->getTransfer();
+      transferCoarse = mg_solver->mg->getTransferCoarse();
+    }
+        
     mgInit = true;
   }
   
