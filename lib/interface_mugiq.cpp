@@ -181,36 +181,6 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   for(int n=0;n<nUnit;n++)
     unitGamma.push_back(ColorSpinorField::Create(ucsParam));
   
-
-  /*
-  std::vector<ColorSpinorField *> tmpCSF;
-  ColorSpinorParam ucsParam(*(mg_env->mg_solver->B[0]));
-  ucsParam.create = QUDA_ZERO_FIELD_CREATE;
-  ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
-  QudaPrecision coarsePrec = eigParams.invert_param->cuda_prec;
-  ucsParam.setPrecision(coarsePrec);
-  int nCoarseLevels = mgParams.n_level-1;
-  int nextCoarse = nCoarseLevels - 1;
-  
-  //-Create coarse fields and allocate coarse eigenvectors recursively
-  tmpCSF.push_back(ColorSpinorField::Create(ucsParam)); //- tmpCSF[0] is a fine field
-  for(int lev=0;lev<nextCoarse;lev++){
-    tmpCSF.push_back(tmpCSF[lev]->CreateCoarse(mgParams.geo_block_size[lev],
-					       mgParams.spin_block_size[lev],
-					       mgParams.n_vec[lev],
-					       coarsePrec,
-					       mgParams.setup_location[lev+1]));
-  }//-lev
-  
-  for(int i=0;i<nUnit;i++){
-    unitGamma.push_back(tmpCSF[nextCoarse]->CreateCoarse(mgParams.geo_block_size[nextCoarse],
-							 mgParams.spin_block_size[nextCoarse],
-							 mgParams.n_vec[nextCoarse],
-							 coarsePrec,
-							 mgParams.setup_location[nextCoarse+1]));
-  }
-  */
-  
   if(eigsolve->getEvecs()[0]->Precision() == QUDA_DOUBLE_PRECISION){
     printfQuda("%s: Creating coarse gamma vectors in double precision\n", __func__);
     createGammaCoarseVectors_uLocal<double>(unitGamma, mg_env, eigParams.invert_param);
@@ -242,3 +212,35 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   popVerbosity();
   saveTuneCache();
 }
+
+  
+
+
+/** Deprecated code ***
+std::vector<ColorSpinorField *> tmpCSF;
+ColorSpinorParam ucsParam(*(mg_env->mg_solver->B[0]));
+ucsParam.create = QUDA_ZERO_FIELD_CREATE;
+ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
+QudaPrecision coarsePrec = eigParams.invert_param->cuda_prec;
+ucsParam.setPrecision(coarsePrec);
+int nCoarseLevels = mgParams.n_level-1;
+int nextCoarse = nCoarseLevels - 1;
+
+//-Create coarse fields and allocate coarse eigenvectors recursively
+tmpCSF.push_back(ColorSpinorField::Create(ucsParam)); //- tmpCSF[0] is a fine field
+for(int lev=0;lev<nextCoarse;lev++){
+  tmpCSF.push_back(tmpCSF[lev]->CreateCoarse(mgParams.geo_block_size[lev],
+					     mgParams.spin_block_size[lev],
+					     mgParams.n_vec[lev],
+					     coarsePrec,
+					     mgParams.setup_location[lev+1]));
+ }//-lev
+
+for(int i=0;i<nUnit;i++){
+  unitGamma.push_back(tmpCSF[nextCoarse]->CreateCoarse(mgParams.geo_block_size[nextCoarse],
+						       mgParams.spin_block_size[nextCoarse],
+						       mgParams.n_vec[nextCoarse],
+						       coarsePrec,
+						       mgParams.setup_location[nextCoarse+1]));
+ }
+*/

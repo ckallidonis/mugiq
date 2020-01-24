@@ -15,8 +15,10 @@ struct MG_Mugiq {
 
   Dirac *diracCoarse; // The Coarse Dirac operator
 
-  Transfer *transfer;       // Transfer Operator at coarsest Level
-  Transfer *transferCoarse; // Transfer Operator
+  Transfer *transfer[QUDA_MAX_MG_LEVEL-1];       // Transfer Operator at coarsest Level
+
+  int nCoarseLevels;   // Number of Coarse Levels
+  int maxCoarseLevels; // Maximum number of coarse levels
   
   TimeProfile &profile; // Profiling
   
@@ -24,8 +26,8 @@ struct MG_Mugiq {
     mgParams(mgParams_),
     mgInit(false),
     diracCoarse(nullptr),
-    transfer(nullptr),
-    //    transferLevel(nullptr),
+    nCoarseLevels(mgParams->n_level-1),
+    maxCoarseLevels(QUDA_MAX_MG_LEVEL-1),
     profile(profile_)
   {
     mg_solver = new multigrid_solver(*mgParams, profile);
@@ -33,29 +35,33 @@ struct MG_Mugiq {
     diracCoarse = mg_solver->mg->getDiracCoarse();
     if(typeid(*diracCoarse) != typeid(DiracCoarse)) errorQuda("The Coarse Dirac operator must not be preconditioned!\n");
 
-    if(mgParams->n_level > 3) errorQuda("Unsupported MG levels %d\n", mgParams->n_level);
-
-    if(mgParams->n_level == 2)
-      transferCoarse = mg_solver->mg->getTransfer();
-
-    if(mgParams->n_level > 2){
-      transfer = mg_solver->mg->getTransfer();
-      transferCoarse = mg_solver->mg->getTransferCoarse();
+    if(mgParams->n_level == 2){
+      transfer[0] = mg_solver->mg->getTransferFinest();
+      for(int i=1;i<maxCoarseLevels;i++) transfer[i] = nullptr;
     }
-        
+    else if(mgParams->n_level == 3){
+      transfer[0] = mg_solver->mg->getTransferFinest();
+      transfer[1] = mg_solver->mg->getTransferCoarsest();
+      transfer[2] = nullptr;
+    }
+    else if(mgParams->n_level == 4){
+      transfer[0] = mg_solver->mg->getTransferFinest();
+      transfer[1] = mg_solver->mg->getTransferCoarse();
+      transfer[2] = mg_solver->mg->getTransferCoarsest();
+    }
+
     mgInit = true;
   }
+
   
   virtual ~MG_Mugiq(){
     if (mg_solver) delete mg_solver;
     mg_solver = nullptr;
-
+    for(int i=0;i<maxCoarseLevels;i++) transfer[i] = nullptr;    
     diracCoarse = nullptr;
-
     mgInit = false;
   }
   
-
 }; //- Struct MG_Mugiq
 
 
