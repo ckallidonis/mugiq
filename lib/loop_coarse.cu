@@ -139,9 +139,7 @@ void createGammaCoeff(){
 	for(int c1=0;c1<N_COLOR_;c1++){
 #pragma unroll
 	  for(int c2=0;c2<N_COLOR_;c2++){
-	    int i = GAMMA_GEN_IDX(s1,c1);
-	    int j = GAMMA_GEN_IDX(s2,c2);
-	    int gIdx = j + SPINOR_SITE_LEN_ * i;
+	    int gIdx = GAMMA_COEFF_IDX(s1,c1,s2,c2); // j + SPINOR_SITE_LEN_ * i;
 
 	    if(s2 == column_index[n][s1]) gCoeff[n][gIdx] = {row_value[n][s1][0], row_value[n][s1][1]};
 	  }}}}
@@ -169,7 +167,7 @@ void assembleLoopCoarsePart(Eigsolve_Mugiq *eigsolve){
   QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
   if((ePrec != QUDA_DOUBLE_PRECISION) && (ePrec != QUDA_SINGLE_PRECISION))
     errorQuda("%s: Unsupported precision for creating Coarse part of loop\n", __func__);
-  else printfQuda("%s: Working in %s precision\n", ePrec == QUDA_DOUBLE_PRECISION ? "double" : "single");
+  else printfQuda("%s: Working in %s precision\n", __func__, ePrec == QUDA_DOUBLE_PRECISION ? "double" : "single");
   
   ColorSpinorParam ucsParam(*(eigsolve->getEvecs()[0]));
   ucsParam.create = QUDA_ZERO_FIELD_CREATE;
