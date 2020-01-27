@@ -1,12 +1,6 @@
 #include <mg_mugiq.h>
 #include <kernel_util.h>
 
-//- Explicit instantiations
-template void createGammaCoarseVectors_uLocal<double>(std::vector<ColorSpinorField*> &unitGamma,
-						      MG_Mugiq *mg_env, QudaInvertParam *invParams);
-template void createGammaCoarseVectors_uLocal<float>(std::vector<ColorSpinorField*> &unitGamma,
-						     MG_Mugiq *mg_env, QudaInvertParam *invParams);
-
 template <typename T>
 void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
 				     MG_Mugiq *mg_env, QudaInvertParam *invParams){
@@ -76,7 +70,6 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
     if(!mg_env->transfer[nextCoarse]) errorQuda("%s: Out - Transfer operator for coarsest level does not exist!\n", __func__, nextCoarse);
     mg_env->transfer[nextCoarse]->R(*(unitGamma[n]), *(tmpCSF[nextCoarse]));
   }
-
   
   //- Clean-up
   int nTmp = static_cast<int>(tmpCSF.size());
@@ -87,3 +80,122 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
 
   printfQuda("%s: Coarse Gamma Vectors created\n", __func__);
 }
+//-------------------------------------------------------------------------------
+
+/**
+ * Create hard-coded gamma coefficients for the DeGrand-Rossi basis
+ * Any Gamma matrix can be obtained as G(n) = \sum_{i,j=0}^{3} [c_n(i,j) * e(i) * e^dag(j)],
+ * where c(i,j) are the coefficients, and e(i) are the gamma-matrix unity vectors/generators
+ */
+template <typename Float> 
+void createGammaCoeff(){
+
+  complex<Float> gCoeff[N_GAMMA_][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_];
+  memset(gCoeff, 0, sizeof(gCoeff));
+
+  //- The value in rows 0,1,2,3, respectively, of each gamma matrix
+  const Float row_value[N_GAMMA_][N_SPIN_][2] = {{ {1,0}, {1,0}, {1,0}, {1,0} },   /* G0 = 1 */
+						 { {0,1}, {0,1},{0,-1},{0,-1} },   /* G1 = g1 */
+						 {{-1,0}, {1,0}, {1,0},{-1,0} },   /* G2 = g2 */
+						 {{0,-1}, {0,1},{0,-1}, {0,1} },   /* G3 = g1 g2 */
+						 { {0,1},{0,-1},{0,-1}, {0,1} },   /* G4 = g3 */
+						 {{-1,0}, {1,0},{-1,0}, {1,0} },   /* G5 = g1 g3 */
+						 {{0,-1},{0,-1},{0,-1},{0,-1} },   /* G6 = g2 g3 */
+						 { {1,0}, {1,0},{-1,0},{-1,0} },   /* G7 = g1 g2 g3 */
+						 { {1,0}, {1,0}, {1,0}, {1,0} },   /* G8 = g4 */
+						 { {0,1}, {0,1},{0,-1},{0,-1} },   /* G9 = g1 g4 */
+						 {{-1,0}, {1,0}, {1,0},{-1,0} },   /* G10= g2 g4 */
+						 {{0,-1}, {0,1},{0,-1}, {0,1} },   /* G11= g1 g2 g4 */
+						 { {0,1},{0,-1},{0,-1}, {0,1} },   /* G12= g3 g4 */
+						 {{-1,0}, {1,0},{-1,0}, {1,0} },   /* G13= g1 g3 g4 */
+						 {{0,-1},{0,-1},{0,-1},{0,-1} },   /* G14= g2 g3 g4 */
+						 { {1,0}, {1,0},{-1,0},{-1,0} }};  /* G15= g1 g2 g3 g4 */
+
+  //- The column in which row_value exists for each gamma matrix
+  const int column_index[N_GAMMA_][N_SPIN_] = {{ 0, 1, 2, 3 },   /* G0 = 1 */
+					       { 3, 2, 1, 0 },   /* G1 = g1 */
+					       { 3, 2, 1, 0 },   /* G2 = g2 */
+					       { 0, 1, 2, 3 },   /* G3 = g1 g2 */
+					       { 2, 3, 0, 1 },   /* G4 = g3 */
+					       { 1, 0, 3, 2 },   /* G5 = g1 g3 */
+					       { 1, 0, 3, 2 },   /* G6 = g2 g3 */
+					       { 2, 3, 0, 1 },   /* G7 = g1 g2 g3 */
+					       { 2, 3, 0, 1 },   /* G8 = g4 */
+					       { 1, 0, 3, 2 },   /* G9 = g1 g4 */
+					       { 1, 0, 3, 2 },   /* G10= g2 g4 */
+					       { 2, 3, 0, 1 },   /* G11= g1 g2 g4 */
+					       { 0, 1, 2, 3 },   /* G12= g3 g4 */
+					       { 3, 2, 1, 0 },   /* G13= g1 g3 g4 */
+					       { 3, 2, 1, 0 },   /* G14= g2 g3 g4 */
+					       { 0, 1, 2, 3 }};  /* G15= g1 g2 g3 g4 */
+
+#pragma unroll
+  for(int n=0;n<N_GAMMA_;n++){
+#pragma unroll
+    for(int s1=0;s1<N_SPIN_;s1++){    //- row index
+#pragma unroll
+      for(int s2=0;s2<N_SPIN_;s2++){  //- col index
+#pragma unroll
+	for(int c1=0;c1<N_COLOR_;c1++){
+#pragma unroll
+	  for(int c2=0;c2<N_COLOR_;c2++){
+	    int i = GAMMA_GEN_IDX(s1,c1);
+	    int j = GAMMA_GEN_IDX(s2,c2);
+	    int gIdx = j + SPINOR_SITE_LEN_ * i;
+
+	    if(s2 == column_index[n][s1]) gCoeff[n][gIdx] = {row_value[n][s1][0], row_value[n][s1][1]};
+	  }}}}
+  }//- n_gamma
+  
+  
+  //- Copy the gamma coeffcients to GPU constant memory
+  cudaMemcpyToSymbol(gCoeff_cMem, &gCoeff, sizeof(gCoeff));
+
+  printfQuda("%s: Gamma coefficients created and copied to __constant__ memory\n", __func__);
+}
+
+
+//- Top-level function, called from the interface
+void assembleLoopCoarsePart(Eigsolve_Mugiq *eigsolve){
+  
+  QudaEigParam *eigParams = eigsolve->getEigParams();
+  QudaInvertParam *invParams = eigsolve->getInvParams();
+  MG_Mugiq *mg_env = eigsolve->getMGEnv();
+  
+  //- Create coarse gamma-matrix unit vectors
+  int nUnit = SPINOR_SITE_LEN_;
+  std::vector<ColorSpinorField*> unitGamma; // These are coarse fields
+
+  QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
+  if((ePrec != QUDA_DOUBLE_PRECISION) && (ePrec != QUDA_SINGLE_PRECISION))
+    errorQuda("%s: Unsupported precision for creating Coarse part of loop\n", __func__);
+  else printfQuda("%s: Working in %s precision\n", ePrec == QUDA_DOUBLE_PRECISION ? "double" : "single");
+  
+  ColorSpinorParam ucsParam(*(eigsolve->getEvecs()[0]));
+  ucsParam.create = QUDA_ZERO_FIELD_CREATE;
+  ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
+  ucsParam.setPrecision(ePrec);
+  for(int n=0;n<nUnit;n++)
+    unitGamma.push_back(ColorSpinorField::Create(ucsParam));
+
+  if(ePrec == QUDA_DOUBLE_PRECISION)
+    createGammaCoarseVectors_uLocal<double>(unitGamma, mg_env, invParams);
+  else if(ePrec == QUDA_SINGLE_PRECISION)
+    createGammaCoarseVectors_uLocal<float>(unitGamma, mg_env, invParams);
+  //-----------------------------------------------------------
+
+  
+  //- Create the coefficients of the gamma matrices and copy them to __constant__ memory
+  if((invParams->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS) &&
+     (mg_env->mgParams->invert_param->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS))
+    errorQuda("%s: Supports only DeGrand-Rossi gamma basis\n", __func__);
+  if(ePrec == QUDA_DOUBLE_PRECISION) createGammaCoeff<double>();
+  else if(ePrec == QUDA_SINGLE_PRECISION) createGammaCoeff<float>(); 
+  //-----------------------------------------------------------
+
+  
+  //- Clean-up
+  for(int n=0;n<nUnit;n++) delete unitGamma[n];
+
+}
+//-------------------------------------------------------------------------------

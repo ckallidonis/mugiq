@@ -115,6 +115,14 @@ struct Arg_Gamma : public ArgGeom {
 };
 
 
+//- Declaration of variables and functions related to gamma matrices
+//- GPU Constant memory size for Gamma matrix coeffs
+//- Size is Ngamma(16)*Nspin*Ncolor*Nspin*Ncolor*2(re-im)*8(bytes) = 36KB
+constexpr int cSize_gamma = 36864;
+__constant__ char gCoeff_cMem[cSize_gamma]; //- GPU Constant memory buffer for gamma coefficients
+
+
+
 //- Declarations of utility kernels
 template <typename T>
 __global__ void createGammaGenerators_kernel(Arg_Gamma<T> *arg);

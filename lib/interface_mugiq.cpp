@@ -25,7 +25,8 @@
 // MUGIQ header files
 #include <mugiq.h>
 #include <linalg_mugiq.h>
-#include <eigsolve_mugiq.h>
+//#include <eigsolve_mugiq.h>
+#include <mg_mugiq.h>
 #include <util_mugiq.h>
 
 //- Profiling
@@ -169,38 +170,11 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   eigsolve->computeEvecs();
   eigsolve->computeEvals();
   eigsolve->printEvals();
-
-  //- Create coarse gamma-matrix unit vectors, initialize to zero
-  int nUnit = SPINOR_SITE_LEN_;
-  std::vector<ColorSpinorField*> unitGamma; // These are coarse fields
   
-  ColorSpinorParam ucsParam(*(eigsolve->getEvecs()[0]));
-  ucsParam.create = QUDA_ZERO_FIELD_CREATE;
-  ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
-  ucsParam.setPrecision(eigsolve->getEvecs()[0]->Precision());
-  for(int n=0;n<nUnit;n++)
-    unitGamma.push_back(ColorSpinorField::Create(ucsParam));
-  
-  if(eigsolve->getEvecs()[0]->Precision() == QUDA_DOUBLE_PRECISION){
-    printfQuda("%s: Creating coarse gamma vectors in double precision\n", __func__);
-    createGammaCoarseVectors_uLocal<double>(unitGamma, mg_env, eigParams.invert_param);
-  }
-  else if(eigsolve->getEvecs()[0]->Precision() == QUDA_SINGLE_PRECISION){
-    printfQuda("%s: Creating coarse gamma vectors in single precision\n", __func__);
-    createGammaCoarseVectors_uLocal<float>(unitGamma, mg_env, eigParams.invert_param);
-  }
-  else errorQuda("%s: Unsupported precision for creating Gamma vectors\n");
-  
-  
-  //- Create the final loop
-  //- FIXME
-  //  assembleLoopCoarsePart(.......);
+  //- Create the coarse part of the loop
+  assembleLoopCoarsePart(eigsolve);
   
   //- Clean-up
-  //  int nTmp = static_cast<int>(tmpCSF.size());
-  //  for(int i=0;i<nTmp;i++)  delete tmpCSF[i];
-  for(int n=0;n<nUnit;n++) delete unitGamma[n];
-  
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
   delete eigsolve;
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);

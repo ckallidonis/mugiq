@@ -2,7 +2,7 @@
 #define _MUGIQ_UTIL_H
 
 #include <color_spinor_field.h>
-#include <mg_mugiq.h>
+#include <eigsolve_mugiq.h>
 
 #define N_SPIN_ 4
 #define N_COLOR_ 3
@@ -24,10 +24,7 @@ using namespace quda;
 quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
 
 
-//- Utility and wrapper functions
-template <typename T>
-void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
-				     MG_Mugiq *mg_env, QudaInvertParam *invParams);
-
+//- Forward declarations of functions called from the interface functions
+void assembleLoopCoarsePart(Eigsolve_Mugiq *eigsolve);
 
 #endif // _MUGIQ_UTIL_H
