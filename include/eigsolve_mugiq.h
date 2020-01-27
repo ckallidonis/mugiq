@@ -83,8 +83,17 @@ public:
    */
   std::vector<double>* getEvalsRes(){ return evals_res;}
 
-
+  /** @brief Accessor to get the Multigrid environment structure
+   */
+  MG_Mugiq* getMGEnv(){ return mg_env;}
   
+  /** @brief Accessor to get the eigsolve parameter structure
+   */
+  QudaEigParam* getEigParams(){ return eigParams;}
+  
+  /** @brief Accessor to get the invert parameter structure
+   */
+  QudaInvertParam* getInvParams(){ return invParams;}
   
 }; // class Eigsolve_Mugiq 
 
