@@ -1,6 +1,7 @@
 #ifndef _MUGIQ_UTIL_H
 #define _MUGIQ_UTIL_H
 
+#define N_DIM_ 4
 #define N_SPIN_ 4
 #define N_COLOR_ 3
 #define N_GAMMA_ 16

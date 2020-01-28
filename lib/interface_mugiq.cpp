@@ -201,17 +201,33 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   if((invParams->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS) &&
      (mgParams.invert_param->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS))
     errorQuda("%s: Supports only DeGrand-Rossi gamma basis\n", __func__);
-  if(ePrec == QUDA_DOUBLE_PRECISION) createGammaCoeff<double>();
+  if(ePrec == QUDA_DOUBLE_PRECISION)      createGammaCoeff<double>();
   else if(ePrec == QUDA_SINGLE_PRECISION) createGammaCoeff<float>();
   //-----------------------------------------------------------
 
-  
   //- Assemble the coarse part of the loop
-  if(ePrec == QUDA_DOUBLE_PRECISION)      assembleLoopCoarsePart_uLocal<double>(eigsolve, unitGamma);
-  else if(ePrec == QUDA_SINGLE_PRECISION) assembleLoopCoarsePart_uLocal<float>(eigsolve, unitGamma);
+  void *loop_h = nullptr;
+  int locVol = 1;
+  for(int i=0;i<N_DIM_;i++) locVol *= unitGamma[0]->X(i);
+   
+  if(ePrec == QUDA_DOUBLE_PRECISION){
+    size_t loopSize = sizeof(complex<double>) * locVol * N_GAMMA_;
+    loop_h = static_cast<complex<double>*>(malloc(loopSize));
+    if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
+    assembleLoopCoarsePart_uLocal<double>(static_cast<complex<double>*>(loop_h), eigsolve, unitGamma);
+  }
+  else if(ePrec == QUDA_SINGLE_PRECISION){
+    size_t loopSize = sizeof(complex<float>) * locVol * N_GAMMA_;
+    loop_h = static_cast<complex<float>*>(malloc(loopSize));
+    if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
+    assembleLoopCoarsePart_uLocal<float>(static_cast<complex<float>*>(loop_h), eigsolve, unitGamma);
+  }
+  //-----------------------------------------------------------
 
   
   //- Clean-up
+  free(loop_h);
+  loop_h = nullptr;
   for(int n=0;n<nUnit;n++) delete unitGamma[n];
 
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
