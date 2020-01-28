@@ -1,4 +1,4 @@
-#ifndef _EISGOLVE_MUGIQ_H
+#ifndef _EIGSOLVE_MUGIQ_H
 #define _EIGSOLVE_MUGIQ_H
 
 #include <quda.h>
