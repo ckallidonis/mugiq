@@ -19,9 +19,5 @@
 
 #define THREADS_PER_BLOCK 64
 
-using namespace quda;
-
-//- Forward declarations of QUDA-interface functions not declared in the .h files, and are called here
-quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
 
 #endif // _MUGIQ_UTIL_H

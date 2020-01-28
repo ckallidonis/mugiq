@@ -28,6 +28,7 @@
 #include <eigsolve_mugiq.h>
 #include <mg_mugiq.h>
 #include <util_mugiq.h>
+#include <loop_coarse.h>
 #include <interface_mugiq.h>
 
 //- Profiling

@@ -9,7 +9,6 @@
 
 #include <quda.h>
 #include <enum_mugiq.h>
-//#include <util_mugiq.h>
 
 #ifdef __cplusplus
 extern "C" {
