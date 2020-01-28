@@ -80,9 +80,9 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_env_,
 
   
   //- Allocate the eigenvalues
-  eVals = new std::vector<Complex>(nConv, 0.0);     // These come from the QUDA eigensolver
-  eVals_loc = new std::vector<Complex>(nConv, 0.0); // These are computed from the Eigsolve_Mugiq class
-  evals_res = new std::vector<double>(nConv, 0.0);  // The eigenvalues residual
+  eVals_quda = new std::vector<Complex>(nConv, 0.0); // These come from the QUDA eigensolver
+  eVals      = new std::vector<Complex>(nConv, 0.0); // These are computed from the Eigsolve_Mugiq class
+  evals_res  = new std::vector<double>(nConv, 0.0);  // The eigenvalues residual
   
   makeChecks();
 
@@ -133,9 +133,9 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_) 
     eVecs.push_back(ColorSpinorField::Create(cudaParam));
 
   //- Allocate the eigenvalues
-  eVals = new std::vector<Complex>(nConv, 0.0);     // These come from the QUDA eigensolver
-  eVals_loc = new std::vector<Complex>(nConv, 0.0); // Therea are computed from the Eigsolve_Mugiq class
-  evals_res = new std::vector<double>(nConv, 0.0);   // The eigenvalues residual
+  eVals_quda = new std::vector<Complex>(nConv, 0.0); // These come from the QUDA eigensolver
+  eVals      = new std::vector<Complex>(nConv, 0.0); // These are computed from the Eigsolve_Mugiq class
+  evals_res  = new std::vector<double>(nConv, 0.0);  // The eigenvalues residual
 
   makeChecks();
 
@@ -146,8 +146,8 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_) 
 
 Eigsolve_Mugiq::~Eigsolve_Mugiq(){  
   for(int i=0;i<nConv;i++) delete eVecs[i];
+  delete eVals_quda;
   delete eVals;
-  delete eVals_loc;
   delete evals_res;
   
   if(mat) delete mat;
@@ -186,7 +186,7 @@ void Eigsolve_Mugiq::computeEvecs(){
 
   //- Perform eigensolve
   EigenSolver *eigSolve = EigenSolver::create(eigParams, *mat, *eigProfile);
-  (*eigSolve)(eVecs, *eVals);
+  (*eigSolve)(eVecs, *eVals_quda);
 
   delete eigSolve;
 }
@@ -197,7 +197,7 @@ void Eigsolve_Mugiq::computeEvals(){
   ColorSpinorField *w;
   w = ColorSpinorField::Create(csParam);
 
-  std::vector<Complex> &lambda = *eVals_loc;
+  std::vector<Complex> &lambda = *eVals;
   std::vector<double> &r = *evals_res;
 
   double kappa = invParams->kappa;
@@ -218,11 +218,10 @@ void Eigsolve_Mugiq::printEvals(){
 
   printfQuda("\nEigsolve_Mugiq - Eigenvalues:\n");
   
+  std::vector<Complex> &evals_quda = *eVals_quda;
   std::vector<Complex> &evals = *eVals;
-  std::vector<Complex> &evals_loc = *eVals_loc;
   std::vector<double> &res = *evals_res;
   for(int i=0;i<nConv;i++)
     printfQuda("Mugiq-Quda: Eval[%04d] = %+.16e %+.16e , %+.16e %+.16e , Residual = %+.16e\n", i,
-               evals_loc[i].real(), evals_loc[i].imag(), evals[i].real(), evals[i].imag(), res[i]);
-  
+               evals[i].real(), evals[i].imag(), evals_quda[i].real(), evals_quda[i].imag(), res[i]);  
 }

@@ -34,8 +34,8 @@ private:
 
   
   std::vector<ColorSpinorField *> eVecs; // Eigenvectors
-  std::vector<Complex> *eVals; // Eigenvalues
-  std::vector<Complex> *eVals_loc; // Local Eigenvalues, computed within the class
+  std::vector<Complex> *eVals_quda; // Eigenvalues from the Quda eigensolver
+  std::vector<Complex> *eVals; // Eigenvalues computed within the Eigsolve_Mugiq class
 
   std::vector<ColorSpinorField *> tmpCSF; // Temporary field(s)
   
@@ -67,17 +67,17 @@ public:
    */
   void printEvals();
 
-  /** @brief Accessor to get the eigenvalues outside of the class
-   */
-  std::vector<Complex>* getEvals(){ return eVals;}
-
   /** @brief Accessor to get the eigenvectors outside of the class
    */
-  std::vector<ColorSpinorField *> getEvecs(){ return eVecs;}
-
-  /** @brief Accessor to get the local eigenvalues outside of the class
+  std::vector<ColorSpinorField *> &getEvecs(){ return eVecs;}
+  
+  /** @brief Accessor to get the Quda eigenvalues outside of the class
    */
-  std::vector<Complex>* getEvals_loc(){ return eVals_loc;}
+  std::vector<Complex>* getEvalsQuda(){ return eVals_quda;}
+  
+  /** @brief Accessor to get the Eigsolve_Mugiq eigenvalues outside of the class
+   */
+  std::vector<Complex> *getEvals(){ return eVals;}
   
   /** @brief Accessor to get the residual of the computed eigenvalues
    */
