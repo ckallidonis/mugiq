@@ -206,8 +206,9 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
 
   
   //- Assemble the coarse part of the loop
-  //- FIXME: Probably will need templates as well
-  assembleLoopCoarsePart_uLocal(eigsolve, unitGamma);
+  if(ePrec == QUDA_DOUBLE_PRECISION)      assembleLoopCoarsePart_uLocal<double>(eigsolve, unitGamma);
+  else if(ePrec == QUDA_SINGLE_PRECISION) assembleLoopCoarsePart_uLocal<float>(eigsolve, unitGamma);
+
   
   //- Clean-up
   for(int n=0;n<nUnit;n++) delete unitGamma[n];

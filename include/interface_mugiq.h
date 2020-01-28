@@ -11,6 +11,7 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
 template <typename Float>
 void createGammaCoeff();
 
-void assembleLoopCoarsePart_uLocal(Eigsolve_Mugiq *eigsolve, std::vector<ColorSpinorField*> unitGamma);
+template <typename Float>
+void assembleLoopCoarsePart_uLocal(Eigsolve_Mugiq *eigsolve, const std::vector<ColorSpinorField*> &unitGamma);
 
 #endif // _INTERFACE_MUGIQ_H
