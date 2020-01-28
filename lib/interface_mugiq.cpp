@@ -207,27 +207,42 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
 
   //- Assemble the coarse part of the loop
   void *loop_h = nullptr;
+  void *loop_dev = nullptr;
   int locVol = 1;
   for(int i=0;i<N_DIM_;i++) locVol *= unitGamma[0]->X(i);
-   
+  
   if(ePrec == QUDA_DOUBLE_PRECISION){
     size_t loopSize = sizeof(complex<double>) * locVol * N_GAMMA_;
     loop_h = static_cast<complex<double>*>(malloc(loopSize));
     if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
-    assembleLoopCoarsePart_uLocal<double>(static_cast<complex<double>*>(loop_h), eigsolve, unitGamma);
+    memset(loop_h, 0, loopSize);
+    cudaMalloc((void**)&loop_dev, loopSize);
+    checkCudaError();
+    cudaMemset(loop_dev, 0, loopSize);
+
+    assembleLoopCoarsePart_uLocal<double>(static_cast<complex<double>*>(loop_dev), eigsolve, unitGamma);
   }
   else if(ePrec == QUDA_SINGLE_PRECISION){
     size_t loopSize = sizeof(complex<float>) * locVol * N_GAMMA_;
     loop_h = static_cast<complex<float>*>(malloc(loopSize));
     if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
-    assembleLoopCoarsePart_uLocal<float>(static_cast<complex<float>*>(loop_h), eigsolve, unitGamma);
+    memset(loop_h, 0, loopSize);
+    cudaMalloc((void**)&loop_dev, loopSize);
+    checkCudaError();
+    cudaMemset(loop_dev, 0, loopSize);
+
+    assembleLoopCoarsePart_uLocal<float>(static_cast<complex<float>*>(loop_dev), eigsolve, unitGamma);
   }
   //-----------------------------------------------------------
 
+  //- Copy the device loop buffer back to host
+  cudaMemcpy(loop_h, loop_dev, sizeof(loop_h), cudaMemcpyDeviceToHost);
   
   //- Clean-up
   free(loop_h);
   loop_h = nullptr;
+  cudaFree(loop_dev);
+  loop_dev = nullptr;
   for(int n=0;n<nUnit;n++) delete unitGamma[n];
 
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);

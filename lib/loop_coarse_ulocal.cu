@@ -102,15 +102,15 @@ public:
  * The operation performed is:
  * L_n(x,t) = \sum_{m}^{Nev} lambda_m^{-1} v_m^\dag [\sum_{i,j}^{Ns*Nc} gcoeff(n)_{ij} e_i e_j^\dag] v_m
  */
-template void assembleLoopCoarsePart_uLocal<double>(complex<double> *loop_h,
+template void assembleLoopCoarsePart_uLocal<double>(complex<double> *loop_dev,
 						    Eigsolve_Mugiq *eigsolve,
 						    const std::vector<ColorSpinorField*> &unitGamma);
-template void assembleLoopCoarsePart_uLocal<float>(complex<float> *loop_h,
+template void assembleLoopCoarsePart_uLocal<float>(complex<float> *loop_dev,
 						   Eigsolve_Mugiq *eigsolve,
 						   const std::vector<ColorSpinorField*> &unitGamma);
 
 template <typename Float>
-void assembleLoopCoarsePart_uLocal(complex<Float> *loop_h,
+void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 				   Eigsolve_Mugiq *eigsolve,
 				   const std::vector<ColorSpinorField*> &unitGamma){
 
@@ -124,23 +124,14 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_h,
 
   if(arg.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
 
-  //- Allocate the device loop buffer
-  if(loop_h == NULL) errorQuda("%s: Host loop buffer not allocated correctly\n", __func__);
-  complex<Float> *loop_dev = NULL;
-  cudaMalloc((void**)&loop_dev, sizeof(loop_h));
-  checkCudaError();
-  cudaMemset(loop_dev, 0, sizeof(loop_h));
-
+  
   //- Create object of loop-assemble class, run the kernel
   //- TODO
 
-  cudaMemcpy(loop_h, loop_dev, sizeof(loop_h), cudaMemcpyDeviceToHost);
-
+  
   //- Clean-up
   cudaFree(arg_dev);
   arg_dev = nullptr;
-  cudaFree(loop_dev);
-  loop_dev = nullptr;
 
   printfQuda("%s: Ultra-local disconnected loop assembly completed\n", __func__);
 }
