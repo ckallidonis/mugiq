@@ -1,4 +1,4 @@
-#include <kernel_util.h>
+#include <utility_kernels.h>
 
 template __global__ void createGammaGenerators_kernel<double>(Arg_Gamma<double> *arg);
 template __global__ void createGammaGenerators_kernel<float>(Arg_Gamma<float> *arg);

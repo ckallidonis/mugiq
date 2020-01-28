@@ -25,9 +25,10 @@
 // MUGIQ header files
 #include <mugiq.h>
 #include <linalg_mugiq.h>
-//#include <eigsolve_mugiq.h>
+#include <eigsolve_mugiq.h>
 #include <mg_mugiq.h>
 #include <util_mugiq.h>
+#include <interface_mugiq.h>
 
 //- Profiling
 static quda::TimeProfile profileEigensolveMuGiq("computeEvecsMuGiq");
@@ -151,9 +152,11 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
 
   printfQuda("\n%s: Will compute disconnected loops using Multi-grid deflation!\n", __func__);  
 
+  QudaInvertParam *invParams = eigParams.invert_param;
+  
   pushVerbosity(eigParams.invert_param->verbosity);
   if (getVerbosity() >= QUDA_DEBUG_VERBOSE) {
-    printQudaInvertParam(eigParams.invert_param);
+    printQudaInvertParam(invParams);
     printQudaEigParam(&eigParams);
   }
 
@@ -170,11 +173,45 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   eigsolve->computeEvecs();
   eigsolve->computeEvals();
   eigsolve->printEvals();
+
   
-  //- Create the coarse part of the loop
-  assembleLoopCoarsePart(eigsolve);
+  //- Create coarse gamma-matrix unit vectors
+  int nUnit = SPINOR_SITE_LEN_;
+  std::vector<ColorSpinorField*> unitGamma; // These are coarse fields
+  
+  QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
+  if((ePrec != QUDA_DOUBLE_PRECISION) && (ePrec != QUDA_SINGLE_PRECISION))
+    errorQuda("%s: Unsupported precision for creating Coarse part of loop\n", __func__);
+  else printfQuda("%s: Working in %s precision\n", __func__, ePrec == QUDA_DOUBLE_PRECISION ? "double" : "single");
+
+  ColorSpinorParam ucsParam(*(eigsolve->getEvecs()[0]));
+  ucsParam.create = QUDA_ZERO_FIELD_CREATE;
+  ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
+  ucsParam.setPrecision(ePrec);
+  for(int n=0;n<nUnit;n++)
+    unitGamma.push_back(ColorSpinorField::Create(ucsParam));
+
+  if(ePrec == QUDA_DOUBLE_PRECISION)      createGammaCoarseVectors_uLocal<double>(unitGamma, mg_env, invParams);
+  else if(ePrec == QUDA_SINGLE_PRECISION) createGammaCoarseVectors_uLocal<float>(unitGamma, mg_env, invParams);
+  //-----------------------------------------------------------
+
+  
+  //- Create the coefficients of the gamma matrices and copy them to __constant__ memory
+  if((invParams->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS) &&
+     (mgParams.invert_param->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS))
+    errorQuda("%s: Supports only DeGrand-Rossi gamma basis\n", __func__);
+  if(ePrec == QUDA_DOUBLE_PRECISION) createGammaCoeff<double>();
+  else if(ePrec == QUDA_SINGLE_PRECISION) createGammaCoeff<float>();
+  //-----------------------------------------------------------
+
+  
+  //- Assemble the coarse part of the loop
+  //- FIXME: Probably will need templates as well
+  assembleLoopCoarsePart_uLocal(eigsolve, unitGamma);
   
   //- Clean-up
+  for(int n=0;n<nUnit;n++) delete unitGamma[n];
+
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
   delete eigsolve;
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);

@@ -1,5 +1,5 @@
-#ifndef _KERNEL_UTIL_H
-#define _KERNEL_UTIL_H
+#ifndef _KERNELS_MUGIQ_H
+#define _KERNELS_MUGIQ_H
 
 #include <mpi.h>
 #include <transfer.h>
@@ -122,13 +122,7 @@ constexpr int cSize_gamma = 36864;
 __constant__ char gCoeff_cMem[cSize_gamma]; //- GPU Constant memory buffer for gamma coefficients
 
 
-
-//- Declarations of utility kernels
-template <typename T>
-__global__ void createGammaGenerators_kernel(Arg_Gamma<T> *arg);
-
-
-#endif // _KERNEL_UTIL_H
+#endif // _KERNELS_MUGIQ_H
 
 
 

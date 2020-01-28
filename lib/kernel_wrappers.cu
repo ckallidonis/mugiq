@@ -1,7 +1,14 @@
 #include <mg_mugiq.h>
-#include <kernel_util.h>
+#include <eigsolve_mugiq.h>
+#include <utility_kernels.h>
+#include <interface_mugiq.h>
 
-template <typename T>
+template void createGammaCoarseVectors_uLocal<double>(std::vector<ColorSpinorField*> &unitGamma,
+						      MG_Mugiq *mg_env, QudaInvertParam *invParams);
+template void createGammaCoarseVectors_uLocal<float>(std::vector<ColorSpinorField*> &unitGamma,
+						     MG_Mugiq *mg_env, QudaInvertParam *invParams);
+
+template <typename Float>
 void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
 				     MG_Mugiq *mg_env, QudaInvertParam *invParams){
 
@@ -23,11 +30,11 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
   cudaParam.setPrecision(unitGamma[0]->Precision());
   for(int n=0;n<nUnit;n++) gammaGens[n] = ColorSpinorField::Create(cudaParam);
 
-  Arg_Gamma<T>  arg(gammaGens);
-  Arg_Gamma<T> *arg_dev;
-  cudaMalloc((void**)&(arg_dev), sizeof(Arg_Gamma<T>));
+  Arg_Gamma<Float>  arg(gammaGens);
+  Arg_Gamma<Float> *arg_dev;
+  cudaMalloc((void**)&(arg_dev), sizeof(Arg_Gamma<Float>));
   checkCudaError();
-  cudaMemcpy(arg_dev, &arg, sizeof(Arg_Gamma<T>), cudaMemcpyHostToDevice);
+  cudaMemcpy(arg_dev, &arg, sizeof(Arg_Gamma<Float>), cudaMemcpyHostToDevice);
   checkCudaError();
   
   if(arg.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
@@ -35,7 +42,7 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
   //- Call CUDA kernel
   dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, 1);
   dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);  
-  createGammaGenerators_kernel<T> <<<gridDim,blockDim>>>(arg_dev);
+  createGammaGenerators_kernel<Float> <<<gridDim,blockDim>>>(arg_dev);
   cudaDeviceSynchronize();
   checkCudaError();
   
@@ -82,11 +89,15 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
 }
 //-------------------------------------------------------------------------------
 
+
 /**
  * Create hard-coded gamma coefficients for the DeGrand-Rossi basis
  * Any Gamma matrix can be obtained as G(n) = \sum_{i,j=0}^{3} [c_n(i,j) * e(i) * e^dag(j)],
  * where c(i,j) are the coefficients, and e(i) are the gamma-matrix unity vectors/generators
  */
+template void createGammaCoeff<double>();
+template void createGammaCoeff<float>();
+
 template <typename Float> 
 void createGammaCoeff(){
 
@@ -154,46 +165,11 @@ void createGammaCoeff(){
 
 
 //- Top-level function, called from the interface
-void assembleLoopCoarsePart(Eigsolve_Mugiq *eigsolve){
+void assembleLoopCoarsePart_uLocal(Eigsolve_Mugiq *eigsolve, std::vector<ColorSpinorField*> unitGamma){
   
   QudaEigParam *eigParams = eigsolve->getEigParams();
   QudaInvertParam *invParams = eigsolve->getInvParams();
   MG_Mugiq *mg_env = eigsolve->getMGEnv();
-  
-  //- Create coarse gamma-matrix unit vectors
-  int nUnit = SPINOR_SITE_LEN_;
-  std::vector<ColorSpinorField*> unitGamma; // These are coarse fields
-
-  QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
-  if((ePrec != QUDA_DOUBLE_PRECISION) && (ePrec != QUDA_SINGLE_PRECISION))
-    errorQuda("%s: Unsupported precision for creating Coarse part of loop\n", __func__);
-  else printfQuda("%s: Working in %s precision\n", __func__, ePrec == QUDA_DOUBLE_PRECISION ? "double" : "single");
-  
-  ColorSpinorParam ucsParam(*(eigsolve->getEvecs()[0]));
-  ucsParam.create = QUDA_ZERO_FIELD_CREATE;
-  ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
-  ucsParam.setPrecision(ePrec);
-  for(int n=0;n<nUnit;n++)
-    unitGamma.push_back(ColorSpinorField::Create(ucsParam));
-
-  if(ePrec == QUDA_DOUBLE_PRECISION)
-    createGammaCoarseVectors_uLocal<double>(unitGamma, mg_env, invParams);
-  else if(ePrec == QUDA_SINGLE_PRECISION)
-    createGammaCoarseVectors_uLocal<float>(unitGamma, mg_env, invParams);
-  //-----------------------------------------------------------
-
-  
-  //- Create the coefficients of the gamma matrices and copy them to __constant__ memory
-  if((invParams->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS) &&
-     (mg_env->mgParams->invert_param->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS))
-    errorQuda("%s: Supports only DeGrand-Rossi gamma basis\n", __func__);
-  if(ePrec == QUDA_DOUBLE_PRECISION) createGammaCoeff<double>();
-  else if(ePrec == QUDA_SINGLE_PRECISION) createGammaCoeff<float>(); 
-  //-----------------------------------------------------------
-
-  
-  //- Clean-up
-  for(int n=0;n<nUnit;n++) delete unitGamma[n];
 
 }
 //-------------------------------------------------------------------------------

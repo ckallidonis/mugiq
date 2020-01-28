@@ -23,7 +23,7 @@ if(BUILD_MUGIQ_CUDA_LIB)
   # NVCC/CUDA objects
   set(MUGIQ_CUDA_OBJS
     # cmake-format: sortable
-    loop_coarse.cu utility_kernels.cu)
+    kernel_wrappers.cu utility_kernels.cu)
   # cmake-format: on
 
 
