@@ -165,11 +165,25 @@ void createGammaCoeff(){
 
 
 //- Top-level function, called from the interface
-void assembleLoopCoarsePart_uLocal(Eigsolve_Mugiq *eigsolve, std::vector<ColorSpinorField*> unitGamma){
-  
-  QudaEigParam *eigParams = eigsolve->getEigParams();
-  QudaInvertParam *invParams = eigsolve->getInvParams();
-  MG_Mugiq *mg_env = eigsolve->getMGEnv();
+template void assembleLoopCoarsePart_uLocal<double>(Eigsolve_Mugiq *eigsolve, const std::vector<ColorSpinorField*> &unitGamma);
+template void assembleLoopCoarsePart_uLocal<float>(Eigsolve_Mugiq *eigsolve, const std::vector<ColorSpinorField*> &unitGamma);
 
+template <typename Float> 
+void assembleLoopCoarsePart_uLocal(Eigsolve_Mugiq *eigsolve, const std::vector<ColorSpinorField*> &unitGamma){
+  
+  Arg_Loop_uLocal<Float> arg(unitGamma, eigsolve->getEvecs(), eigsolve->getEvals());
+  Arg_Loop_uLocal<Float> *arg_dev;
+  cudaMalloc((void**)&(arg_dev), sizeof(Arg_Loop_uLocal<Float>));
+  checkCudaError();
+  cudaMemcpy(arg_dev, &arg, sizeof(Arg_Loop_uLocal<Float>), cudaMemcpyHostToDevice);
+  checkCudaError();
+  
+  if(arg.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
+
+  //- Clean-up
+  cudaFree(arg_dev);
+  arg_dev = NULL;
+
+  printfQuda("%s: Ultra-local disconnected loop assembly completed\n", __func__);
 }
 //-------------------------------------------------------------------------------

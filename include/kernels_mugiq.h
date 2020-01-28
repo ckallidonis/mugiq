@@ -93,10 +93,10 @@ struct ArgGeom {
 
 
 //- Structure used for creating the gamma matrix generators
-template <typename T>
+template <typename Float>
 struct Arg_Gamma : public ArgGeom {
 
-  typename FieldMapper<T>::FermionField gammaGens[SPINOR_SITE_LEN_];  
+  typename FieldMapper<Float>::FermionField gammaGens[SPINOR_SITE_LEN_];  
   int nVec;
   
   Arg_Gamma () {}
@@ -106,12 +106,63 @@ struct Arg_Gamma : public ArgGeom {
       nVec(gammaGens_.size())
   {
     if(nVec!=SPINOR_SITE_LEN_)
-      errorQuda("%s: Size of Gamma generators must be Nspin*Ncolor = %d", __func__, SPINOR_SITE_LEN_);
+      errorQuda("%s: Size of Gamma generators must be Nspin*Ncolor = %d\n", __func__, SPINOR_SITE_LEN_);
     
     for(int ivec=0;ivec<nVec;ivec++)
       gammaGens[ivec].init(*gammaGens_[ivec]);
   }
   
+};
+
+
+//- Structure used for creating the gamma matrix generators
+template <typename Float>
+struct Arg_Loop_uLocal : public ArgGeom {
+  
+  typedef typename FieldMapper<Float>::FermionField FermionField_;
+  
+  //- Coarse unity gamma vectors
+  FermionField_ unitGamma[SPINOR_SITE_LEN_];
+  
+  //- Eigenvectors of coarse operator
+  FermionField_ eVecs[MUGIQ_MAX_COARSE_VEC];
+
+  //- Inverse of coarse operator eigenvalues
+  complex<Float> eVals_inv[MUGIQ_MAX_COARSE_VEC];
+  
+  //- Number of coarse eigenpairs
+  int nEvec;
+  
+  //- Number of unity gamma vectors (for sanity checks)
+  int nUnit;
+  
+  Arg_Loop_uLocal () {}
+
+  Arg_Loop_uLocal(const std::vector<ColorSpinorField*> &unitGamma_,
+		  const std::vector<ColorSpinorField*> &eVecs_,
+		  std::vector<Complex> *eVals_)
+    : ArgGeom(unitGamma_[0]),
+      nEvec(eVecs_.size()),
+      nUnit(unitGamma_.size())
+  {
+    //- Sanity checks
+    if(nUnit != SPINOR_SITE_LEN_)
+      errorQuda("%s: Size of Gamma coarse unit vectors must be Nspin*Ncolor = %d\n", __func__, SPINOR_SITE_LEN_);
+    if(nEvec > MUGIQ_MAX_COARSE_VEC)
+      errorQuda("%s: Size of coarse eigenvectors %d is biggger than maximum allowed %d\n", __func__, nEvec, MUGIQ_MAX_COARSE_VEC);
+    
+    //- Initialize unitGamma vectors
+    for(int n=0;n<nUnit;n++)
+      unitGamma[n].init(*unitGamma_[n]);
+        
+    //- Initialize coarse eigenvectors and eigenvalues
+    for(int n=0;n<nEvec;n++){
+      eVecs[n].init(*eVecs_[n]);
+      eVals_inv[n] = static_cast<complex<Float>>(1.0 / (*eVals_)[n]);
+    }
+    
+  }
+
 };
 
 
