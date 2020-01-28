@@ -8,7 +8,7 @@ class assembleLoop_uLocal : public TunableVectorY {
   
 protected:
   void *arg_dev;
-  const cudaColorSpinorField *meta;
+  const ColorSpinorField *meta;
   complex<Float> *loop_dev;
   int Nc;
   int Ns;
@@ -48,9 +48,9 @@ protected:
   
   
 public:
-  assembleLoop_uLocal(const cudaColorSpinorField *meta_, void *arg_dev_,
+  assembleLoop_uLocal(const ColorSpinorField *meta_, void *arg_dev_,
 		      complex<Float> *loop_dev_,
-		      int blockdimZ_, size_t shmem_per_site_)
+    		      int blockdimZ_, size_t shmem_per_site_)
     : TunableVectorY(meta_->SiteSubset()), meta(meta_),
       arg_dev(arg_dev_), loop_dev(loop_dev_),
       Nc(N_COLOR_), Ns(N_SPIN_),
@@ -74,7 +74,7 @@ public:
 		 (long)tp.block.x, (long)tp.block.y, (long)tp.block.z,
 		 (long)tp.shared_bytes);
     
-    loop_ulocal_kernel<<<tp.grid, tp.block, tp.shared_bytes, stream>>>(loop_dev, (Arg_Loop_uLocal<Float>*)arg_dev);
+    //    loop_ulocal_kernel<<<tp.grid, tp.block, tp.shared_bytes, stream>>>(loop_dev, (Arg_Loop_uLocal<Float>*)arg_dev);
   }
   
   void initTuneParam(TuneParam &param) const
@@ -127,8 +127,31 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
   
   //- Create object of loop-assemble class, run the kernel
   //- TODO
-
+  int block_dim_z = N_GAMMA_;
+  size_t shMem_per_site = sizeof(complex<Float>)*N_GAMMA_*SPINOR_SITE_LEN_*2;
   
+  assembleLoop_uLocal<Float> loop_uLocal(unitGamma[0], (void*)arg_dev, loop_dev,
+					 block_dim_z, shMem_per_site);
+
+  /*
+  assembleLoop_uLocal(const cudaColorSpinorField *meta_, void *arg_dev_,
+                      complex<Float> *loop_dev_,
+                      int blockdimZ_, size_t shmem_per_site_)
+  */
+  
+  if(getVerbosity() >= QUDA_VERBOSE){
+    printfQuda("%s: loop_uLocal::Flops = %lld\n", __func__, loop_uLocal.getFlops());
+    printfQuda("%s: loop_uLocal::Bytes = %lld\n", __func__, loop_uLocal.getBytes());
+  }
+  
+  double t1 = MPI_Wtime();
+  loop_uLocal.apply(0);
+  cudaDeviceSynchronize();
+  checkCudaError();
+  double t2 = MPI_Wtime();
+  if(getVerbosity() >= QUDA_VERBOSE)
+    printfQuda("TIMING - %s: Ultra-local loop assemble kernel: %f sec\n", __func__, t2-t1);  
+
   //- Clean-up
   cudaFree(arg_dev);
   arg_dev = nullptr;

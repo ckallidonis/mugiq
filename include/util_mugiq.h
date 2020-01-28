@@ -4,7 +4,7 @@
 #define N_DIM_ 4
 #define N_SPIN_ 4
 #define N_COLOR_ 3
-#define N_GAMMA_ 16
+#define N_GAMMA_ (N_SPIN_ * N_SPIN_)
 #define SPINOR_SITE_LEN_ (N_SPIN_ * N_COLOR_)
 #define GAUGE_SITE_LEN_ (N_COLOR_ * N_COLOR_)
 #define GAMMA_LEN_ (N_SPIN_ * N_SPIN_)
