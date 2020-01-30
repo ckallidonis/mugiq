@@ -18,7 +18,7 @@
 using namespace quda;
 
 
-//- Templates of the Fermion/Gauge mappers on the precision
+//- Templates of the Fermion/Gauge mappers on the precision, used for fine fields
 template <typename T> struct FieldMapper {};
 
 template <> struct FieldMapper<double> {
@@ -116,16 +116,17 @@ struct Arg_Gamma : public ArgGeom {
 
 
 //- Structure used for creating the gamma matrix generators
-template <typename Float>
-struct Arg_Loop_uLocal : public ArgGeom {
-  
-  typedef typename FieldMapper<Float>::FermionField FermionField_;
+template <typename Float, int Nspin, int Ncolor>
+struct Arg_CoarseLoop_uLocal : public ArgGeom {
+
+  typedef typename colorspinor_mapper<Float, Nspin, Ncolor>::type CoarseFermionField;
+  //  typedef typename FieldMapper<Float>::FermionField FermionField_;
   
   //- Coarse unity gamma vectors
-  FermionField_ unitGamma[SPINOR_SITE_LEN_];
+  CoarseFermionField unitGamma[SPINOR_SITE_LEN_];
   
   //- Eigenvectors of coarse operator
-  FermionField_ eVecs[MUGIQ_MAX_COARSE_VEC];
+  CoarseFermionField eVecs[MUGIQ_MAX_COARSE_VEC];
 
   //- Inverse of coarse operator eigenvalues
   complex<Float> eVals_inv[MUGIQ_MAX_COARSE_VEC];
@@ -135,15 +136,35 @@ struct Arg_Loop_uLocal : public ArgGeom {
   
   //- Number of unity gamma vectors (for sanity checks)
   int nUnit;
-  
-  Arg_Loop_uLocal () {}
 
-  Arg_Loop_uLocal(const std::vector<ColorSpinorField*> &unitGamma_,
-		  const std::vector<ColorSpinorField*> &eVecs_,
-		  std::vector<Complex> *eVals_)
+  //- Shared memory elements per site
+  long long shMemElemSite;
+
+  //- Size of shared memory per site, in bytes
+  size_t shMemSiteBytes;
+
+  //- Number of (coarse) spins
+  int Ns;
+
+  //- Number of (coarse) colors
+  int Nc;
+
+  int coarseSiteLen;
+  
+  Arg_CoarseLoop_uLocal () {}
+
+  Arg_CoarseLoop_uLocal(const std::vector<ColorSpinorField*> &unitGamma_,
+			const std::vector<ColorSpinorField*> &eVecs_,
+			std::vector<Complex> *eVals_,
+			long long shMemElemSite_)
     : ArgGeom(unitGamma_[0]),
       nEvec(eVecs_.size()),
-      nUnit(unitGamma_.size())
+      nUnit(unitGamma_.size()),
+      shMemElemSite(shMemElemSite_),
+      shMemSiteBytes(sizeof(complex<Float>)*shMemElemSite),
+      Ns(Nspin),
+      Nc(Ncolor),
+      coarseSiteLen(Ns*Nc)
   {
     //- Sanity checks
     if(nUnit != SPINOR_SITE_LEN_)
@@ -168,18 +189,13 @@ struct Arg_Loop_uLocal : public ArgGeom {
 
 //- Declaration of variables and functions related to gamma matrices
 //- GPU Constant memory size for Gamma matrix coeffs
-//- Size is Ngamma(16)*Nspin*Ncolor*Nspin*Ncolor*2(re-im)*8(bytes) = 36KB
-constexpr int cSize_gamma = 36864;
+//- (Maximum) size is Ngamma(16)*Nspin*Ncolor*Nspin*Ncolor*2(re-im)*8(bytes) = 36KB
+constexpr int cSize_gamma = N_GAMMA_*N_SPIN_*N_COLOR_*N_SPIN_*N_COLOR_*2*8;
 __constant__ char gCoeff_cMem[cSize_gamma]; //- GPU Constant memory buffer for gamma coefficients
 
 
 #endif // _KERNELS_MUGIQ_H
 
-
-
-#if 0
-  Arg_Gamma(ColorSpinorField **gammaGens_)
-#endif
 
 #if 0
 //  std::vector<typename FieldMapper<T>::FermionField> gammaGens;
