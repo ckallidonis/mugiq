@@ -626,8 +626,9 @@ void setLoopParam(MugiqLoopParam &loopParams){
     }
     else errorQuda("%s: Incorrect file format in Line %d\n", __func__, Nmom);
   }//- while
-
-  printfQuda("%s: Will calculate the loop for the following %d momenta:\n", __func__, Nmom);
+  loopParams.Nmom = Nmom;
+  
+  printfQuda("%s: Will calculate the loop for the following %d momenta:\n", __func__, loopParams.Nmom);
   for(int n=0;n<Nmom;n++)
       printfQuda(" Mom[%d] = %d %d %d\n", n, loopParams.momMatrix[n][0], loopParams.momMatrix[n][1], loopParams.momMatrix[n][2]);
   
