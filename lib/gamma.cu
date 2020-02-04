@@ -3,38 +3,44 @@
 #include <utility_kernels.h>
 #include <interface_mugiq.h>
 
-template void createGammaCoarseVectors_uLocal<double>(std::vector<ColorSpinorField*> &unitGamma,
-						      MG_Mugiq *mg_env, QudaInvertParam *invParams);
-template void createGammaCoarseVectors_uLocal<float>(std::vector<ColorSpinorField*> &unitGamma,
-						     MG_Mugiq *mg_env, QudaInvertParam *invParams);
+template void createGammaCoarseVectors_uLocal<double>(std::vector<ColorSpinorField*> &unitGammaPos,
+						      std::vector<ColorSpinorField*> &unitGammaMom,
+						      MG_Mugiq *mg_env, QudaInvertParam *invParams,
+						      MugiqLoopParam *loopParams);
+template void createGammaCoarseVectors_uLocal<float>(std::vector<ColorSpinorField*> &unitGammaPos,
+						     std::vector<ColorSpinorField*> &unitGammaMom,
+						     MG_Mugiq *mg_env, QudaInvertParam *invParams,
+						     MugiqLoopParam *loopParams);
 
 template <typename Float>
-void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
-				     MG_Mugiq *mg_env, QudaInvertParam *invParams){
+void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPos,
+				     std::vector<ColorSpinorField*> &unitGammaMom,
+				     MG_Mugiq *mg_env, QudaInvertParam *invParams,
+				     MugiqLoopParam *loopParams){
 
-  int nUnit = unitGamma.size();
+  int nUnit = unitGammaPos.size();
   const int *X = mg_env->mg_solver->B[0]->X();
 
-  std::vector<ColorSpinorField*> gammaGens; // These are fine fields
-  gammaGens.resize(nUnit);
+  std::vector<ColorSpinorField*> gammaGensPos; // These are fine fields
+  gammaGensPos.resize(nUnit);
   ColorSpinorParam cpuParam(NULL, *invParams, X,
 			    invParams->solution_type, invParams->input_location);
-  cpuParam.fieldOrder = unitGamma[0]->FieldOrder();
-  cpuParam.siteOrder  = unitGamma[0]->SiteOrder();
-  cpuParam.setPrecision(unitGamma[0]->Precision());
+  cpuParam.fieldOrder = unitGammaPos[0]->FieldOrder();
+  cpuParam.siteOrder  = unitGammaPos[0]->SiteOrder();
+  cpuParam.setPrecision(unitGammaPos[0]->Precision());
   ColorSpinorParam cudaParam(cpuParam);
-  cudaParam.fieldOrder = unitGamma[0]->FieldOrder();
-  cudaParam.siteOrder  = unitGamma[0]->SiteOrder();
+  cudaParam.fieldOrder = unitGammaPos[0]->FieldOrder();
+  cudaParam.siteOrder  = unitGammaPos[0]->SiteOrder();
   cudaParam.location   = QUDA_CUDA_FIELD_LOCATION;
   cudaParam.create     = QUDA_ZERO_FIELD_CREATE;
-  cudaParam.setPrecision(unitGamma[0]->Precision());
-  for(int n=0;n<nUnit;n++) gammaGens[n] = ColorSpinorField::Create(cudaParam);
+  cudaParam.setPrecision(unitGammaPos[0]->Precision());
+  for(int n=0;n<nUnit;n++) gammaGensPos[n] = ColorSpinorField::Create(cudaParam);
 
-  Arg_Gamma<Float>  arg(gammaGens);
-  Arg_Gamma<Float> *arg_dev;
-  cudaMalloc((void**)&(arg_dev), sizeof(Arg_Gamma<Float>));
+  ArgGammaPos<Float>  arg(gammaGensPos);
+  ArgGammaPos<Float> *arg_dev;
+  cudaMalloc((void**)&(arg_dev), sizeof(ArgGammaPos<Float>));
   checkCudaError();
-  cudaMemcpy(arg_dev, &arg, sizeof(Arg_Gamma<Float>), cudaMemcpyHostToDevice);
+  cudaMemcpy(arg_dev, &arg, sizeof(ArgGammaPos<Float>), cudaMemcpyHostToDevice);
   checkCudaError();
   
   if(arg.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
@@ -42,7 +48,7 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
   //- Call CUDA kernel
   dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, 1);
   dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);  
-  createGammaGenerators_kernel<Float> <<<gridDim,blockDim>>>(arg_dev);
+  createGammaGeneratorsPos_kernel<Float> <<<gridDim,blockDim>>>(arg_dev);
   cudaDeviceSynchronize();
   checkCudaError();
   
@@ -51,7 +57,7 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
   
   std::vector<ColorSpinorField *> tmpCSF;
   ColorSpinorParam csParam(*(mg_env->mg_solver->B[0]));
-  QudaPrecision coarsePrec = unitGamma[0]->Precision();
+  QudaPrecision coarsePrec = unitGammaPos[0]->Precision();
   csParam.create = QUDA_ZERO_FIELD_CREATE;
   csParam.setPrecision(coarsePrec);
   
@@ -67,21 +73,21 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
   //- Restrict the gamma generators consecutively to get
   //- the unity Gamma vectors at the coarsest level
   for (int n=0; n<nUnit;n++){
-    *(tmpCSF[0]) = *(gammaGens[n]);
+    *(tmpCSF[0]) = *(gammaGensPos[n]);
     for(int lev=0;lev<nextCoarse;lev++){
       blas::zero(*tmpCSF[lev+1]);
       if(!mg_env->transfer[lev]) errorQuda("%s: For - Transfer operator for level %d does not exist!\n", __func__, lev);
       mg_env->transfer[lev]->R(*(tmpCSF[lev+1]), *(tmpCSF[lev]));
     }
-    blas::zero(*unitGamma[n]);
+    blas::zero(*unitGammaPos[n]);
     if(!mg_env->transfer[nextCoarse]) errorQuda("%s: Out - Transfer operator for coarsest level does not exist!\n", __func__, nextCoarse);
-    mg_env->transfer[nextCoarse]->R(*(unitGamma[n]), *(tmpCSF[nextCoarse]));
+    mg_env->transfer[nextCoarse]->R(*(unitGammaPos[n]), *(tmpCSF[nextCoarse]));
   }
   
   //- Clean-up
   int nTmp = static_cast<int>(tmpCSF.size());
   for(int i=0;i<nTmp;i++)  delete tmpCSF[i];
-  for(int n=0;n<nUnit;n++) delete gammaGens[n];
+  for(int n=0;n<nUnit;n++) delete gammaGensPos[n];
   cudaFree(arg_dev);
   arg_dev = NULL;
 

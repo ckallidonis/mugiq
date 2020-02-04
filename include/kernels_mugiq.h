@@ -92,24 +92,24 @@ struct ArgGeom {
 };//-- ArgGeom
 
 
-//- Structure used for creating the gamma matrix generators
+//- Structure used for creating the gamma matrix generators with no phase info
 template <typename Float>
-struct Arg_Gamma : public ArgGeom {
+struct ArgGammaPos : public ArgGeom {
 
-  typename FieldMapper<Float>::FermionField gammaGens[SPINOR_SITE_LEN_];  
+  typename FieldMapper<Float>::FermionField gammaGensPos[SPINOR_SITE_LEN_];  
   int nVec;
   
-  Arg_Gamma () {}
+  ArgGammaPos () {}
 
-  Arg_Gamma(std::vector<ColorSpinorField*> &gammaGens_)
-    : ArgGeom(gammaGens_[0]),
-      nVec(gammaGens_.size())
+  ArgGammaPos(std::vector<ColorSpinorField*> &gammaGensPos_)
+    : ArgGeom(gammaGensPos_[0]),
+      nVec(gammaGensPos_.size())
   {
     if(nVec!=SPINOR_SITE_LEN_)
       errorQuda("%s: Size of Gamma generators must be Nspin*Ncolor = %d\n", __func__, SPINOR_SITE_LEN_);
     
     for(int ivec=0;ivec<nVec;ivec++)
-      gammaGens[ivec].init(*gammaGens_[ivec]);
+      gammaGensPos[ivec].init(*gammaGensPos_[ivec]);
   }
   
 };
@@ -198,7 +198,7 @@ __constant__ char gCoeff_cMem[cSize_gamma]; //- GPU Constant memory buffer for g
 
 
 #if 0
-//  std::vector<typename FieldMapper<T>::FermionField> gammaGens;
+//  std::vector<typename FieldMapper<T>::FermionField> gammaGensPos;
 
 typedef typename colorspinor_mapper<double,N_SPIN_,N_COLOR_>::type Fermion;
 

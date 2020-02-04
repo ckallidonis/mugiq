@@ -8,6 +8,6 @@ using namespace quda;
 //- Forward declarations of utility kernels
 
 template <typename T>
-__global__ void createGammaGenerators_kernel(Arg_Gamma<T> *arg);
+__global__ void createGammaGeneratorsPos_kernel(ArgGammaPos<T> *arg);
 
 #endif // _UTILITY_KERNELS_H

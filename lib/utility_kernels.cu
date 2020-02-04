@@ -1,10 +1,10 @@
 #include <utility_kernels.h>
 
-template __global__ void createGammaGenerators_kernel<double>(Arg_Gamma<double> *arg);
-template __global__ void createGammaGenerators_kernel<float>(Arg_Gamma<float> *arg);
+template __global__ void createGammaGeneratorsPos_kernel<double>(ArgGammaPos<double> *arg);
+template __global__ void createGammaGeneratorsPos_kernel<float>(ArgGammaPos<float> *arg);
 
 template <typename T>
-__global__ void createGammaGenerators_kernel(Arg_Gamma<T> *arg){
+__global__ void createGammaGeneratorsPos_kernel(ArgGammaPos<T> *arg){
 
   int x_cb = blockIdx.x*blockDim.x + threadIdx.x;
   int pty  = blockIdx.y*blockDim.y + threadIdx.y;
@@ -28,7 +28,7 @@ __global__ void createGammaGenerators_kernel(Arg_Gamma<T> *arg){
 	}//- jc
       }//- js
       int vIdx = GAMMA_GEN_IDX(is,ic);
-      arg->gammaGens[vIdx](x_cb,pty) = v;
+      arg->gammaGensPos[vIdx](x_cb,pty) = v;
     }//- ic
   }//- is  
 }

@@ -179,6 +179,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
   //- Create coarse gamma-matrix unit vectors
   int nUnit = SPINOR_SITE_LEN_;
   std::vector<ColorSpinorField*> unitGammaPos; // These are coarse fields (no phase)
+  std::vector<ColorSpinorField*> unitGammaMom; // These are coarse fields with FT phase information
   
   
   QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
@@ -190,11 +191,16 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
   ucsParam.create = QUDA_ZERO_FIELD_CREATE;
   ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
   ucsParam.setPrecision(ePrec);
-  for(int n=0;n<nUnit;n++)
+  for(int n=0;n<nUnit;n++){
     unitGammaPos.push_back(ColorSpinorField::Create(ucsParam));
-
-  if(ePrec == QUDA_DOUBLE_PRECISION)      createGammaCoarseVectors_uLocal<double>(unitGammaPos, mg_env, invParams);
-  else if(ePrec == QUDA_SINGLE_PRECISION) createGammaCoarseVectors_uLocal<float>(unitGammaPos, mg_env, invParams);
+    for(int m=0;m<loopParams.Nmom;m++)
+      unitGammaMom.push_back(ColorSpinorField::Create(ucsParam)); // mom + Nmom * n
+  }
+    
+  if(ePrec == QUDA_DOUBLE_PRECISION)
+    createGammaCoarseVectors_uLocal<double>(unitGammaPos, unitGammaMom, mg_env, invParams, &loopParams);
+  else if(ePrec == QUDA_SINGLE_PRECISION)
+    createGammaCoarseVectors_uLocal<float>(unitGammaPos, unitGammaMom, mg_env, invParams, &loopParams);
   //-----------------------------------------------------------
 
   
@@ -245,6 +251,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
   cudaFree(loop_dev);
   loop_dev = nullptr;
   for(int n=0;n<nUnit;n++) delete unitGammaPos[n];
+  for(int n=0;n<nUnit*loopParams.Nmom;n++) delete unitGammaMom[n];
 
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
   delete eigsolve;

@@ -1,6 +1,7 @@
 #ifndef _INTERFACE_MUGIQ_H
 #define _INTERFACE_MUGIQ_H
 
+#include <mugiq.h>
 
 using namespace quda;
 
@@ -10,8 +11,10 @@ quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
 
 //- Forward declarations of functions called from functions inside interface_mugiq.cpp
 template <typename Float>
-void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGamma,
-                                     MG_Mugiq *mg_env, QudaInvertParam *invParams);
+void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPos,
+				     std::vector<ColorSpinorField*> &unitGammaMom,
+                                     MG_Mugiq *mg_env, QudaInvertParam *invParams,
+				     MugiqLoopParam *loopParams);
 
 template <typename Float>
 void createGammaCoeff();
