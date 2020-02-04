@@ -45,32 +45,44 @@ struct ArgGeom {
   int nParity;                // number of parities we're working on
   int nFace;                  // hard code to 1 for now
   int dim[5];                 // full lattice dimensions
-  int commDim[4];             // whether a given dimension is partitioned or not
-  int lL[4];                  // 4-d local lattice dimensions
+  int commDim[4];             // number of processes in dimension dim
+  int commDimPartitioned[4];  // whether a given dimension is partitioned or not
+  int commCoord[4];           // process coordinates
+  int localL[4];              // 4-d local lattice dimensions
+  int globalL[4];             // 4-d global lattice dimensions
   int volumeCB;               // checkerboarded volume
   int volume;                 // full-site local volume
   
   int dimEx[4]; // extended Gauge field dimensions
   int brd[4];   // Border of extended gauge field (size of extended halos)
   
-  ArgGeom () {}
-  
   ArgGeom(ColorSpinorField *x)
     : parity(0), nParity(x->SiteSubset()), nFace(1),
       dim{ (3-nParity) * x->X(0), x->X(1), x->X(2), x->X(3), 1 },
-      commDim{comm_dim_partitioned(0), comm_dim_partitioned(1), comm_dim_partitioned(2), comm_dim_partitioned(3)},
-      lL{x->X(0), x->X(1), x->X(2), x->X(3)},
-      volumeCB(x->VolumeCB()), volume(x->Volume())
-  { }
+      commDim{comm_dim(0), comm_dim(1), comm_dim(2), comm_dim(3)},
+      commDimPartitioned{comm_dim_partitioned(0), comm_dim_partitioned(1), comm_dim_partitioned(2), comm_dim_partitioned(3)},
+      commCoord{comm_coord(0),comm_coord(1),comm_coord(2),comm_coord(3)},
+      localL{x->X(0), x->X(1), x->X(2), x->X(3)},
+      globalL{0,0,0,0},
+      volumeCB(x->VolumeCB()), volume(x->Volume()),
+      dimEx{0,0,0,0}, brd{0,0,0,0}
+  {
+    for(int dir=0;dir<4;dir++) globalL[dir] = localL[dir] * commDim[dir];
+  }
 
   ArgGeom(cudaGaugeField *u)
     : parity(0), nParity(u->SiteSubset()), nFace(1),
-      commDim{comm_dim_partitioned(0), comm_dim_partitioned(1), comm_dim_partitioned(2), comm_dim_partitioned(3)},
-      lL{u->X()[0], u->X()[1], u->X()[2], u->X()[3]}
+      commDimPartitioned{comm_dim_partitioned(0), comm_dim_partitioned(1), comm_dim_partitioned(2), comm_dim_partitioned(3)},
+      commCoord{comm_coord(0),comm_coord(1),comm_coord(2),comm_coord(3)},
+      localL{u->X()[0], u->X()[1], u->X()[2], u->X()[3]},
+      globalL{0,0,0,0},
+      dim{0,0,0,0,0}, volume(0), volumeCB(0),
+      dimEx{0,0,0,0}, brd{0,0,0,0}
   {
     if(u->GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED){
       volume = 1;
       for(int dir=0;dir<4;dir++){
+	globalL[dir] = localL[dir] * commDim[dir];
 	dim[dir] = u->X()[dir] - 2*u->R()[dir];   //-- Actual lattice dimensions (NOT extended)
 	dimEx[dir] = dim[dir] + 2*u->R()[dir];    //-- Extended lattice dimensions
 	brd[dir] = u->R()[dir];
@@ -110,6 +122,40 @@ struct ArgGammaPos : public ArgGeom {
     
     for(int ivec=0;ivec<nVec;ivec++)
       gammaGensPos[ivec].init(*gammaGensPos_[ivec]);
+  }
+  
+};
+
+
+//- Structure used for creating the gamma matrix generators in momentum spaceo
+template <typename Float>
+struct ArgGammaMom : public ArgGeom {
+
+  typename FieldMapper<Float>::FermionField gammaGensMom[SPINOR_SITE_LEN_];
+  int nVec;
+  int mom[3];
+  int d_mom;
+  int FTSign;
+  
+  ArgGammaMom () {}
+
+  ArgGammaMom(std::vector<ColorSpinorField*> &gammaGensMom_, std::vector<int> mom_, LoopFTSign FTSign_)
+    : ArgGeom(gammaGensMom_[0]),
+      nVec(gammaGensMom_.size()),
+      mom{0,0,0},
+      d_mom(mom_.size()),
+      FTSign(FTSign_ == LOOP_FT_SIGN_PLUS ? 1 : -1)
+  {
+    if(d_mom != MOM_DIM_)
+      errorQuda("%s: Unsupported size of momentum vector %d. Must be %d\n", __func__, mom_.size(), MOM_DIM_);
+    if(nVec!=SPINOR_SITE_LEN_)
+      errorQuda("%s: Size of Gamma generators must be Nspin*Ncolor = %d\n", __func__, SPINOR_SITE_LEN_);
+
+    //- Initialize momentum in constructor instead of initializer list to avoid potential seg.fault
+    for(int n=0;n<d_mom;n++) mom[n] = mom_[n];
+    
+    for(int ivec=0;ivec<nVec;ivec++)
+      gammaGensMom[ivec].init(*gammaGensMom_[ivec]);
   }
   
 };
