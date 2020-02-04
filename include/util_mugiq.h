@@ -1,6 +1,11 @@
 #ifndef _MUGIQ_UTIL_H
 #define _MUGIQ_UTIL_H
 
+#include <enum_mugiq.h>
+
+#define PI 2.0*asin(1.0)
+
+#define MOM_DIM_ 3
 #define N_DIM_ 4
 #define N_SPIN_ 4
 #define N_COLOR_ 3
