@@ -9,12 +9,17 @@
 MuGiqTask mugiq_task = MUGIQ_TASK_INVALID;
 MuGiqEigOperator mugiq_eig_operator = MUGIQ_EIG_OPERATOR_INVALID;
 
+char mugiq_mom_filename[1024] = "momenta.txt";
+
 namespace {
   CLI::TransformPairs<MuGiqTask> mugiq_task_map {{"computeEvecsQuda", MUGIQ_COMPUTE_EVECS_QUDA},
 						 {"computeEvecs", MUGIQ_COMPUTE_EVECS_MUGIQ},
 						 {"computeLoopULocal", MUGIQ_COMPUTE_LOOP_ULOCAL}};
   CLI::TransformPairs<MuGiqEigOperator> mugiq_eig_optr_map {{"mg", MUGIQ_EIG_OPERATOR_MG},
 							    {"no_mg", MUGIQ_EIG_OPERATOR_NO_MG}};
+
+  CLI::TransformPairs<MuGiqEigOperator> mugiq_mom_filename_map {{"mg", MUGIQ_EIG_OPERATOR_MG},
+								{"no_mg", MUGIQ_EIG_OPERATOR_NO_MG}};
 }
 
 
@@ -25,9 +30,19 @@ void add_eigen_option_mugiq(std::shared_ptr<QUDAApp> app)
 
   opgroup->add_option("--mugiq-task", mugiq_task,
 		      "Task to perform in the eigensolve test, options are computeEvecs/computeEvecsQuda (default NULL)")->transform(CLI::QUDACheckedTransformer(mugiq_task_map));
-
+  
   opgroup->add_option("--mugiq-eig-operator", mugiq_eig_operator,
 		      "Operator of which to calculate eigen-pairs, options are no_mg/mg (default NULL)")->transform(CLI::QUDACheckedTransformer(mugiq_eig_optr_map));
+}
+
+
+// Options for Loop Calculation
+void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app)
+{ 
+  auto opgroup = app->add_option_group("Loop-MuGiq", "Loop Options within MuGiq");
+  
+  opgroup->add_option("--momenta-filename", mugiq_mom_filename, "Filename with the momenta for Fourier Transform of the loop (default 'momenta.txt')");
+
 }
 
 

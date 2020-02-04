@@ -10,10 +10,13 @@
 #include <mugiq.h>
 
 void add_eigen_option_mugiq(std::shared_ptr<QUDAApp> app);
+void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app);
 
 //- External variables used in tests
 extern MuGiqTask mugiq_task;
 extern MuGiqEigOperator mugiq_eig_operator;
+
+extern char mugiq_mom_filename[1024];
 
 /*
 class MUGIQApp : public CLI::App

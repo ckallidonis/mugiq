@@ -4,6 +4,7 @@
 #include <math.h>
 #include <string.h>
 #include <algorithm>
+#include <fstream>
 
 #include <util_quda.h>
 #include <test_util.h>
@@ -604,6 +605,37 @@ void setMultigridParam(QudaMultigridParam &mg_param)
 //-------------------------------------------------------------------------------
 
 
+void setLoopParam(MugiqLoopParam &loopParams){
+
+  const int NspDim = 3; // Number of spatial dimensions
+
+  //- Open file to read momenta
+  std::ifstream momFile;
+  
+  momFile.open(mugiq_mom_filename);
+  if(!momFile) errorQuda("%s: Cannot open file %s to read momenta (option --momenta-filename)\n", __func__, mugiq_mom_filename);
+
+  std::vector<int> mVec(NspDim, 0);
+  std::string line;
+  int Nmom = 0;
+  while(getline(momFile, line)){
+    std::istringstream iss(line);
+    if (iss >> mVec[0] >> mVec[1] >> mVec[2]){
+      Nmom++;
+      loopParams.momMatrix.push_back(mVec);
+    }
+    else errorQuda("%s: Incorrect file format in Line %d\n", __func__, Nmom);
+  }//- while
+
+  printfQuda("%s: Will calculate the loop for the following %d momenta:\n", __func__, Nmom);
+  for(int n=0;n<Nmom;n++)
+      printfQuda(" Mom[%d] = %d %d %d\n", n, loopParams.momMatrix[n][0], loopParams.momMatrix[n][1], loopParams.momMatrix[n][2]);
+  
+  momFile.close();
+
+}
+
+
 int main(int argc, char **argv)
 {
   // Parse QUDA and MuGiq command line options
@@ -614,6 +646,9 @@ int main(int argc, char **argv)
   //- Parse MG parameters
   setDefaultMGParams(); //- Det default values before parsing
   add_multigrid_option_group(app);
+
+  //- Parse Loop Parameters
+  add_loop_option_mugiq(app);
   
   try {
     app->parse(argc, argv);
@@ -650,6 +685,11 @@ int main(int argc, char **argv)
   if (eig_param.arpack_check)
     errorQuda("MuGiq does not support ARPACK!\n");
 
+
+  MugiqLoopParam loopParams;
+  setLoopParam(loopParams);
+
+  
   QudaMultigridParam mg_param;
   QudaInvertParam mg_inv_param;
   QudaEigParam mg_eig_param[mg_levels];
@@ -767,7 +807,7 @@ int main(int argc, char **argv)
   }
   else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG){
     if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq_MG(mg_param, eig_param); //- Compute Coarse MG operator eigenvalues
-    else if(mugiq_task == MUGIQ_COMPUTE_LOOP_ULOCAL) computeLoop_uLocal_MG(mg_param, eig_param);
+    else if(mugiq_task == MUGIQ_COMPUTE_LOOP_ULOCAL) computeLoop_uLocal_MG(mg_param, eig_param, loopParams);
     else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeLoopULocal)\n");
     else errorQuda("Unsupported option for --mugiq-task! (options are computeLoopULocal when --mugiq-eig-operator is set to MUGIQ_EIG_OPERATOR_MG)\n");
   }
