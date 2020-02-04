@@ -23,6 +23,13 @@ extern "C" {
      MUGIQ_EIG_OPERATOR_NO_MG,
      MUGIQ_EIG_OPERATOR_INVALID = MUGIQ_INVALID_ENUM
     } MuGiqEigOperator;
+
+  typedef enum LoopFTSign_s
+    {
+     LOOP_FT_SIGN_MINUS = -1,
+     LOOP_FT_SIGN_PLUS  =  1,
+     LOOP_FT_SIGN_INVALID = MUGIQ_INVALID_ENUM
+    } LoopFTSign;
   
 
 #ifdef __cplusplus

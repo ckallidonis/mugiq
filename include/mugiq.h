@@ -22,7 +22,8 @@ extern "C" {
 
     int Nmom; //- Number of momenta for Fourier Transform
     std::vector<std::vector<int>> momMatrix; //- 2d-Array/vector holding the momenta values, dimensions [Nmom][3]
-
+    LoopFTSign FTSign;
+    
   } MugiqLoopParam;
   
   /** Wrapper function that calls the QUDA eigensolver to compute eigenvectors and eigenvalues

@@ -609,6 +609,10 @@ void setLoopParam(MugiqLoopParam &loopParams){
 
   const int NspDim = 3; // Number of spatial dimensions
 
+  if(loop_ft_sign == LOOP_FT_SIGN_INVALID)
+    errorQuda("%s: Loop FT sign is undefined/unsupported. Options are --loop-ft-sign plus/minus\n", __func__);
+  loopParams.FTSign = loop_ft_sign;
+  
   //- Open file to read momenta
   std::ifstream momFile;
   
