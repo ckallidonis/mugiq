@@ -634,7 +634,7 @@ void setLoopParam(MugiqLoopParam &loopParams){
   
   printfQuda("%s: Will calculate the loop for the following %d momenta:\n", __func__, loopParams.Nmom);
   for(int n=0;n<Nmom;n++)
-      printfQuda(" Mom[%d] = %d %d %d\n", n, loopParams.momMatrix[n][0], loopParams.momMatrix[n][1], loopParams.momMatrix[n][2]);
+      printfQuda(" Mom[%d] = %+02d %+02d %+02d\n", n, loopParams.momMatrix[n][0], loopParams.momMatrix[n][1], loopParams.momMatrix[n][2]);
   
   momFile.close();
 
