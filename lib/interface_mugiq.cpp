@@ -149,7 +149,7 @@ void computeEvecsMuGiq(QudaEigParam eigParams){
 
 
 //- Compute ultra-local (no shifts) disconnected loops using Multigrid deflation
-void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
+void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams){
 
   printfQuda("\n%s: Will compute disconnected loops using Multi-grid deflation!\n", __func__);  
 
@@ -178,7 +178,8 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   
   //- Create coarse gamma-matrix unit vectors
   int nUnit = SPINOR_SITE_LEN_;
-  std::vector<ColorSpinorField*> unitGamma; // These are coarse fields
+  std::vector<ColorSpinorField*> unitGammaPos; // These are coarse fields (no phase)
+  
   
   QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
   if((ePrec != QUDA_DOUBLE_PRECISION) && (ePrec != QUDA_SINGLE_PRECISION))
@@ -190,10 +191,10 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
   ucsParam.setPrecision(ePrec);
   for(int n=0;n<nUnit;n++)
-    unitGamma.push_back(ColorSpinorField::Create(ucsParam));
+    unitGammaPos.push_back(ColorSpinorField::Create(ucsParam));
 
-  if(ePrec == QUDA_DOUBLE_PRECISION)      createGammaCoarseVectors_uLocal<double>(unitGamma, mg_env, invParams);
-  else if(ePrec == QUDA_SINGLE_PRECISION) createGammaCoarseVectors_uLocal<float>(unitGamma, mg_env, invParams);
+  if(ePrec == QUDA_DOUBLE_PRECISION)      createGammaCoarseVectors_uLocal<double>(unitGammaPos, mg_env, invParams);
+  else if(ePrec == QUDA_SINGLE_PRECISION) createGammaCoarseVectors_uLocal<float>(unitGammaPos, mg_env, invParams);
   //-----------------------------------------------------------
 
   
@@ -209,7 +210,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   void *loop_h = nullptr;
   void *loop_dev = nullptr;
   int locVol = 1;
-  for(int i=0;i<N_DIM_;i++) locVol *= unitGamma[0]->X(i);
+  for(int i=0;i<N_DIM_;i++) locVol *= unitGammaPos[0]->X(i);
   
   if(ePrec == QUDA_DOUBLE_PRECISION){
     size_t loopSize = sizeof(complex<double>) * locVol * N_GAMMA_;
@@ -220,7 +221,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
     checkCudaError();
     cudaMemset(loop_dev, 0, loopSize);
 
-    assembleLoopCoarsePart_uLocal<double>(static_cast<complex<double>*>(loop_dev), eigsolve, unitGamma);
+    assembleLoopCoarsePart_uLocal<double>(static_cast<complex<double>*>(loop_dev), eigsolve, unitGammaPos);
   }
   else if(ePrec == QUDA_SINGLE_PRECISION){
     size_t loopSize = sizeof(complex<float>) * locVol * N_GAMMA_;
@@ -231,7 +232,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
     checkCudaError();
     cudaMemset(loop_dev, 0, loopSize);
 
-    assembleLoopCoarsePart_uLocal<float>(static_cast<complex<float>*>(loop_dev), eigsolve, unitGamma);
+    assembleLoopCoarsePart_uLocal<float>(static_cast<complex<float>*>(loop_dev), eigsolve, unitGammaPos);
   }
   //-----------------------------------------------------------
 
@@ -243,7 +244,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
   loop_h = nullptr;
   cudaFree(loop_dev);
   loop_dev = nullptr;
-  for(int n=0;n<nUnit;n++) delete unitGamma[n];
+  for(int n=0;n<nUnit;n++) delete unitGammaPos[n];
 
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
   delete eigsolve;
@@ -281,7 +282,7 @@ for(int lev=0;lev<nextCoarse;lev++){
  }//-lev
 
 for(int i=0;i<nUnit;i++){
-  unitGamma.push_back(tmpCSF[nextCoarse]->CreateCoarse(mgParams.geo_block_size[nextCoarse],
+  unitGammaPos.push_back(tmpCSF[nextCoarse]->CreateCoarse(mgParams.geo_block_size[nextCoarse],
 						       mgParams.spin_block_size[nextCoarse],
 						       mgParams.n_vec[nextCoarse],
 						       coarsePrec,

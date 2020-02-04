@@ -13,6 +13,17 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+  /* Structure that holds parameters related to the calculation of
+   * disconnected quark loops.
+   * Will be extended according to compuation demands
+   */
+  typedef struct MugiqLoopParam_s {
+
+    int Nmom; //- Number of momenta for Fourier Transform
+    std::vector<std::vector<int>> momMatrix; //- 2d-Array/vector holding the momenta values, dimensions [Nmom][3]
+
+  } MugiqLoopParam;
   
   /** Wrapper function that calls the QUDA eigensolver to compute eigenvectors and eigenvalues
    * @param h_evecs  Array of pointers to application eigenvectors
@@ -36,8 +47,9 @@ extern "C" {
    *  and for ultra-local current insertions
    * @param mgParams  Contains all MG metadata regarding the type of eigensolve.
    * @param eigParams Contains all metadata regarding the type of solve.
+   * @param loopParams Contains all metadata regarding the loop calculation
    */
-  void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams);
+  void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams);
   
 #ifdef __cplusplus
 }
