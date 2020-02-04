@@ -10,4 +10,7 @@ using namespace quda;
 template <typename T>
 __global__ void createGammaGeneratorsPos_kernel(ArgGammaPos<T> *arg);
 
+template <typename T>
+__global__ void createGammaGeneratorsMom_kernel(ArgGammaMom<T> *arg);
+
 #endif // _UTILITY_KERNELS_H

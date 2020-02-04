@@ -21,38 +21,10 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
   int nUnit = unitGammaPos.size();
   const int *X = mg_env->mg_solver->B[0]->X();
 
-  std::vector<ColorSpinorField*> gammaGensPos; // These are fine fields
-  gammaGensPos.resize(nUnit);
-  ColorSpinorParam cpuParam(NULL, *invParams, X,
-			    invParams->solution_type, invParams->input_location);
-  cpuParam.fieldOrder = unitGammaPos[0]->FieldOrder();
-  cpuParam.siteOrder  = unitGammaPos[0]->SiteOrder();
-  cpuParam.setPrecision(unitGammaPos[0]->Precision());
-  ColorSpinorParam cudaParam(cpuParam);
-  cudaParam.fieldOrder = unitGammaPos[0]->FieldOrder();
-  cudaParam.siteOrder  = unitGammaPos[0]->SiteOrder();
-  cudaParam.location   = QUDA_CUDA_FIELD_LOCATION;
-  cudaParam.create     = QUDA_ZERO_FIELD_CREATE;
-  cudaParam.setPrecision(unitGammaPos[0]->Precision());
-  for(int n=0;n<nUnit;n++) gammaGensPos[n] = ColorSpinorField::Create(cudaParam);
 
-  ArgGammaPos<Float>  arg(gammaGensPos);
-  ArgGammaPos<Float> *arg_dev;
-  cudaMalloc((void**)&(arg_dev), sizeof(ArgGammaPos<Float>));
-  checkCudaError();
-  cudaMemcpy(arg_dev, &arg, sizeof(ArgGammaPos<Float>), cudaMemcpyHostToDevice);
-  checkCudaError();
-  
-  if(arg.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
-  
-  //- Call CUDA kernel
-  dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, 1);
-  dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);  
-  createGammaGeneratorsPos_kernel<Float> <<<gridDim,blockDim>>>(arg_dev);
-  cudaDeviceSynchronize();
-  checkCudaError();
-  
-  //-Create one temporary fine and N-coarse temporary coarse fields
+  //- Create one temporary fine and N_coarse-1 temporary coarse fields
+  //- Will be used for restricting the fine Gamma generators for
+  //- both momentum and position space
   int nextCoarse = mg_env->nCoarseLevels - 1;
   
   std::vector<ColorSpinorField *> tmpCSF;
@@ -69,11 +41,49 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
 					       coarsePrec,
 					       mg_env->mgParams->setup_location[lev+1]));
   }//-lev
+  //-----------------------------------------------------------
   
-  //- Restrict the gamma generators consecutively to get
+  //- These are fine fields, will be used for both
+  //- position and momentum space generators
+  std::vector<ColorSpinorField*> gammaGens;
+  gammaGens.resize(nUnit);
+  ColorSpinorParam cpuParam(NULL, *invParams, X,
+			    invParams->solution_type, invParams->input_location);
+  cpuParam.fieldOrder = unitGammaPos[0]->FieldOrder();
+  cpuParam.siteOrder  = unitGammaPos[0]->SiteOrder();
+  cpuParam.setPrecision(unitGammaPos[0]->Precision());
+  ColorSpinorParam cudaParam(cpuParam);
+  cudaParam.fieldOrder = unitGammaPos[0]->FieldOrder();
+  cudaParam.siteOrder  = unitGammaPos[0]->SiteOrder();
+  cudaParam.location   = QUDA_CUDA_FIELD_LOCATION;
+  cudaParam.create     = QUDA_ZERO_FIELD_CREATE;
+  cudaParam.setPrecision(unitGammaPos[0]->Precision());
+  for(int n=0;n<nUnit;n++)
+    gammaGens[n] = ColorSpinorField::Create(cudaParam);
+  //-----------------------------------------------------------
+  
+  //- Create the position-space unity vectors
+  ArgGammaPos<Float>  argPos(gammaGens);
+  ArgGammaPos<Float> *argPos_dev;
+  cudaMalloc((void**)&(argPos_dev), sizeof(ArgGammaPos<Float>));
+  checkCudaError();
+  cudaMemcpy(argPos_dev, &argPos, sizeof(ArgGammaPos<Float>), cudaMemcpyHostToDevice);
+  checkCudaError();
+  
+  if(argPos.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
+  
+  //- Call CUDA kernel to create Gamma generators in position space
+  dim3 blockDim(THREADS_PER_BLOCK, argPos.nParity, 1);
+  dim3 gridDim((argPos.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);  
+  createGammaGeneratorsPos_kernel<Float> <<<gridDim,blockDim>>>(argPos_dev);
+  cudaDeviceSynchronize();
+  checkCudaError();
+  //-----------------------------------------------------------
+  
+  //- Restrict the gamma generators in position space consecutively to get
   //- the unity Gamma vectors at the coarsest level
   for (int n=0; n<nUnit;n++){
-    *(tmpCSF[0]) = *(gammaGensPos[n]);
+    *(tmpCSF[0]) = *(gammaGens[n]);
     for(int lev=0;lev<nextCoarse;lev++){
       blas::zero(*tmpCSF[lev+1]);
       if(!mg_env->transfer[lev]) errorQuda("%s: For - Transfer operator for level %d does not exist!\n", __func__, lev);
@@ -83,15 +93,42 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
     if(!mg_env->transfer[nextCoarse]) errorQuda("%s: Out - Transfer operator for coarsest level does not exist!\n", __func__, nextCoarse);
     mg_env->transfer[nextCoarse]->R(*(unitGammaPos[n]), *(tmpCSF[nextCoarse]));
   }
+  printfQuda("%s: Coarse Gamma Vectors in position space created\n", __func__);
+  //-----------------------------------------------------------
+
+
+  //- Create the momentum-space gamma matrix generators
+  ArgGammaMom<Float> *argMom_dev;
+  cudaMalloc((void**)&(argMom_dev), sizeof(ArgGammaMom<Float>));
+  checkCudaError();
+  for(int p=0;p<loopParams->Nmom;p++){
+    std::vector<int> mom = loopParams->momMatrix[p];
+    ArgGammaMom<Float>  argMom(gammaGens, mom, loopParams->FTSign);
+    cudaMemcpy(argMom_dev, &argMom, sizeof(ArgGammaMom<Float>), cudaMemcpyHostToDevice);
+    checkCudaError();
+    
+    //- Call CUDA kernel to create Gamma generators in position space
+    dim3 blockDim(THREADS_PER_BLOCK, argMom.nParity, 1);
+    dim3 gridDim((argMom.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);  
+    createGammaGeneratorsMom_kernel<Float> <<<gridDim,blockDim>>>(argMom_dev);
+    cudaDeviceSynchronize();
+    checkCudaError();
+    //-----------------------------------------------------------
+
+
+    printfQuda("%s: Phased Coarse Gamma Vectors for momentum (%+02d,%+02d,%+02d) created\n", __func__, mom[0], mom[1], mom[2]);
+  }//- momentum
+
+  
   
   //- Clean-up
   int nTmp = static_cast<int>(tmpCSF.size());
   for(int i=0;i<nTmp;i++)  delete tmpCSF[i];
-  for(int n=0;n<nUnit;n++) delete gammaGensPos[n];
-  cudaFree(arg_dev);
-  arg_dev = NULL;
-
-  printfQuda("%s: Coarse Gamma Vectors created\n", __func__);
+  for(int n=0;n<nUnit;n++) delete gammaGens[n];
+  cudaFree(argPos_dev);
+  cudaFree(argMom_dev);
+  argPos_dev = NULL;
+  argMom_dev = NULL;
 }
 //-------------------------------------------------------------------------------
 
