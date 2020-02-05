@@ -54,7 +54,7 @@ __global__ void createGammaGeneratorsMom_kernel(ArgGammaMom<Float> *arg){
   lcoord[4] = 0;
 
   //- Global 3-d coordinates (no time)
-  int gcoord[3];
+  int gcoord[MOM_DIM_];
 #pragma unroll
   for(int id=0;id<arg->d_mom;id++)
     gcoord[id] = lcoord[id] + arg->localL[id] * arg->commCoord[id];

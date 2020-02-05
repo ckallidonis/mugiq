@@ -133,7 +133,7 @@ struct ArgGammaMom : public ArgGeom {
 
   typename FieldMapper<Float>::FermionField gammaGensMom[SPINOR_SITE_LEN_];
   int nVec;
-  int mom[3];
+  int mom[MOM_DIM_];
   int d_mom;
   int FTSign;
   
