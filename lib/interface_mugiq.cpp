@@ -181,7 +181,6 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
   std::vector<ColorSpinorField*> unitGammaPos; // These are coarse fields (no phase)
   std::vector<ColorSpinorField*> unitGammaMom; // These are coarse fields with FT phase information
   
-  
   QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
   if((ePrec != QUDA_DOUBLE_PRECISION) && (ePrec != QUDA_SINGLE_PRECISION))
     errorQuda("%s: Unsupported precision for creating Coarse part of loop\n", __func__);
@@ -191,10 +190,14 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
   ucsParam.create = QUDA_ZERO_FIELD_CREATE;
   ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
   ucsParam.setPrecision(ePrec);
+
+  int globT = mg_env->mg_solver->B[0]->X[3] * comm_dim(3); //- Global time dimension
+  
   for(int n=0;n<nUnit;n++){
     unitGammaPos.push_back(ColorSpinorField::Create(ucsParam));
     for(int m=0;m<loopParams.Nmom;m++)
-      unitGammaMom.push_back(ColorSpinorField::Create(ucsParam)); // mom + Nmom * n
+      for(int t=0;t<globT,t++)
+	unitGammaMom.push_back(ColorSpinorField::Create(ucsParam)); // t + LT*m + LT*Nmom*n
   }
     
   if(ePrec == QUDA_DOUBLE_PRECISION)
@@ -215,11 +218,10 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
   //- Assemble the coarse part of the loop
   void *loop_h = nullptr;
   void *loop_dev = nullptr;
-  int locVol = 1;
-  for(int i=0;i<N_DIM_;i++) locVol *= unitGammaPos[0]->X(i);
+  long loopElem = loopParams.Nmom * globT * N_GAMMA_;
   
   if(ePrec == QUDA_DOUBLE_PRECISION){
-    size_t loopSize = sizeof(complex<double>) * locVol * N_GAMMA_;
+    size_t loopSize = sizeof(complex<double>) * loopElem;
     loop_h = static_cast<complex<double>*>(malloc(loopSize));
     if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
     memset(loop_h, 0, loopSize);
@@ -230,7 +232,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
     assembleLoopCoarsePart_uLocal<double>(static_cast<complex<double>*>(loop_dev), eigsolve, unitGammaPos);
   }
   else if(ePrec == QUDA_SINGLE_PRECISION){
-    size_t loopSize = sizeof(complex<float>) * locVol * N_GAMMA_;
+    size_t loopSize = sizeof(complex<float>) * loopElem;
     loop_h = static_cast<complex<float>*>(malloc(loopSize));
     if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
     memset(loop_h, 0, loopSize);
@@ -251,7 +253,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
   cudaFree(loop_dev);
   loop_dev = nullptr;
   for(int n=0;n<nUnit;n++) delete unitGammaPos[n];
-  for(int n=0;n<nUnit*loopParams.Nmom;n++) delete unitGammaMom[n];
+  for(int n=0;n<nUnit*loopParams.Nmom*globT;n++) delete unitGammaMom[n];
 
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
   delete eigsolve;
