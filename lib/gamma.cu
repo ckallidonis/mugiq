@@ -142,7 +142,22 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
       cudaDeviceSynchronize();
       checkCudaError();
       //-----------------------------------------------------------
-      
+
+      //- Restrict the phased gamma generators consecutively
+      //- at the coarsest level
+      for (int n=0; n<nUnit;n++){
+	int gIdx = n + nUnit*gt + nUnit*globT*p;
+	*(tmpCSF[0]) = *(gammaGensTD[n]);
+	for(int lev=0;lev<nextCoarse;lev++){
+	  blas::zero(*tmpCSF[lev+1]);
+	  if(!mg_env->transfer[lev]) errorQuda("%s: For - Transfer operator for level %d does not exist!\n", __func__, lev);
+	  mg_env->transfer[lev]->R(*(tmpCSF[lev+1]), *(tmpCSF[lev]));
+	}
+	blas::zero(*unitGammaMom[gIdx]);
+	if(!mg_env->transfer[nextCoarse]) errorQuda("%s: Out - Transfer operator for coarsest level does not exist!\n", __func__, nextCoarse);
+	mg_env->transfer[nextCoarse]->R(*(unitGammaMom[gIdx]), *(tmpCSF[nextCoarse]));
+      }//- nUnit
+
     }//- time
     
     printfQuda("%s: Phased Coarse Gamma Vectors for momentum (%+02d,%+02d,%+02d) created\n", __func__, mom[0], mom[1], mom[2]);
