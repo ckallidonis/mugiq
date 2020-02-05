@@ -161,6 +161,31 @@ struct ArgGammaMom : public ArgGeom {
 };
 
 
+//- Structure used for creating the gamma matrix generators in momentum spaceo
+template <typename Float>
+struct ArgTimeDilute : public ArgGeom {
+
+  typename FieldMapper<Float>::FermionField gammaGens[SPINOR_SITE_LEN_];
+  int nVec;
+  int globt;
+  
+  ArgTimeDilute () {}
+
+  ArgTimeDilute(std::vector<ColorSpinorField*> &gammaGens_, int globt_)
+    : ArgGeom(gammaGens_[0]),
+      nVec(gammaGens_.size()),
+      globt(globt_)
+  {
+    if(nVec!=SPINOR_SITE_LEN_)
+      errorQuda("%s: Size of Gamma generators must be Nspin*Ncolor = %d\n", __func__, SPINOR_SITE_LEN_);
+    
+    for(int ivec=0;ivec<nVec;ivec++)
+      gammaGens[ivec].init(*gammaGens_[ivec]);
+  }
+  
+};
+
+
 //- Structure used for creating the gamma matrix generators
 template <typename Float, int Nspin, int Ncolor>
 struct Arg_CoarseLoop_uLocal : public ArgGeom {

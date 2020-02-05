@@ -85,3 +85,44 @@ __global__ void createGammaGeneratorsMom_kernel(ArgGammaMom<Float> *arg){
     }//- ic
   }//- is  
 }
+
+
+//- Time-dilute phased Gamma generators 
+template __global__ void timeDilutePhasedGenerators_kernel<double>(ArgTimeDilute<double> *arg);
+template __global__ void timeDilutePhasedGenerators_kernel<float>(ArgTimeDilute<float> *arg);
+
+template <typename Float>
+__global__ void timeDilutePhasedGenerators_kernel(ArgTimeDilute<Float> *arg){
+
+  int x_cb = blockIdx.x*blockDim.x + threadIdx.x;
+  int pty  = blockIdx.y*blockDim.y + threadIdx.y;
+  int vIdx = threadIdx.z;
+  pty = (arg->nParity == 2) ? pty : arg->parity;
+  if (x_cb >= arg->volumeCB) return;
+  if (pty  >= arg->nParity) return;
+  if (vIdx >= arg->nVec) return;
+  
+  //int is = vIdx / N_COLOR_; //- Which of the
+  //int ic = vIdx % N_COLOR_; //- generators (color-inside-spin)
+    
+  //- Local coordinates
+  int lcoord[5];
+  getCoords(lcoord, x_cb, arg->dim, pty);
+  lcoord[4] = 0;
+
+  int t_coord = lcoord[3] + arg->localL[3] * arg->commCoord[3]; //- Global time coordinate
+  
+  typename FieldMapper<Float>::Vector v;
+
+  if(t_coord == arg->globt) v = arg->gammaGens[vIdx](x_cb,pty);
+  else{
+#pragma unroll
+    for(int js=0;js<N_SPIN_;js++)       //- Spin-color index
+#pragma unroll
+      for(int jc=0;jc<N_COLOR_;jc++)    //- within the vector (color-inside-spin)
+	v(js,jc) = 0.0;
+  }
+  
+  arg->gammaGens[vIdx](x_cb,pty) = v; //- Overwrite diluted generator
+
+}

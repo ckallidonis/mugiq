@@ -23,8 +23,8 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
 
 
   //- Create one temporary fine and N_coarse-1 temporary coarse fields
-  //- Will be used for restricting the fine Gamma generators for
-  //- both momentum and position space
+  //- Will be used for restricting the fine position space and phased
+  //- Gamma generators 
   int nextCoarse = mg_env->nCoarseLevels - 1;
   
   std::vector<ColorSpinorField *> tmpCSF;
@@ -44,7 +44,7 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
   //-----------------------------------------------------------
   
   //- These are fine fields, will be used for both
-  //- position and momentum space generators
+  //- position space and phased generators
   std::vector<ColorSpinorField*> gammaGens;
   gammaGens.resize(nUnit);
   ColorSpinorParam cpuParam(NULL, *invParams, X,
@@ -97,17 +97,21 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
   //-----------------------------------------------------------
 
 
-  //- Create the momentum-space gamma matrix generators
+  //- Create the FT phased gamma matrix generators
   ArgGammaMom<Float> *argMom_dev;
   cudaMalloc((void**)&(argMom_dev), sizeof(ArgGammaMom<Float>));
   checkCudaError();
+  ArgTimeDilute<Float> *argTD_dev;
+  cudaMalloc((void**)&(argTD_dev), sizeof(ArgTimeDilute<Float>));
+  checkCudaError();
+  
   for(int p=0;p<loopParams->Nmom;p++){
     std::vector<int> mom = loopParams->momMatrix[p];
-    ArgGammaMom<Float>  argMom(gammaGens, mom, loopParams->FTSign);
+    ArgGammaMom<Float> argMom(gammaGens, mom, loopParams->FTSign);
     cudaMemcpy(argMom_dev, &argMom, sizeof(ArgGammaMom<Float>), cudaMemcpyHostToDevice);
     checkCudaError();
     
-    //- Call CUDA kernel to create Gamma generators in position space
+    //- Call CUDA kernel to create FT phased Gamma generators
     dim3 blockDim(THREADS_PER_BLOCK, argMom.nParity, 1);
     dim3 gridDim((argMom.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);  
     createGammaGeneratorsMom_kernel<Float> <<<gridDim,blockDim>>>(argMom_dev);
@@ -115,7 +119,29 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
     checkCudaError();
     //-----------------------------------------------------------
 
+    /* The restrictor on the phased Gamma generators must run only on the 3d volume (no time). However,
+     * the QUDA restrictor runs on full volume. Therefore, we perform here a dilution over the time direction,
+     * so that the QUDA restrictor is called Lt times, where Lt is the global time size. In this way, the QUDA
+     * restrictor only has effect on the single non-zero time slice.
+     */
+    int globT = argMom.globalL[3]; // Global time size
+    for(int gt=0;gt<globT;gt++){
+      ArgTimeDilute<Float> argTD(gammaGens, gt);
+      cudaMemcpy(argTD_dev, &argTD, sizeof(ArgTimeDilute<Float>), cudaMemcpyHostToDevice);
+      checkCudaError();
 
+      //- Call CUDA kernel to perform time-dilution on FT phased Gamma generators
+      //- Here we use a 3-dimensional block-size, 3rd dimension runs over the generators
+      dim3 blockDimTD(THREADS_PER_BLOCK, argTD.nParity, nUnit);
+      dim3 gridDimTD((argTD.volumeCB + blockDimTD.x -1)/blockDimTD.x, 1, 1);  
+      timeDilutePhasedGenerators_kernel<Float> <<<gridDimTD,blockDimTD>>>(argTD_dev);
+      //timeDilutePhasedGenerators_kernel<Float> <<<gridDim,blockDim>>>(argTD_dev);
+      cudaDeviceSynchronize();
+      checkCudaError();
+      //-----------------------------------------------------------
+      
+    }//- time
+    
     printfQuda("%s: Phased Coarse Gamma Vectors for momentum (%+02d,%+02d,%+02d) created\n", __func__, mom[0], mom[1], mom[2]);
   }//- momentum
 
@@ -127,8 +153,10 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
   for(int n=0;n<nUnit;n++) delete gammaGens[n];
   cudaFree(argPos_dev);
   cudaFree(argMom_dev);
+  cudaFree(argTD_dev);
   argPos_dev = NULL;
   argMom_dev = NULL;
+  argTD_dev  = NULL;
 }
 //-------------------------------------------------------------------------------
 
