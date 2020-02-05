@@ -191,13 +191,13 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
   ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
   ucsParam.setPrecision(ePrec);
 
-  int globT = mg_env->mg_solver->B[0]->X[3] * comm_dim(3); //- Global time dimension
+  int globT = mg_env->mg_solver->B[0]->X(3) * comm_dim(3); //- Global time dimension
   
   for(int n=0;n<nUnit;n++){
     unitGammaPos.push_back(ColorSpinorField::Create(ucsParam));
     for(int m=0;m<loopParams.Nmom;m++)
-      for(int t=0;t<globT,t++)
-	unitGammaMom.push_back(ColorSpinorField::Create(ucsParam)); // t + LT*m + LT*Nmom*n
+      for(int t=0;t<globT;t++)
+	unitGammaMom.push_back(ColorSpinorField::Create(ucsParam)); // LT * Nmom * nUnit
   }
     
   if(ePrec == QUDA_DOUBLE_PRECISION)

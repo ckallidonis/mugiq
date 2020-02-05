@@ -165,22 +165,29 @@ struct ArgGammaMom : public ArgGeom {
 template <typename Float>
 struct ArgTimeDilute : public ArgGeom {
 
+  typename FieldMapper<Float>::FermionField gammaGensTD[SPINOR_SITE_LEN_];
   typename FieldMapper<Float>::FermionField gammaGens[SPINOR_SITE_LEN_];
   int nVec;
   int globt;
   
   ArgTimeDilute () {}
 
-  ArgTimeDilute(std::vector<ColorSpinorField*> &gammaGens_, int globt_)
+  ArgTimeDilute(std::vector<ColorSpinorField*> &gammaGensTD_,
+		std::vector<ColorSpinorField*> &gammaGens_,
+		int globt_)
     : ArgGeom(gammaGens_[0]),
       nVec(gammaGens_.size()),
       globt(globt_)
   {
     if(nVec!=SPINOR_SITE_LEN_)
       errorQuda("%s: Size of Gamma generators must be Nspin*Ncolor = %d\n", __func__, SPINOR_SITE_LEN_);
+    if(gammaGensTD_.size()!=SPINOR_SITE_LEN_)
+      errorQuda("%s: Size of diluted/non-diluted Gamma generators mismatch\n", __func__);
     
-    for(int ivec=0;ivec<nVec;ivec++)
+    for(int ivec=0;ivec<nVec;ivec++){
       gammaGens[ivec].init(*gammaGens_[ivec]);
+      gammaGensTD[ivec].init(*gammaGensTD_[ivec]);
+    }
   }
   
 };

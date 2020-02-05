@@ -46,7 +46,9 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
   //- These are fine fields, will be used for both
   //- position space and phased generators
   std::vector<ColorSpinorField*> gammaGens;
+  std::vector<ColorSpinorField*> gammaGensTD;
   gammaGens.resize(nUnit);
+  gammaGensTD.resize(nUnit);
   ColorSpinorParam cpuParam(NULL, *invParams, X,
 			    invParams->solution_type, invParams->input_location);
   cpuParam.fieldOrder = unitGammaPos[0]->FieldOrder();
@@ -58,8 +60,10 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
   cudaParam.location   = QUDA_CUDA_FIELD_LOCATION;
   cudaParam.create     = QUDA_ZERO_FIELD_CREATE;
   cudaParam.setPrecision(unitGammaPos[0]->Precision());
-  for(int n=0;n<nUnit;n++)
-    gammaGens[n] = ColorSpinorField::Create(cudaParam);
+  for(int n=0;n<nUnit;n++){
+    gammaGens[n]   = ColorSpinorField::Create(cudaParam);
+    gammaGensTD[n] = ColorSpinorField::Create(cudaParam);
+  }
   //-----------------------------------------------------------
   
   //- Create the position-space unity vectors
@@ -126,7 +130,7 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
      */
     int globT = argMom.globalL[3]; // Global time size
     for(int gt=0;gt<globT;gt++){
-      ArgTimeDilute<Float> argTD(gammaGens, gt);
+      ArgTimeDilute<Float> argTD(gammaGensTD, gammaGens, gt);
       cudaMemcpy(argTD_dev, &argTD, sizeof(ArgTimeDilute<Float>), cudaMemcpyHostToDevice);
       checkCudaError();
 
@@ -135,7 +139,6 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
       dim3 blockDimTD(THREADS_PER_BLOCK, argTD.nParity, nUnit);
       dim3 gridDimTD((argTD.volumeCB + blockDimTD.x -1)/blockDimTD.x, 1, 1);  
       timeDilutePhasedGenerators_kernel<Float> <<<gridDimTD,blockDimTD>>>(argTD_dev);
-      //timeDilutePhasedGenerators_kernel<Float> <<<gridDim,blockDim>>>(argTD_dev);
       cudaDeviceSynchronize();
       checkCudaError();
       //-----------------------------------------------------------
@@ -150,7 +153,10 @@ void createGammaCoarseVectors_uLocal(std::vector<ColorSpinorField*> &unitGammaPo
   //- Clean-up
   int nTmp = static_cast<int>(tmpCSF.size());
   for(int i=0;i<nTmp;i++)  delete tmpCSF[i];
-  for(int n=0;n<nUnit;n++) delete gammaGens[n];
+  for(int n=0;n<nUnit;n++){
+    delete gammaGens[n];
+    delete gammaGensTD[n];
+  }
   cudaFree(argPos_dev);
   cudaFree(argMom_dev);
   cudaFree(argTD_dev);

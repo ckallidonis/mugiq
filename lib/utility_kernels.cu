@@ -123,6 +123,6 @@ __global__ void timeDilutePhasedGenerators_kernel(ArgTimeDilute<Float> *arg){
 	v(js,jc) = 0.0;
   }
   
-  arg->gammaGens[vIdx](x_cb,pty) = v; //- Overwrite diluted generator
+  arg->gammaGensTD[vIdx](x_cb,pty) = v; //- Diluted generators
 
 }
