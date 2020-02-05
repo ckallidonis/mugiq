@@ -27,7 +27,7 @@
 #define MUGIQ_MAX_FINE_VEC 24
 #define MUGIQ_MAX_COARSE_VEC 256
 
-#define THREADS_PER_BLOCK 64
+#define THREADS_PER_BLOCK 32
 
 
 #endif // _MUGIQ_UTIL_H
