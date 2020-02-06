@@ -229,7 +229,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
     checkCudaError();
     cudaMemset(loop_dev, 0, loopSize);
 
-    assembleLoopCoarsePart_uLocal<double>(static_cast<complex<double>*>(loop_dev), eigsolve, unitGammaPos);
+    assembleLoopCoarsePart_uLocal<double>(static_cast<complex<double>*>(loop_dev), eigsolve, unitGammaPos, unitGammaMom, loopParams);
   }
   else if(ePrec == QUDA_SINGLE_PRECISION){
     size_t loopSize = sizeof(complex<float>) * loopElem;
@@ -240,7 +240,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
     checkCudaError();
     cudaMemset(loop_dev, 0, loopSize);
 
-    assembleLoopCoarsePart_uLocal<float>(static_cast<complex<float>*>(loop_dev), eigsolve, unitGammaPos);
+    assembleLoopCoarsePart_uLocal<float>(static_cast<complex<float>*>(loop_dev), eigsolve, unitGammaPos, unitGammaMom, loopParams);
   }
   //-----------------------------------------------------------
 

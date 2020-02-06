@@ -204,7 +204,9 @@ public:
 template <typename Float, int Nspin, int Ncolor>
 void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 				   Eigsolve_Mugiq *eigsolve,
-				   const std::vector<ColorSpinorField*> &unitGamma){
+				   const std::vector<ColorSpinorField*> &unitGammaPos,
+				   const std::vector<ColorSpinorField*> &unitGammaMom,
+				   MugiqLoopParam loopParams){
 
   /* Shared memory per site. This should hold:
    * - 1 Nspin*Ncolor ColorSpinor (vector) to store a coarse eigenvector
@@ -216,7 +218,8 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 
   //- Create the kernel's argument structure based on template values
   typedef Arg_CoarseLoop_uLocal<Float, Nspin, Ncolor> Arg;
-  Arg arg(unitGamma, eigsolve->getEvecs(), eigsolve->getEvals(), shMem_elem_site);
+  //  Arg arg(unitGammaPos, unitGammaMom, eigsolve->getEvecs(), eigsolve->getEvals(), shMem_elem_site);
+  Arg arg(unitGammaPos, eigsolve->getEvecs(), eigsolve->getEvals(), shMem_elem_site);
   Arg *arg_dev;
   cudaMalloc((void**)&(arg_dev), sizeof(Arg));
   checkCudaError();
@@ -225,11 +228,11 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 
   if(arg.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
 
-  
+  int LT = arg.globalL[3];
   int block_dim_z = N_GAMMA_; //- Number of threads in z-block
   
   //- Create object of loop-assemble class
-  assembleLoop_uLocal<Float, Nspin, Ncolor, Arg> loop_uLocal(unitGamma[0], arg_dev, loop_dev,
+  assembleLoop_uLocal<Float, Nspin, Ncolor, Arg> loop_uLocal(unitGammaPos[0], arg_dev, loop_dev,
 							     block_dim_z, shMem_site_bytes);
   
   if(getVerbosity() >= QUDA_VERBOSE){
@@ -261,31 +264,27 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 template <typename Float, int Nspin>
 void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 				   Eigsolve_Mugiq *eigsolve,
-				   const std::vector<ColorSpinorField*> &unitGamma){
+				   const std::vector<ColorSpinorField*> &unitGammaPos,
+				   const std::vector<ColorSpinorField*> &unitGammaMom,
+				   MugiqLoopParam loopParams){
 
   //- Some sanity checks
   const int nEvec = eigsolve->getEvecs().size();
   const int nColorEv  = eigsolve->getEvecs()[0]->Ncolor();
-  for(int n=1;n<nEvec;n++)
-    if(eigsolve->getEvecs()[n]->Ncolor() != nColorEv)
-      errorQuda("%s: Number of colors between eigenvectors does not match!\n", __func__);
   
-  const int nUnit = unitGamma.size();
-  const int nColorUnit  = unitGamma[0]->Ncolor();
-  for(int n=1;n<nUnit;n++)
-    if(unitGamma[n]->Ncolor() != nColorUnit)
-      errorQuda("%s: Number of colors between unitGamma does not match!\n", __func__);
+  const int nUnit = unitGammaPos.size();
+  const int nColorUnit  = unitGammaPos[0]->Ncolor();
 
   if(nColorEv != nColorUnit)
     errorQuda("%s: Number of colors between coarse eigenvectors and coarse gamma unity vectors does not match!\n", __func__);
 
   //- Template on the spins
   if(nColorEv == 3)
-    assembleLoopCoarsePart_uLocal<Float,Nspin,3>(loop_dev, eigsolve, unitGamma);
+    assembleLoopCoarsePart_uLocal<Float,Nspin,3>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
   else if(nColorEv == 24)
-    assembleLoopCoarsePart_uLocal<Float,Nspin,24>(loop_dev, eigsolve, unitGamma);
+    assembleLoopCoarsePart_uLocal<Float,Nspin,24>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
   else if(nColorEv == 32)
-    assembleLoopCoarsePart_uLocal<Float,Nspin,32>(loop_dev, eigsolve, unitGamma);
+    assembleLoopCoarsePart_uLocal<Float,Nspin,32>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
   else
     errorQuda("%s: Unsupported number of colors %d\n", __func__, nColorEv);
 }
@@ -297,40 +296,34 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
  * Components are the coarse gamma-matrix unity vectors e_i, the coarse eigenpairs v_i, lambda_i and the gamma matrix coefficients,
  * gcoeff, which already exist in __constant__ memory.
  * The operation performed is:
- * L_n(x,t) = \sum_{m}^{Nev} lambda_m^{-1} v_m^\dag [\sum_{i,j}^{Ns*Nc} gcoeff(n)_{ij} e_i e_j^\dag] v_m
+ * L_n(p,t) = \sum_{m}^{Nev} lambda_m^{-1} u_m^\dag(x) [\sum_{i,j}^{Ns*Nc} gcoeff(n)_{ij} r_i(x) v_j^\dag(y;p,t)] u_m(y)
  */
 
 //- Explicit template instantiations required
 template void assembleLoopCoarsePart_uLocal<double>(complex<double> *loop_dev,
 						    Eigsolve_Mugiq *eigsolve,
-						    const std::vector<ColorSpinorField*> &unitGamma);
+						    const std::vector<ColorSpinorField*> &unitGammaPos,
+						    const std::vector<ColorSpinorField*> &unitGammaMom,
+						    MugiqLoopParam loopParams);
+
 template void assembleLoopCoarsePart_uLocal<float>(complex<float> *loop_dev,
 						   Eigsolve_Mugiq *eigsolve,
-						   const std::vector<ColorSpinorField*> &unitGamma);
+						   const std::vector<ColorSpinorField*> &unitGammaPos,
+						   const std::vector<ColorSpinorField*> &unitGammaMom,
+						   MugiqLoopParam loopParams);
+
 template <typename Float>
 void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 				   Eigsolve_Mugiq *eigsolve,
-				   const std::vector<ColorSpinorField*> &unitGamma){
+				   const std::vector<ColorSpinorField*> &unitGammaPos,
+				   const std::vector<ColorSpinorField*> &unitGammaMom,
+				   MugiqLoopParam loopParams){
   //- Some sanity checks
-  const int nEvec = eigsolve->getEvecs().size();
   const int nSpinEv = eigsolve->getEvecs()[0]->Nspin();
   const QudaPrecision precEv = eigsolve->getEvecs()[0]->Precision(); 
-  for(int n=1;n<nEvec;n++){
-    if(eigsolve->getEvecs()[n]->Nspin() != nSpinEv)
-      errorQuda("%s: Number of spins between eigenvectors does not match!\n", __func__);
-    if(eigsolve->getEvecs()[n]->Precision() != precEv)
-      errorQuda("%s: Precision between eigenvectors does not match!\n", __func__);
-  }
   
-  const int nUnit = unitGamma.size();
-  const int nSpinUnit = unitGamma[0]->Nspin();
-  const QudaPrecision precUnit = unitGamma[0]->Precision(); 
-  for(int n=1;n<nUnit;n++){
-    if(unitGamma[n]->Nspin() != nSpinUnit)
-      errorQuda("%s: Number of spins between unitGamma does not match!\n", __func__);
-    if(unitGamma[n]->Precision() != precUnit)
-      errorQuda("%s: Precision between unitGamma does not match!\n", __func__);
-  }
+  const int nSpinUnit = unitGammaPos[0]->Nspin();
+  const QudaPrecision precUnit = unitGammaPos[0]->Precision(); 
   
   if(nSpinEv != nSpinUnit)
     errorQuda("%s: Number of spins between coarse eigenvectors and coarse gamma unity vectors does not match!\n", __func__);
@@ -339,7 +332,7 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 
   //- Template on the spins
   if(nSpinEv == 2)
-    assembleLoopCoarsePart_uLocal<Float,2>(loop_dev, eigsolve, unitGamma);
+    assembleLoopCoarsePart_uLocal<Float,2>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
   else
     errorQuda("%s: Unsupported number of spins %d\n", __func__, nSpinEv);
 }
