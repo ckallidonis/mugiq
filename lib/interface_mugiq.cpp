@@ -176,84 +176,38 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
   eigsolve->printEvals();
 
   
-  //- Create coarse gamma-matrix unit vectors
-  int nUnit = SPINOR_SITE_LEN_;
-  std::vector<ColorSpinorField*> unitGammaPos; // These are coarse fields (no phase)
-  std::vector<ColorSpinorField*> unitGammaMom; // These are coarse fields with FT phase information
-  
-  QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
-  if((ePrec != QUDA_DOUBLE_PRECISION) && (ePrec != QUDA_SINGLE_PRECISION))
-    errorQuda("%s: Unsupported precision for creating Coarse part of loop\n", __func__);
-  else printfQuda("%s: Working in %s precision\n", __func__, ePrec == QUDA_DOUBLE_PRECISION ? "double" : "single");
-
-  ColorSpinorParam ucsParam(*(eigsolve->getEvecs()[0]));
-  ucsParam.create = QUDA_ZERO_FIELD_CREATE;
-  ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
-  ucsParam.setPrecision(ePrec);
-
-  int globT = mg_env->mg_solver->B[0]->X(3) * comm_dim(3); //- Global time dimension
-  
-  for(int n=0;n<nUnit;n++){
-    unitGammaPos.push_back(ColorSpinorField::Create(ucsParam));
-    for(int m=0;m<loopParams.Nmom;m++)
-      for(int t=0;t<globT;t++)
-	unitGammaMom.push_back(ColorSpinorField::Create(ucsParam)); // LT * Nmom * nUnit
-  }
-    
-  if(ePrec == QUDA_DOUBLE_PRECISION)
-    createGammaCoarseVectors_uLocal<double>(unitGammaPos, unitGammaMom, mg_env, invParams, &loopParams);
-  else if(ePrec == QUDA_SINGLE_PRECISION)
-    createGammaCoarseVectors_uLocal<float>(unitGammaPos, unitGammaMom, mg_env, invParams, &loopParams);
-  //-----------------------------------------------------------
-
-  
-  //- Create the coefficients of the gamma matrices and copy them to __constant__ memory
-  if((invParams->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS) &&
-     (mgParams.invert_param->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS))
-    errorQuda("%s: Supports only DeGrand-Rossi gamma basis\n", __func__);
-  if(ePrec == QUDA_DOUBLE_PRECISION)      createGammaCoeff<double>();
-  else if(ePrec == QUDA_SINGLE_PRECISION) createGammaCoeff<float>();
-  //-----------------------------------------------------------
-
   //- Assemble the coarse part of the loop
   void *loop_h = nullptr;
-  void *loop_dev = nullptr;
+
+  int globT = mg_env->mg_solver->B[0]->X(3) * comm_dim(3); //- Global time dimension
   long loopElem = loopParams.Nmom * globT * N_GAMMA_;
-  
+
+  QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
   if(ePrec == QUDA_DOUBLE_PRECISION){
     size_t loopSize = sizeof(complex<double>) * loopElem;
     loop_h = static_cast<complex<double>*>(malloc(loopSize));
     if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
     memset(loop_h, 0, loopSize);
-    cudaMalloc((void**)&loop_dev, loopSize);
-    checkCudaError();
-    cudaMemset(loop_dev, 0, loopSize);
 
-    assembleLoopCoarsePart_uLocal<double>(static_cast<complex<double>*>(loop_dev), eigsolve, unitGammaPos, unitGammaMom, loopParams);
+    createCoarseLoop_uLocal<double>(static_cast<complex<double>*>(loop_h),
+				    mg_env, eigsolve,
+				    invParams, &loopParams);
   }
   else if(ePrec == QUDA_SINGLE_PRECISION){
     size_t loopSize = sizeof(complex<float>) * loopElem;
     loop_h = static_cast<complex<float>*>(malloc(loopSize));
     if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
     memset(loop_h, 0, loopSize);
-    cudaMalloc((void**)&loop_dev, loopSize);
-    checkCudaError();
-    cudaMemset(loop_dev, 0, loopSize);
 
-    assembleLoopCoarsePart_uLocal<float>(static_cast<complex<float>*>(loop_dev), eigsolve, unitGammaPos, unitGammaMom, loopParams);
+    createCoarseLoop_uLocal<float>(static_cast<complex<float>*>(loop_h),
+				   mg_env, eigsolve,
+				   invParams, &loopParams);
   }
   //-----------------------------------------------------------
-
-  //- Copy the device loop buffer back to host
-  cudaMemcpy(loop_h, loop_dev, sizeof(loop_h), cudaMemcpyDeviceToHost);
   
   //- Clean-up
   free(loop_h);
   loop_h = nullptr;
-  cudaFree(loop_dev);
-  loop_dev = nullptr;
-  for(int n=0;n<nUnit;n++) delete unitGammaPos[n];
-  for(int n=0;n<nUnit*loopParams.Nmom*globT;n++) delete unitGammaMom[n];
 
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
   delete eigsolve;

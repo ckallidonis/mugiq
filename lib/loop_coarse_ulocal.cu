@@ -1,4 +1,4 @@
-#include <loop_coarse.h>
+#include <loop_coarse_ulocal.h>
 #include <kernels_mugiq.h>
 #include <tune_quda.h>
 
@@ -202,11 +202,11 @@ public:
 
 //- Template on the Precision, Number of Spins and Number of Colors
 template <typename Float, int Nspin, int Ncolor>
-void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
-				   Eigsolve_Mugiq *eigsolve,
-				   const std::vector<ColorSpinorField*> &unitGammaPos,
-				   const std::vector<ColorSpinorField*> &unitGammaMom,
-				   MugiqLoopParam loopParams){
+void assembleCoarseLoop_uLocal(complex<Float> *loop_dev,
+			       Eigsolve_Mugiq *eigsolve,
+			       const std::vector<ColorSpinorField*> &unitGammaPos,
+			       const std::vector<ColorSpinorField*> &unitGammaMom,
+			       MugiqLoopParam *loopParams){
 
   /* Shared memory per site. This should hold:
    * - 1 Nspin*Ncolor ColorSpinor (vector) to store a coarse eigenvector
@@ -228,7 +228,6 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 
   if(arg.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
 
-  int LT = arg.globalL[3];
   int block_dim_z = N_GAMMA_; //- Number of threads in z-block
   
   //- Create object of loop-assemble class
@@ -262,11 +261,11 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 
 //- Template on the Precision and Number of Spins
 template <typename Float, int Nspin>
-void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
-				   Eigsolve_Mugiq *eigsolve,
-				   const std::vector<ColorSpinorField*> &unitGammaPos,
-				   const std::vector<ColorSpinorField*> &unitGammaMom,
-				   MugiqLoopParam loopParams){
+void assembleCoarseLoop_uLocal(complex<Float> *loop_dev,
+			       Eigsolve_Mugiq *eigsolve,
+			       const std::vector<ColorSpinorField*> &unitGammaPos,
+			       const std::vector<ColorSpinorField*> &unitGammaMom,
+			       MugiqLoopParam *loopParams){
 
   //- Some sanity checks
   const int nEvec = eigsolve->getEvecs().size();
@@ -280,11 +279,11 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 
   //- Template on the spins
   if(nColorEv == 3)
-    assembleLoopCoarsePart_uLocal<Float,Nspin,3>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
+    assembleCoarseLoop_uLocal<Float,Nspin,3>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
   else if(nColorEv == 24)
-    assembleLoopCoarsePart_uLocal<Float,Nspin,24>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
+    assembleCoarseLoop_uLocal<Float,Nspin,24>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
   else if(nColorEv == 32)
-    assembleLoopCoarsePart_uLocal<Float,Nspin,32>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
+    assembleCoarseLoop_uLocal<Float,Nspin,32>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
   else
     errorQuda("%s: Unsupported number of colors %d\n", __func__, nColorEv);
 }
@@ -300,24 +299,25 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
  */
 
 //- Explicit template instantiations required
-template void assembleLoopCoarsePart_uLocal<double>(complex<double> *loop_dev,
-						    Eigsolve_Mugiq *eigsolve,
-						    const std::vector<ColorSpinorField*> &unitGammaPos,
-						    const std::vector<ColorSpinorField*> &unitGammaMom,
-						    MugiqLoopParam loopParams);
+template void assembleCoarseLoop_uLocal<double>(complex<double> *loop_dev,
+						MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
+						const std::vector<ColorSpinorField*> &unitGammaPos,
+						const std::vector<ColorSpinorField*> &unitGammaMom,
+						QudaInvertParam *invParams, MugiqLoopParam *loopParams);
 
-template void assembleLoopCoarsePart_uLocal<float>(complex<float> *loop_dev,
-						   Eigsolve_Mugiq *eigsolve,
-						   const std::vector<ColorSpinorField*> &unitGammaPos,
-						   const std::vector<ColorSpinorField*> &unitGammaMom,
-						   MugiqLoopParam loopParams);
+template void assembleCoarseLoop_uLocal<float>(complex<float> *loop_dev,
+					       MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
+					       const std::vector<ColorSpinorField*> &unitGammaPos,
+					       const std::vector<ColorSpinorField*> &unitGammaMom,
+					       QudaInvertParam *invParams, MugiqLoopParam *loopParams);
 
 template <typename Float>
-void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
-				   Eigsolve_Mugiq *eigsolve,
-				   const std::vector<ColorSpinorField*> &unitGammaPos,
-				   const std::vector<ColorSpinorField*> &unitGammaMom,
-				   MugiqLoopParam loopParams){
+void assembleCoarseLoop_uLocal(complex<Float> *loop_dev,
+			       MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
+			       const std::vector<ColorSpinorField*> &unitGammaPos,
+			       const std::vector<ColorSpinorField*> &unitGammaMom,
+			       QudaInvertParam *invParams, MugiqLoopParam *loopParams){
+  
   //- Some sanity checks
   const int nSpinEv = eigsolve->getEvecs()[0]->Nspin();
   const QudaPrecision precEv = eigsolve->getEvecs()[0]->Precision(); 
@@ -332,8 +332,9 @@ void assembleLoopCoarsePart_uLocal(complex<Float> *loop_dev,
 
   //- Template on the spins
   if(nSpinEv == 2)
-    assembleLoopCoarsePart_uLocal<Float,2>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
+    assembleCoarseLoop_uLocal<Float,2>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
   else
     errorQuda("%s: Unsupported number of spins %d\n", __func__, nSpinEv);
+  
 }
 //-------------------------------------------------------------------------------
