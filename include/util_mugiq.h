@@ -14,7 +14,7 @@
 #define GAUGE_SITE_LEN_ (N_COLOR_ * N_COLOR_)
 #define GAMMA_MAT_ELEM_ (N_SPIN_ * N_SPIN_)
 
-#define SHMEM_LOOP_ULOCAL_ (2*N_GAMMA_ + 2*SPINOR_SITE_LEN_)
+//#define SHMEM_LOOP_ULOCAL_ (2*N_GAMMA_ + 2*SPINOR_SITE_LEN_)
 
 #define SPINOR_SITE_IDX(s,c)  ( (c) + N_COLOR_*(s) )
 #define GAUGE_SITE_IDX(c1,c2)  ( (c2) + N_COLOR_*(c1) )

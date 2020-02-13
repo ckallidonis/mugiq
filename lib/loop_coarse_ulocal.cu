@@ -39,30 +39,32 @@ inline __device__ const complex<Float>* gammaCoeff() {
 template <typename Float, typename Arg>
 __global__ void loop_ulocal_kernel(complex<Float> *loop_dev, Arg *arg){
 
-  int x_cb  = blockIdx.x*blockDim.x + threadIdx.x;    /* CB site within 4d local volume */
-  int pty   = blockIdx.y*blockDim.y + threadIdx.y;    /* parity within 4d local volume  */
-  int tid   = x_cb + pty * arg->volumeCB;             /* space-time index within result buffer */
-  int lV    = arg->volume;
+  int x_cb = blockIdx.x*blockDim.x + threadIdx.x;    // CB site within 4d local volume
+  int pty  = blockIdx.y*blockDim.y + threadIdx.y;    // parity within 4d local volume
+
+  int tid  = x_cb + pty * arg->volumeCB;             /* space-time index within result buffer */
+  int lV   = arg->volume;
 
   if (x_cb >= arg->volumeCB) return;
   if (pty  >= arg->nParity) return;
   if (tid  >= lV) return;
-  
-  //  const int ng = threadIdx.z; // z-dimension runs on Gamma matrices
+  /*  
+  const int ng = threadIdx.z; // z-dimension runs on Gamma matrices
   //  int i1 = ng / N_SPIN_;
   //  int i2 = ng % N_SPIN_;
 
 
   //- Shared memory storage for coarse eigenvector, coarse gamma unity vector and global result
-  //- w is a coarse eigenvector
-  //- r is a coarse gamma unity vector
+  //- u is a coarse eigenvector
+  //- r is an unphased coarse gamma unity vector
+  //- v is a    phased coarse gamma unity vector
   //- globRes is the global (summed result)
-  /*  
+  const int coarseSiteLen = arg->Ns * arg->Nc;
   int isite_blk = threadIdx.y * blockDim.x + threadIdx.x;
-  complex<Float> *globRes = (complex<Float>*)&(shMemBuf[SHMEM_LOOP_ULOCAL_ * isite_blk]);
-  complex<Float> *w  = globRes + N_GAMMA_;
-  complex<Float> *r1 = w + coarseSiteLen;
-  complex<Float> *r2 = w + coarseSiteLen;
+  complex<Float> *globRes = (complex<Float>*)&(shMemBuf[arg->shMemElemSite * isite_blk]);
+  complex<Float> *u = globRes + N_GAMMA_;
+  complex<Float> *r = w + coarseSiteLen;
+  complex<Float> *v = w + coarseSiteLen;
   */
 
 //   performGammaSum<float>(gammaSum, r, arg->unitGamma);
@@ -210,16 +212,16 @@ void assembleCoarseLoop_uLocal(complex<Float> *loop_dev,
 
   /* Shared memory per site. This should hold:
    * - 1 Nspin*Ncolor ColorSpinor (vector) to store a coarse eigenvector
-   * - 2 Nspin*Ncolor ColorSpinor (vector) to store a coarse gamma unity vector
+   * - 1 Nspin*Ncolor ColorSpinor (vector) to store an unphased coarse gamma unity vector
+   * - 1 Nspin*Ncolor ColorSpinor (vector) to store a    phased coarse gamma unity vector
    * - 16 gamma matrices
    */
   long long shMem_elem_site = 3*Nspin*Ncolor + N_GAMMA_;
-  size_t shMem_site_bytes = sizeof(complex<Float>)*shMem_elem_site;
+  size_t shMem_bytes_site = sizeof(complex<Float>)*shMem_elem_site;
 
   //- Create the kernel's argument structure based on template values
   typedef Arg_CoarseLoop_uLocal<Float, Nspin, Ncolor> Arg;
-  //  Arg arg(unitGammaPos, unitGammaMom, eigsolve->getEvecs(), eigsolve->getEvals(), shMem_elem_site);
-  Arg arg(unitGammaPos, eigsolve->getEvecs(), eigsolve->getEvals(), shMem_elem_site);
+  Arg arg(unitGammaPos, unitGammaMom, eigsolve->getEvecs(), eigsolve->getEvals(), shMem_elem_site);
   Arg *arg_dev;
   cudaMalloc((void**)&(arg_dev), sizeof(Arg));
   checkCudaError();
@@ -232,7 +234,7 @@ void assembleCoarseLoop_uLocal(complex<Float> *loop_dev,
   
   //- Create object of loop-assemble class
   assembleLoop_uLocal<Float, Nspin, Ncolor, Arg> loop_uLocal(unitGammaPos[0], arg_dev, loop_dev,
-							     block_dim_z, shMem_site_bytes);
+							     block_dim_z, shMem_bytes_site);
   
   if(getVerbosity() >= QUDA_VERBOSE){
     printfQuda("%s: loop_uLocal::Flops = %lld\n", __func__, loop_uLocal.getFlops());

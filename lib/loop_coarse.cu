@@ -135,6 +135,7 @@ void createCoarseLoop_uLocal(complex<Float> *loop_h,
       assembleCoarseLoop_uLocal<Float>(loop_dev, mg_env, eigsolve, unitGammaPos, unitGammaMom, invParams, loopParams);
 
       //- Copy device buffer back to appropriate place in host buffer
+      //- Host loop buffer runs gamma-inside-time-inside-momentum g + Ng*t + Ng*Nt*p
       int hIdx = N_GAMMA_*gt + N_GAMMA_*globT*p;
       cudaMemcpy(&(loop_h[hIdx]), loop_dev, loopSize_dev, cudaMemcpyDeviceToHost);
       checkCudaError();

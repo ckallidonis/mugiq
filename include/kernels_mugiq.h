@@ -173,7 +173,7 @@ struct ArgTimeDilute : public ArgGeom {
   ArgTimeDilute () {}
 
   ArgTimeDilute(std::vector<ColorSpinorField*> &gammaGensTD_,
-		std::vector<ColorSpinorField*> &gammaGens_,
+		const std::vector<ColorSpinorField*> &gammaGens_,
 		int globt_)
     : ArgGeom(gammaGens_[0]),
       nVec(gammaGens_.size()),
@@ -201,25 +201,26 @@ struct Arg_CoarseLoop_uLocal : public ArgGeom {
   //  typedef typename FieldMapper<Float>::FermionField FermionField_;
   
   //- Coarse unity gamma vectors
-  CoarseFermionField unitGamma[SPINOR_SITE_LEN_];
+  CoarseFermionField r[SPINOR_SITE_LEN_]; //- no phase
+  CoarseFermionField v[SPINOR_SITE_LEN_]; //- phased
   
   //- Eigenvectors of coarse operator
-  CoarseFermionField eVecs[MUGIQ_MAX_COARSE_VEC];
+  CoarseFermionField u[MUGIQ_MAX_COARSE_VEC];
 
   //- Inverse of coarse operator eigenvalues
-  complex<Float> eVals_inv[MUGIQ_MAX_COARSE_VEC];
+  complex<Float> lambdaInv[MUGIQ_MAX_COARSE_VEC];
   
   //- Number of coarse eigenpairs
   int nEvec;
   
-  //- Number of unity gamma vectors (for sanity checks)
+  //- Number of unity gamma vectors
   int nUnit;
 
   //- Shared memory elements per site
   long long shMemElemSite;
 
   //- Size of shared memory per site, in bytes
-  size_t shMemSiteBytes;
+  size_t shMemBytesSite;
 
   //- Number of (coarse) spins
   int Ns;
@@ -231,33 +232,36 @@ struct Arg_CoarseLoop_uLocal : public ArgGeom {
   
   Arg_CoarseLoop_uLocal () {}
 
-  Arg_CoarseLoop_uLocal(const std::vector<ColorSpinorField*> &unitGamma_,
+  Arg_CoarseLoop_uLocal(const std::vector<ColorSpinorField*> &unitGammaPos_,
+			const std::vector<ColorSpinorField*> &unitGammaMom_,
 			const std::vector<ColorSpinorField*> &eVecs_,
 			std::vector<Complex> *eVals_,
 			long long shMemElemSite_)
-    : ArgGeom(unitGamma_[0]),
+    : ArgGeom(unitGammaPos_[0]),
       nEvec(eVecs_.size()),
-      nUnit(unitGamma_.size()),
+      nUnit(SPINOR_SITE_LEN_),
       shMemElemSite(shMemElemSite_),
-      shMemSiteBytes(sizeof(complex<Float>)*shMemElemSite),
+      shMemBytesSite(sizeof(complex<Float>)*shMemElemSite),
       Ns(Nspin),
       Nc(Ncolor),
       coarseSiteLen(Ns*Nc)
   {
     //- Sanity checks
-    if(nUnit != SPINOR_SITE_LEN_)
+    if( (static_cast<int>(unitGammaPos_.size()) != nUnit) && (static_cast<int>(unitGammaMom_.size()) != nUnit) )
       errorQuda("%s: Size of Gamma coarse unit vectors must be Nspin*Ncolor = %d\n", __func__, SPINOR_SITE_LEN_);
     if(nEvec > MUGIQ_MAX_COARSE_VEC)
       errorQuda("%s: Size of coarse eigenvectors %d is biggger than maximum allowed %d\n", __func__, nEvec, MUGIQ_MAX_COARSE_VEC);
     
     //- Initialize unitGamma vectors
-    for(int n=0;n<nUnit;n++)
-      unitGamma[n].init(*unitGamma_[n]);
-        
+    for(int n=0;n<nUnit;n++){
+      r[n].init(*unitGammaPos_[n]);
+      v[n].init(*unitGammaMom_[n]);
+    }
+    
     //- Initialize coarse eigenvectors and eigenvalues
     for(int n=0;n<nEvec;n++){
-      eVecs[n].init(*eVecs_[n]);
-      eVals_inv[n] = static_cast<complex<Float>>(1.0 / (*eVals_)[n]);
+      u[n].init(*eVecs_[n]);
+      lambdaInv[n] = static_cast<complex<Float>>(1.0 / (*eVals_)[n]);
     }
     
   }
