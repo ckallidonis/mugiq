@@ -22,7 +22,7 @@
 #define GAMMA_MAT_IDX(s1,s2)  ( (s2) + N_SPIN_*(s1) )
 
 #define GAMMA_GEN_IDX(s,c)  ( SPINOR_SITE_IDX((s),(c)) )
-#define GAMMA_COEFF_IDX(s1,c1,s2,c2) ( (SPINOR_SITE_IDX((s2),(c2))) + SPINOR_SITE_LEN_ * (GAMMA_GEN_IDX((s1),(c1))) )
+#define GAMMA_COEFF_IDX(s1,c1,s2,c2) ( (GAMMA_GEN_IDX((s2),(c2))) + SPINOR_SITE_LEN_ * (GAMMA_GEN_IDX((s1),(c1))) )
 
 #define MUGIQ_MAX_FINE_VEC 24
 #define MUGIQ_MAX_COARSE_VEC 256

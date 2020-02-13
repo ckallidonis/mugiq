@@ -9,15 +9,17 @@ extern __shared__ complex<Float> shMemBuf[];
 
 // //- Wrapper to return the gamma coefficients in constant memory (keep to float for now)
 template <typename Float>
-inline __device__ const complex<Float>* gammaCoeff() {
-  return reinterpret_cast<const complex<Float>*>(gCoeff_cMem);
+inline __device__ const complex<Float>** gammaCoeff() {
+  return reinterpret_cast<const complex<Float>**>(gCoeff_cMem);
 }
 
-// template <typename Float>
-// inline __device__ performGammaSum(complex<Float> *gammaSum, typedef typename FieldMapper<Float>::FermionField unitGamma[]){
-
+template <typename Float, typename Arg, typename V>
+inline __device__ complex<Float> performDotCoarse(V *v1, V *v2, Arg *arg){
+  
+  complex<Float> r = 1.0;
+  return r;
+  
 //   //- Get the gamma matrix coefficients from constant memory
-//   const complex<float> *gCoeff = gammaCoeff();
 
 // #pragma unroll
 //   for(int is=0;is<N_SPIN_;is++){     //- Which of the
@@ -34,11 +36,13 @@ inline __device__ const complex<Float>* gammaCoeff() {
 //     }// ic
 //   }// is
 	  
-// }
+}
 
 template <typename Float, typename Arg>
 __global__ void loop_ulocal_kernel(complex<Float> *loop_dev, Arg *arg){
 
+  typedef typename FieldMapper<Float>::Vector Vector;
+  
   int x_cb = blockIdx.x*blockDim.x + threadIdx.x;    // CB site within 4d local volume
   int pty  = blockIdx.y*blockDim.y + threadIdx.y;    // parity within 4d local volume
 
@@ -48,10 +52,10 @@ __global__ void loop_ulocal_kernel(complex<Float> *loop_dev, Arg *arg){
   if (x_cb >= arg->volumeCB) return;
   if (pty  >= arg->nParity) return;
   if (tid  >= lV) return;
-  /*  
-  const int ng = threadIdx.z; // z-dimension runs on Gamma matrices
-  //  int i1 = ng / N_SPIN_;
-  //  int i2 = ng % N_SPIN_;
+  
+  const int nG = threadIdx.z; // z-dimension runs on Gamma matrices
+  //  int i1 = nG / N_SPIN_;
+  //  int i2 = nG % N_SPIN_;
 
 
   //- Shared memory storage for coarse eigenvector, coarse gamma unity vector and global result
@@ -61,46 +65,79 @@ __global__ void loop_ulocal_kernel(complex<Float> *loop_dev, Arg *arg){
   //- globRes is the global (summed result)
   const int coarseSiteLen = arg->Ns * arg->Nc;
   int isite_blk = threadIdx.y * blockDim.x + threadIdx.x;
-  complex<Float> *globRes = (complex<Float>*)&(shMemBuf[arg->shMemElemSite * isite_blk]);
-  complex<Float> *u = globRes + N_GAMMA_;
-  complex<Float> *r = w + coarseSiteLen;
-  complex<Float> *v = w + coarseSiteLen;
-  */
+  complex<Float> *globRes = (complex<Float>*)&(shMemBuf<Float>[arg->shMemElemSite * isite_blk]);
+  complex<Float> *dotNoPh = globRes + N_GAMMA_;
+  complex<Float> *dotwPh  = globRes + SPINOR_SITE_LEN_;  
+  complex<Float> *u = globRes + SPINOR_SITE_LEN_;
+  complex<Float> *r = u + coarseSiteLen;
+  complex<Float> *v = r + coarseSiteLen;
 
-//   performGammaSum<float>(gammaSum, r, arg->unitGamma);
-    
+  const complex<Float> **gCoeff = gammaCoeff<Float>();  
+
   
-//   globRes[ng] = 0.0;
+  globRes[nG] = 0.0;
 
-//   //- Loop over the eigenvectors
-// #pragma unroll
-//   for (int i=0; i<arg->nEvec; i++){
-//     if (0 == ng){
-//       *(reinterpret_cast<typename FieldMapper<float>::Vector*>(w)) = arg->eVecs[i](x_cb, pty);
-//     }
-//     __syncthreads();
+  //- Loop over the eigenvectors
+#pragma unroll
+  for (int m=0; m<arg->nEvec; m++){
+    if (0 == nG){
+      *(reinterpret_cast<Vector*>(u)) = arg->u[m](x_cb, pty);
+    }
+    __syncthreads();
+    
+#pragma unroll
+    for(int i=0;i<SPINOR_SITE_LEN_;i++){
+      if (0 == nG){
+	*(reinterpret_cast<Vector*>(r)) = arg->r[i](x_cb, pty);
+	*(reinterpret_cast<Vector*>(v)) = arg->v[i](x_cb, pty);
+      }
+      __syncthreads();
+      
+      dotNoPh[i] = performDotCoarse<Float, Arg, Vector>(reinterpret_cast<Vector*>(u), reinterpret_cast<Vector*>(r), arg);
+      dotwPh[i]  = performDotCoarse<Float, Arg, Vector>(reinterpret_cast<Vector*>(v), reinterpret_cast<Vector*>(u), arg);
+    }
+    __syncthreads();
+    
+#pragma unroll
+    for(int s1=0;s1<N_SPIN_;s1++){    //- row index
+#pragma unroll
+      for(int s2=0;s2<N_SPIN_;s2++){  //- col index
+#pragma unroll
+        for(int c1=0;c1<N_COLOR_;c1++){
+#pragma unroll
+          for(int c2=0;c2<N_COLOR_;c2++){
+	    int cIdx  = GAMMA_COEFF_IDX(s1,c1,s2,c2);
+	    int gIdx1 = GAMMA_GEN_IDX(s1,c1);
+	    int gIdx2 = GAMMA_GEN_IDX(s2,c2);
 
-//     /* compute v2^dag . v1 */
+	    globRes[nG] += gCoeff[nG][cIdx] * dotNoPh[gIdx1] * dotwPh[gIdx2];
+	  }
+	}
+      }
+    }
+    __syncthreads();
+    
+    /* compute v2^dag . v1 */
 //     {
 //       complex<float> s = 0;
 
 //       for (int kc = 0 ; kc < QC_Nc ; kc++)
 // 	s += conj(v2[QC_LIDX_D_TR(kc, i2)]) * v1[QC_LIDX_D_TR(kc,i1)];
 
-//       globRes[ng] += s;
+//       globRes[nG] += s;
 //     }
 //     __syncthreads(); /* sic! avoid overwrite v2 in the next iter; sync globRes before Gamma proj */
-//   }//- loop over prop-i
+  }//- eVecs
 
-//   /* proj on Gamma(ng) -> Corr_dev[tid + lV*ng] */
-//   int ngamma  = ng;
+//   /* proj on Gamma(nG) -> Corr_dev[tid + lV*nG] */
+//   int nGamma  = nG;
 //   QC_CPLX s = 0;
 // #pragma unroll
 //   for (int is = 0 ; is < QC_Ns ; is++) {
-//     int js = gamma->left_ind[ngamma][is];
-//     s += gamma->left_coeff[ngamma][is] * globRes[QC_LIDX_G(js, is)];
+//     int js = gamma->left_ind[nGamma][is];
+//     s += gamma->left_coeff[nGamma][is] * globRes[QC_LIDX_G(js, is)];
 //   }
-//   Corr_dev[tid + lV*ngamma] = s;
+//   Corr_dev[tid + lV*nGamma] = s;
 
 }//-kernel
 //------------------------------------------------------------------------------------------
@@ -214,9 +251,11 @@ void assembleCoarseLoop_uLocal(complex<Float> *loop_dev,
    * - 1 Nspin*Ncolor ColorSpinor (vector) to store a coarse eigenvector
    * - 1 Nspin*Ncolor ColorSpinor (vector) to store an unphased coarse gamma unity vector
    * - 1 Nspin*Ncolor ColorSpinor (vector) to store a    phased coarse gamma unity vector
+   * - 1 Result of Dot product for Nspin*Color generators (unphased) 
+   * - 1 Result of Dot product for Nspin*Color generators (phased) 
    * - 16 gamma matrices
    */
-  long long shMem_elem_site = 3*Nspin*Ncolor + N_GAMMA_;
+  long long shMem_elem_site = 3*Nspin*Ncolor + 2*SPINOR_SITE_LEN_ + N_GAMMA_;
   size_t shMem_bytes_site = sizeof(complex<Float>)*shMem_elem_site;
 
   //- Create the kernel's argument structure based on template values
