@@ -20,4 +20,4 @@ void timeDilutePhasedGammaUnitVectors(std::vector<ColorSpinorField*> &gammaGensT
 				      int glob_t);
 
 template <typename Float>
-void createGammaCoeff();
+void createGammaCoeff(complex<Float> gCoeff[][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_]);

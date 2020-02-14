@@ -130,14 +130,14 @@ void timeDilutePhasedGammaUnitVectors<float>(std::vector<ColorSpinorField*> &gam
  * Any Gamma matrix can be obtained as G(n) = \sum_{i,j=0}^{3} [c_n(i,j) * e(i) * e^dag(j)],
  * where c(i,j) are the coefficients, and e(i) are the gamma-matrix unity vectors/generators
  */
-template void createGammaCoeff<double>();
-template void createGammaCoeff<float>();
+template void createGammaCoeff<double>(complex<double> gCoeff[][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_]);
+template void createGammaCoeff<float>(complex<float> gCoeff[][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_]);
 
 template <typename Float>
-void createGammaCoeff(){
+void createGammaCoeff(complex<Float> gCoeff[][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_]){
 
-  complex<Float> gCoeff[N_GAMMA_][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_];
-  memset(gCoeff, 0, sizeof(gCoeff));
+  int nCoeff = N_GAMMA_ * SPINOR_SITE_LEN_ * SPINOR_SITE_LEN_;
+  memset(gCoeff, 0, sizeof(complex<Float>)*nCoeff);
 
   //- The value in rows 0,1,2,3, respectively, of each gamma matrix
   const Float row_value[N_GAMMA_][N_SPIN_][2] = {{ {1,0}, {1,0}, {1,0}, {1,0} },   /* G0 = 1 */
@@ -193,7 +193,7 @@ void createGammaCoeff(){
 
 
   //- Copy the gamma coeffcients to GPU constant memory
-  cudaMemcpyToSymbol(gCoeff_cMem, &gCoeff, sizeof(gCoeff));
+  cudaMemcpyToSymbol(gCoeff_cMem, &gCoeff, sizeof(complex<Float>)*nCoeff);
 
   printfQuda("%s: Gamma coefficients created and copied to __constant__ memory\n", __func__);
 }

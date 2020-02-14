@@ -32,7 +32,8 @@ void createCoarseLoop_uLocal(complex<Float> *loop_h,
   if((invParams->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS) &&
      (mg_env->mgParams->invert_param->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS))
     errorQuda("%s: Supports only DeGrand-Rossi gamma basis\n", __func__);
-  createGammaCoeff<Float>();
+  complex<Float> gCoeff[N_GAMMA_][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_];
+  createGammaCoeff<Float>(gCoeff);
   //-----------------------------------------------------------
   
   //- Allocate coarse gamma-matrix unit vectors
