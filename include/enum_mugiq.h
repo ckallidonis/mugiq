@@ -38,6 +38,12 @@ extern "C" {
      LOOP_CALC_TYPE_BASIC_KERNEL,  //- Calculate loop using a basic CUDA kernel
      LOOP_CALC_TYPE_INVALID = MUGIQ_INVALID_ENUM
     } LoopCalcType;
+
+  typedef enum MuGiqBool_s
+    { MUGIQ_BOOL_FALSE   = 0,
+      MUGIQ_BOOL_TRUE    = 1,     
+      MUGIQ_BOOL_INVALID = MUGIQ_INVALID_ENUM
+    } MuGiqBool;
   
 
 #ifdef __cplusplus
