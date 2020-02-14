@@ -16,13 +16,6 @@ void createCoarseLoop_uLocal(complex<Float> *loop_h,
 			     MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
 			     QudaInvertParam *invParams, MugiqLoopParam *loopParams){
 
-  //- Allocate the device loop buffer
-  //- It will be overwritten for each momentum and time, hence it has only gamma-matrix dependence
-  complex<Float> *loop_dev;
-  size_t loopSize_dev = sizeof(complex<Float>) * N_GAMMA_;
-  cudaMalloc((void**)&loop_dev, loopSize_dev);
-  checkCudaError();
-  
   QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision(); 
   if((ePrec != QUDA_DOUBLE_PRECISION) && (ePrec != QUDA_SINGLE_PRECISION))
     errorQuda("%s: Unsupported precision for creating Coarse part of loop\n", __func__);
@@ -108,6 +101,23 @@ void createCoarseLoop_uLocal(complex<Float> *loop_h,
   restrictGammaUnitVectors(unitGammaPos, gammaGens, tmpCSF, mg_env);
   printfQuda("%s: Restricting Unphased Gamma Vectors at the coarsest level completed\n", __func__);
 
+
+  complex<Float> *loop_dev;
+  size_t loopSize_dev = sizeof(complex<Float>) * N_GAMMA_;
+  if(loopParams->calcType == LOOP_CALC_TYPE_BASIC_KERNEL){
+    errorQuda("%s: Loop calculation type 'basic' not supported yet\n", __func__);
+  }
+  else if(loopParams->calcType == LOOP_CALC_TYPE_OPT_KERNEL){
+    printfQuda("%s: Calculating Coarse Loop using optimized tunable CUDA kernel\n", __func__);
+
+    //- Allocate the device loop buffer
+    //- It will be overwritten for each momentum and time, hence it has only gamma-matrix dependence
+    cudaMalloc((void**)&loop_dev, loopSize_dev);
+    checkCudaError();
+  }
+  else if(loopParams->calcType == LOOP_CALC_TYPE_BLAS){
+    printfQuda("%s: Calculating Coarse Loop using BLAS\n", __func__);
+  }
   
   for(int p=0;p<loopParams->Nmom;p++){
     std::vector<int> mom = loopParams->momMatrix[p];
@@ -129,17 +139,24 @@ void createCoarseLoop_uLocal(complex<Float> *loop_h,
       
       //- Restrict phased and time-diluted fine gamma Generators at the coarsest level
       restrictGammaUnitVectors(unitGammaMom, gammaGensTD, tmpCSF, mg_env);
-      printfQuda("%s: Diluting and restricting Phased Coarse Gamma Vectors at the coarsest level for t = %d completed\n", __func__, gt);
       
       //- Call top-level function that calls CUDA kernel to assemble final loop
-      cudaMemset(loop_dev,0, loopSize_dev);
-      assembleCoarseLoop_uLocal<Float>(loop_dev, mg_env, eigsolve, unitGammaPos, unitGammaMom, invParams, loopParams);
+      if(loopParams->calcType == LOOP_CALC_TYPE_OPT_KERNEL){
+	cudaMemset(loop_dev,0, loopSize_dev);
+	assembleCoarseLoop_uLocal_opt<Float>(loop_dev, mg_env, eigsolve, unitGammaPos, unitGammaMom, invParams, loopParams);
 
-      //- Copy device buffer back to appropriate place in host buffer
-      //- Host loop buffer runs gamma-inside-time-inside-momentum g + Ng*t + Ng*Nt*p
-      int hIdx = N_GAMMA_*gt + N_GAMMA_*globT*p;
-      cudaMemcpy(&(loop_h[hIdx]), loop_dev, loopSize_dev, cudaMemcpyDeviceToHost);
-      checkCudaError();
+	//- Copy device buffer back to appropriate place in host buffer
+	//- Host loop buffer runs gamma-inside-time-inside-momentum g + Ng*t + Ng*Nt*p
+	int hIdx = N_GAMMA_*gt + N_GAMMA_*globT*p;
+	cudaMemcpy(&(loop_h[hIdx]), loop_dev, loopSize_dev, cudaMemcpyDeviceToHost);
+	checkCudaError();
+	printfQuda("%s: Loop assemble using optimized CUDA kernel for t = %d completed\n", __func__, gt);
+      }
+      else if(loopParams->calcType == LOOP_CALC_TYPE_BLAS){
+	int hIdx = N_GAMMA_*gt + N_GAMMA_*globT*p;
+	assembleCoarseLoop_uLocal_blas<Float>(&(loop_h[hIdx]), mg_env, eigsolve, gCoeff, unitGammaPos, unitGammaMom, invParams, loopParams);
+	printfQuda("%s: Loop assemble using BLAS for t = %d completed\n", __func__, gt);
+      }
       
     }//- time
     
@@ -157,8 +174,11 @@ void createCoarseLoop_uLocal(complex<Float> *loop_h,
     delete unitGammaMom[n];
   }
 
-  cudaFree(loop_dev);
-  loop_dev = nullptr;
+	
+  if(loopParams->calcType == LOOP_CALC_TYPE_OPT_KERNEL){
+    cudaFree(loop_dev);
+    loop_dev = nullptr;
+  }
   
 }
 //-------------------------------------------------------------------------------
