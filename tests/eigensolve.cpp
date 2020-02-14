@@ -612,6 +612,12 @@ void setLoopParam(MugiqLoopParam &loopParams){
   if(loop_ft_sign == LOOP_FT_SIGN_INVALID)
     errorQuda("%s: Loop FT sign is undefined/unsupported. Options are --loop-ft-sign plus/minus\n", __func__);
   loopParams.FTSign = loop_ft_sign;
+
+  if(loop_calc_type == LOOP_CALC_TYPE_INVALID)
+    errorQuda("%s: Loop Calculation Type is undefined/unsupported. Options are --loop-calc-type blas/opt/basic\n", __func__);
+  loopParams.calcType = loop_calc_type;
+
+
   
   //- Open file to read momenta
   std::ifstream momFile;

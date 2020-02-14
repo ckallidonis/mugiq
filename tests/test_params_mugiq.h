@@ -18,6 +18,7 @@ extern MuGiqEigOperator mugiq_eig_operator;
 
 extern char mugiq_mom_filename[1024];
 extern LoopFTSign loop_ft_sign;
+extern LoopCalcType loop_calc_type;
 
 /*
 class MUGIQApp : public CLI::App

@@ -30,6 +30,14 @@ extern "C" {
      LOOP_FT_SIGN_PLUS  =  1,
      LOOP_FT_SIGN_INVALID = MUGIQ_INVALID_ENUM
     } LoopFTSign;
+
+  typedef enum LoopCalcType_s
+    {
+     LOOP_CALC_TYPE_BLAS,          //- Calculate loop using BLAS
+     LOOP_CALC_TYPE_OPT_KERNEL,    //- Calculate loop using tunable/optimized CUDA kernel
+     LOOP_CALC_TYPE_BASIC_KERNEL,  //- Calculate loop using a basic CUDA kernel
+     LOOP_CALC_TYPE_INVALID = MUGIQ_INVALID_ENUM
+    } LoopCalcType;
   
 
 #ifdef __cplusplus

@@ -11,6 +11,7 @@ MuGiqEigOperator mugiq_eig_operator = MUGIQ_EIG_OPERATOR_INVALID;
 
 char mugiq_mom_filename[1024] = "momenta.txt";
 LoopFTSign loop_ft_sign = LOOP_FT_SIGN_INVALID;
+LoopCalcType loop_calc_type = LOOP_CALC_TYPE_INVALID;
 
 namespace {
   CLI::TransformPairs<MuGiqTask> mugiq_task_map {{"computeEvecsQuda", MUGIQ_COMPUTE_EVECS_QUDA},
@@ -21,6 +22,10 @@ namespace {
 
   CLI::TransformPairs<LoopFTSign> loop_ft_sign_map {{"plus", LOOP_FT_SIGN_PLUS},
 						    {"minus", LOOP_FT_SIGN_MINUS}};
+
+  CLI::TransformPairs<LoopCalcType> loop_calc_type_map {{"blas",  LOOP_CALC_TYPE_BLAS},
+							{"opt" ,  LOOP_CALC_TYPE_OPT_KERNEL},
+							{"basic", LOOP_CALC_TYPE_BASIC_KERNEL}};
 }
 
 
@@ -46,6 +51,9 @@ void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app)
 
     opgroup->add_option("--loop-ft-sign", loop_ft_sign,
 		      "Sign of the Loop Fourier Transform phase (default NULL)")->transform(CLI::QUDACheckedTransformer(loop_ft_sign_map));
+
+    opgroup->add_option("--loop-calc-type", loop_calc_type,
+		      "Type of loop calculation (default NULL, options are blas/opt/basic)")->transform(CLI::QUDACheckedTransformer(loop_calc_type_map));
 }
 
 
