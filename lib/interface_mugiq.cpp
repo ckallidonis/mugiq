@@ -204,6 +204,12 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
 				   invParams, &loopParams);
   }
   //-----------------------------------------------------------
+
+
+  if(loopParams.printASCII == MUGIQ_BOOL_TRUE){
+
+  }
+  
   
   //- Clean-up
   free(loop_h);

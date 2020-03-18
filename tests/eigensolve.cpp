@@ -617,7 +617,7 @@ void setLoopParam(MugiqLoopParam &loopParams){
     errorQuda("%s: Loop Calculation Type is undefined/unsupported. Options are --loop-calc-type blas/opt/basic\n", __func__);
   loopParams.calcType = loop_calc_type;
 
-
+  loopParams.printASCII = loop_print_ascii;
   
   //- Open file to read momenta
   std::ifstream momFile;
