@@ -207,7 +207,34 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, 
 
 
   if(loopParams.printASCII == MUGIQ_BOOL_TRUE){
-
+    if(ePrec == QUDA_DOUBLE_PRECISION){
+      for(int im=0;im<loopParams.Nmom;im++){
+	for(int ig=0;ig<N_GAMMA_;ig++){
+	  printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
+		     loopParams.momMatrix[im][0],
+		     loopParams.momMatrix[im][1],
+		     loopParams.momMatrix[im][2], ig);
+	  for(int it=0;it<globT;it++){
+	    int loopIdx = ig + N_GAMMA_*it + N_GAMMA_*globT*im;
+	    printfQuda("%d %+.8e %+.8e\n", it, static_cast<complex<double>*>(loop_h)[loopIdx].real(), static_cast<complex<double>*>(loop_h)[loopIdx].imag());
+	  }
+	}
+      }
+    }
+    else if(ePrec == QUDA_SINGLE_PRECISION){
+      for(int im=0;im<loopParams.Nmom;im++){
+	for(int ig=0;ig<N_GAMMA_;ig++){
+	  printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
+		     loopParams.momMatrix[im][0],
+		     loopParams.momMatrix[im][1],
+		     loopParams.momMatrix[im][2], ig);
+	  for(int it=0;it<globT;it++){
+	    int loopIdx = ig + N_GAMMA_*it + N_GAMMA_*globT*im;
+	    printfQuda("%d %+.8e %+.8e\n", it, static_cast<complex<float>*>(loop_h)[loopIdx].real(), static_cast<complex<float>*>(loop_h)[loopIdx].imag());
+	  }
+	}
+      }
+    }   
   }
   
   
