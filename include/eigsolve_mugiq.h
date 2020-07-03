@@ -1,4 +1,4 @@
-#ifndef _EISGOLVE_MUGIQ_H
+#ifndef _EIGSOLVE_MUGIQ_H
 #define _EIGSOLVE_MUGIQ_H
 
 #include <quda.h>
@@ -12,6 +12,8 @@ class Eigsolve_Mugiq {
 
 private:
 
+  MG_Mugiq *mg_env; // The Multigrid environment
+
   bool eigInit;                   // Initialization switch
   bool mgEigsolve;                // MG eigsolve switch
 
@@ -23,11 +25,8 @@ private:
   QudaEigParam *eigParams;        // Eigensolver parameter structure
   QudaInvertParam *invParams;     // Inverter parameter structure
 
-  TimeProfile *mg_profile; //  Used for profiling
-  TimeProfile *eig_profile; // Used for profiling
-
-  multigrid_solver *mg_solver; // The multigrid structure
-
+  TimeProfile *eigProfile; // Used for profiling
+  
   const Dirac *dirac;
   DiracMatrix *mat; // The Dirac operator whose eigenpairs we are computing
 
@@ -35,8 +34,8 @@ private:
 
   
   std::vector<ColorSpinorField *> eVecs; // Eigenvectors
-  std::vector<Complex> *eVals; // Eigenvalues
-  std::vector<Complex> *eVals_loc; // Local Eigenvalues, computed within the class
+  std::vector<Complex> *eVals_quda; // Eigenvalues from the Quda eigensolver
+  std::vector<Complex> *eVals; // Eigenvalues computed within the Eigsolve_Mugiq class
 
   std::vector<ColorSpinorField *> tmpCSF; // Temporary field(s)
   
@@ -45,8 +44,8 @@ private:
   int nConv; // Number of eigenvectors we want
   
 public:
-  Eigsolve_Mugiq(QudaMultigridParam *mgParams_, TimeProfile *mg_profile_,
-		 QudaEigParam *eigParams_,      TimeProfile *eig_profile_,
+  Eigsolve_Mugiq(MG_Mugiq *mg_env_,
+		 QudaEigParam *eigParams_, TimeProfile *eigProfile_,
 		 bool computeCoarse_=true);
 
   Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_);
@@ -68,24 +67,33 @@ public:
    */
   void printEvals();
 
-  /** @brief Accessor to get the eigenvalues outside of the class
-   */
-  std::vector<Complex>* getEvals(){ return eVals;}
-
   /** @brief Accessor to get the eigenvectors outside of the class
    */
-  std::vector<ColorSpinorField *> getEvecs(){ return eVecs;}
-
-  /** @brief Accessor to get the local eigenvalues outside of the class
+  std::vector<ColorSpinorField *> &getEvecs(){ return eVecs;}
+  
+  /** @brief Accessor to get the Quda eigenvalues outside of the class
    */
-  std::vector<Complex>* getEvals_loc(){ return eVals_loc;}
+  std::vector<Complex>* getEvalsQuda(){ return eVals_quda;}
+  
+  /** @brief Accessor to get the Eigsolve_Mugiq eigenvalues outside of the class
+   */
+  std::vector<Complex> *getEvals(){ return eVals;}
   
   /** @brief Accessor to get the residual of the computed eigenvalues
    */
   std::vector<double>* getEvalsRes(){ return evals_res;}
 
-
+  /** @brief Accessor to get the Multigrid environment structure
+   */
+  MG_Mugiq* getMGEnv(){ return mg_env;}
   
+  /** @brief Accessor to get the eigsolve parameter structure
+   */
+  QudaEigParam* getEigParams(){ return eigParams;}
+  
+  /** @brief Accessor to get the invert parameter structure
+   */
+  QudaInvertParam* getInvParams(){ return invParams;}
   
 }; // class Eigsolve_Mugiq 
 

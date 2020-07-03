@@ -4,6 +4,7 @@
 #include <math.h>
 #include <string.h>
 #include <algorithm>
+#include <fstream>
 
 #include <util_quda.h>
 #include <test_util.h>
@@ -604,6 +605,48 @@ void setMultigridParam(QudaMultigridParam &mg_param)
 //-------------------------------------------------------------------------------
 
 
+void setLoopParam(MugiqLoopParam &loopParams){
+
+  const int NspDim = 3; // Number of spatial dimensions
+
+  if(loop_ft_sign == LOOP_FT_SIGN_INVALID)
+    errorQuda("%s: Loop FT sign is undefined/unsupported. Options are --loop-ft-sign plus/minus\n", __func__);
+  loopParams.FTSign = loop_ft_sign;
+
+  if(loop_calc_type == LOOP_CALC_TYPE_INVALID)
+    errorQuda("%s: Loop Calculation Type is undefined/unsupported. Options are --loop-calc-type blas/opt/basic\n", __func__);
+  loopParams.calcType = loop_calc_type;
+
+  loopParams.printASCII = loop_print_ascii;
+  
+  //- Open file to read momenta
+  std::ifstream momFile;
+  
+  momFile.open(mugiq_mom_filename);
+  if(!momFile) errorQuda("%s: Cannot open file %s to read momenta (option --momenta-filename)\n", __func__, mugiq_mom_filename);
+
+  std::vector<int> mVec(NspDim, 0);
+  std::string line;
+  int Nmom = 0;
+  while(getline(momFile, line)){
+    std::istringstream iss(line);
+    if (iss >> mVec[0] >> mVec[1] >> mVec[2]){
+      Nmom++;
+      loopParams.momMatrix.push_back(mVec);
+    }
+    else errorQuda("%s: Incorrect file format in Line %d\n", __func__, Nmom);
+  }//- while
+  loopParams.Nmom = Nmom;
+  
+  printfQuda("%s: Will calculate the loop for the following %d momenta:\n", __func__, loopParams.Nmom);
+  for(int n=0;n<Nmom;n++)
+      printfQuda(" Mom[%d] = %+02d %+02d %+02d\n", n, loopParams.momMatrix[n][0], loopParams.momMatrix[n][1], loopParams.momMatrix[n][2]);
+  
+  momFile.close();
+
+}
+
+
 int main(int argc, char **argv)
 {
   // Parse QUDA and MuGiq command line options
@@ -614,6 +657,9 @@ int main(int argc, char **argv)
   //- Parse MG parameters
   setDefaultMGParams(); //- Det default values before parsing
   add_multigrid_option_group(app);
+
+  //- Parse Loop Parameters
+  add_loop_option_mugiq(app);
   
   try {
     app->parse(argc, argv);
@@ -650,6 +696,11 @@ int main(int argc, char **argv)
   if (eig_param.arpack_check)
     errorQuda("MuGiq does not support ARPACK!\n");
 
+
+  MugiqLoopParam loopParams;
+  setLoopParam(loopParams);
+
+  
   QudaMultigridParam mg_param;
   QudaInvertParam mg_inv_param;
   QudaEigParam mg_eig_param[mg_levels];
@@ -748,7 +799,7 @@ int main(int argc, char **argv)
   // Call the Eigensolver interface-function
   double time = -((double)clock());
   if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_NO_MG){
-    if(mugiq_eig_task == MUGIQ_COMPUTE_EVECS_QUDA){
+    if(mugiq_task == MUGIQ_COMPUTE_EVECS_QUDA){
       void **host_evecs = (void **)malloc(eig_nConv * sizeof(void *));
       for (int i = 0; i < eig_nConv; i++) {
 	host_evecs[i] = (void *)malloc(V * eig_inv_param.Ls * sss * eig_inv_param.cpu_prec);
@@ -761,11 +812,18 @@ int main(int argc, char **argv)
       free(host_evecs);
       free(host_evals);    
     }
-    else if(mugiq_eig_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq(eig_param);    
-    else errorQuda("Option --mugiq-eig-task not set! (options are computeEvecsQuda,computeEvecsMuGiq)\n");
+    else if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq(eig_param);
+    else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeEvecsQuda, computeEvecsMuGiq)\n");
+    else errorQuda("Unsupported option for --mugiq-task! (options are computeEvecsQuda, computeEvecsMuGiq when --mugiq-eig-operator is set to MUGIQ_EIG_OPERATOR_NO_MG)\n");
   }
-  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG) computeEvecsMuGiq_MG(mg_param, eig_param); //- Compute Coarse MG operator eigenvalues
-  else errorQuda("Option --mugiq-eig-operator not set! (options are mg/no_mg)\n");
+  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG){
+    if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq_MG(mg_param, eig_param); //- Compute Coarse MG operator eigenvalues
+    else if(mugiq_task == MUGIQ_COMPUTE_LOOP_ULOCAL) computeLoop_uLocal_MG(mg_param, eig_param, loopParams);
+    else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeLoopULocal)\n");
+    else errorQuda("Unsupported option for --mugiq-task! (options are computeLoopULocal when --mugiq-eig-operator is set to MUGIQ_EIG_OPERATOR_MG)\n");
+  }
+  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_INVALID) errorQuda("Option --mugiq-eig-operator not set! (options are mg/no_mg)\n");
+  else errorQuda("Unsupported option --mugiq-eig-operator! (options are mg/no_mg)\n");
     
   time += (double)clock();
   printfQuda("Time for solution = %f\n", time / CLOCKS_PER_SEC);

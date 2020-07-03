@@ -10,16 +10,23 @@
 #include <quda.h>
 #include <enum_mugiq.h>
 
-#define N_SPIN_ 4
-#define N_COLOR_ 3
-#define N_GAMMA_ 16
-#define SPINOR_SITE_LEN_ (N_SPIN_ * N_COLOR_)
-#define GAUGE_SITE_LEN_ (N_COLOR_ * N_COLOR_)
-#define GAMMA_LEN_ (N_SPIN_ * N_SPIN_)
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+  /* Structure that holds parameters related to the calculation of
+   * disconnected quark loops.
+   * Will be extended according to compuation demands
+   */
+  typedef struct MugiqLoopParam_s {
+
+    int Nmom; //- Number of momenta for Fourier Transform
+    std::vector<std::vector<int>> momMatrix; //- 2d-Array/vector holding the momenta values, dimensions [Nmom][3]
+    LoopFTSign FTSign;
+    LoopCalcType calcType;
+    MuGiqBool printASCII;
+    
+  } MugiqLoopParam;
   
   /** Wrapper function that calls the QUDA eigensolver to compute eigenvectors and eigenvalues
    * @param h_evecs  Array of pointers to application eigenvectors
@@ -39,7 +46,13 @@ extern "C" {
    */
   void computeEvecsMuGiq(QudaEigParam eigParams);
 
-
+  /** MuGiq interface function that computes disconnected quark loops using Multigrid Deflation
+   *  and for ultra-local current insertions
+   * @param mgParams  Contains all MG metadata regarding the type of eigensolve.
+   * @param eigParams Contains all metadata regarding the type of solve.
+   * @param loopParams Contains all metadata regarding the loop calculation
+   */
+  void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams);
   
 #ifdef __cplusplus
 }
