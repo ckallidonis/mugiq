@@ -12,29 +12,65 @@ using namespace quda;
 // Forward declaration of the QUDA-interface function that is needed here
 cudaGaugeField *checkGauge(QudaInvertParam *param);
 
+
+struct MugiqEigParam {
+  
+  QudaEigParam *QudaEigParams;     // The Quda Eigensolver parameter structure
+  
+  MuGiqEigOperator diracType; // Type of Dirac operator for eigenpair calculation, M, Mdag, MdagM, MMdag
+  
+  int nEv;    // Number of eigenvectors we want
+  int nKr;    // Size of Krylov Space
+  double tol; // Tolerance of the eigensolve
+  
+  // Polynomial acceleration parameters
+  MuGiqBool use_poly_acc;
+  int poly_acc_deg;
+  double a_min;
+  double a_max;
+  
+  // Eig-params constructor for use with MG eigensolves
+  MugiqEigParam(QudaEigParam *QudaEigParams_) :
+    QudaEigParams(QudaEigParams_),
+    diracType(MUGIQ_EIG_OPERATOR_INVALID),
+    nEv(QudaEigParams_->nEv),
+    nKr(QudaEigParams_->nKr),
+    tol(QudaEigParams_->tol),
+    use_poly_acc(MUGIQ_BOOL_INVALID),
+    poly_acc_deg(0),
+    a_min(0),
+    a_max(0)
+  {
+    use_poly_acc = QudaEigParams->use_poly_acc == QUDA_BOOLEAN_YES ? MUGIQ_BOOL_TRUE : MUGIQ_BOOL_FALSE;
+    if(use_poly_acc){
+      poly_acc_deg = QudaEigParams->poly_deg;
+      a_min = QudaEigParams->a_min;
+      a_max = QudaEigParams->a_max;
+    }//-if
+  } //-constructor
+  
+};
+
+
+	
 class Eigsolve_Mugiq {
 
 private:
 
+  MugiqEigParam *eigParams;
+  
+  MuGiqBool eigInit;        // Initialization switch
+  MuGiqBool useMGenv;  // Whether to use MG environment operators, etc
+
   MG_Mugiq *mg_env; // The Multigrid environment
 
-  bool eigInit;                   // Initialization switch
-  bool mgEigsolve;                // MG eigsolve switch
-
-  // Whether we are computing eigenpairs of the coarse Dirac operator
-  // (significant only when using Multigrid, default true) 
-  bool computeCoarse; 
-
   QudaMultigridParam *mgParams;   // Multigrid parameter structure
-  QudaEigParam *eigParams;        // Eigensolver parameter structure
   QudaInvertParam *invParams;     // Inverter parameter structure
 
   TimeProfile *eigProfile; // Used for profiling
   
   const Dirac *dirac;
   DiracMatrix *mat; // The Dirac operator whose eigenpairs we are computing
-
-  bool pc_solve; // Whether we are running for the "full" or even-odd preconditioned Operator
 
   
   std::vector<ColorSpinorField *> eVecs; // Eigenvectors
@@ -44,15 +80,19 @@ private:
   std::vector<ColorSpinorField *> tmpCSF; // Temporary field(s)
   
   std::vector<double> *evals_res;
-  
-  int nConv; // Number of eigenvectors we want
+
+  // Whether we are computing eigenpairs of the coarse Dirac operator
+  // (significant only when using Multigrid, default true) 
+  MuGiqBool computeCoarse; 
+
   
 public:
-  Eigsolve_Mugiq(MG_Mugiq *mg_env_,
-		 QudaEigParam *eigParams_, TimeProfile *eigProfile_,
-		 bool computeCoarse_=true);
+  Eigsolve_Mugiq(MugiqEigParam *eigParams_,
+		 MG_Mugiq *mg_env_,
+		 TimeProfile *eigProfile_,
+		 MuGiqBool computeCoarse_ = MUGIQ_BOOL_TRUE);
 
-  Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_);
+  Eigsolve_Mugiq(MugiqEigParam *eigParams_, TimeProfile *profile_);
   ~Eigsolve_Mugiq();
 
   /** @brief Determine the type of Dirac operator for eigenpair calculation
@@ -96,9 +136,13 @@ public:
    */
   MG_Mugiq* getMGEnv(){ return mg_env;}
   
-  /** @brief Accessor to get the eigsolve parameter structure
+  /** @brief Accessor to get the Mugiq eigsolve parameter structure
    */
-  QudaEigParam* getEigParams(){ return eigParams;}
+  MugiqEigParam* getMugiqEigParams(){ return eigParams;}
+  
+  /** @brief Accessor to get the Quda eigsolve parameter structure
+   */
+  QudaEigParam* getQudaEigParams(){ return eigParams->QudaEigParams;}
   
   /** @brief Accessor to get the invert parameter structure
    */
