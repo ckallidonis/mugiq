@@ -1,6 +1,5 @@
 #include <eigsolve_mugiq.h>
 #include <util_quda.h>
-#include <mugiq_internal.h>
 #include <eigensolve_quda.h>
 
 Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_env_,
@@ -72,11 +71,13 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_env_,
   }
 
   
-  //- That's the Dirac matrix whose eigenvalues will be computed
-  if (!eigParams->use_norm_op && !eigParams->use_dagger)     mat = new DiracM(*dirac);
-  else if (!eigParams->use_norm_op && eigParams->use_dagger) mat = new DiracMdag(*dirac);
-  else if (eigParams->use_norm_op && !eigParams->use_dagger) mat = new DiracMdagM(*dirac);
-  else if (eigParams->use_norm_op && eigParams->use_dagger)  mat = new DiracMMdag(*dirac);
+  //- Determine and create the Dirac matrix whose eigenvalues will be computed
+  MuGiqEigOperator diracType = determineEigOperator(eigParams);
+
+  if      (diracType == MUGIQ_EIG_OPERATOR_M)      mat = new DiracM(*dirac);	  
+  else if (diracType == MUGIQ_EIG_OPERATOR_Mdag)   mat = new DiracMdag(*dirac); 
+  else if (diracType == MUGIQ_EIG_OPERATOR_MdagM)  mat = new DiracMdagM(*dirac);
+  else if (diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
 
   
   //- Allocate the eigenvalues
@@ -114,10 +115,14 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_) 
   setDiracParam(diracParam, invParams, pc_solve);
   dirac = Dirac::create(diracParam);
 
-  if (!eigParams->use_norm_op && !eigParams->use_dagger)     mat = new DiracM(*dirac);
-  else if (!eigParams->use_norm_op && eigParams->use_dagger) mat = new DiracMdag(*dirac);
-  else if (eigParams->use_norm_op && !eigParams->use_dagger) mat = new DiracMdagM(*dirac);
-  else if (eigParams->use_norm_op && eigParams->use_dagger)  mat = new DiracMMdag(*dirac);
+  //- Determine and create the Dirac matrix whose eigenvalues will be computed
+  MuGiqEigOperator diracType = determineEigOperator(eigParams);
+
+  if      (diracType == MUGIQ_EIG_OPERATOR_M)      mat = new DiracM(*dirac);	  
+  else if (diracType == MUGIQ_EIG_OPERATOR_Mdag)   mat = new DiracMdag(*dirac); 
+  else if (diracType == MUGIQ_EIG_OPERATOR_MdagM)  mat = new DiracMdagM(*dirac);
+  else if (diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
+
   
   cudaGaugeField *gauge = checkGauge(invParams);
   const int *X = gauge->X(); //- The Lattice Size
@@ -167,6 +172,22 @@ Eigsolve_Mugiq::~Eigsolve_Mugiq(){
   mgEigsolve = false;
 }
 
+
+
+MuGiqEigOperator Eigsolve_Mugiq::determineEigOperator(QudaEigParam *eigParams_){
+
+  MuGiqEigOperator dType = MUGIQ_EIG_OPERATOR_INVALID;
+  
+  if (!eigParams_->use_norm_op && !eigParams_->use_dagger)     dType = MUGIQ_EIG_OPERATOR_M;
+  else if (!eigParams_->use_norm_op && eigParams_->use_dagger) dType = MUGIQ_EIG_OPERATOR_Mdag;
+  else if (eigParams_->use_norm_op && !eigParams_->use_dagger) dType = MUGIQ_EIG_OPERATOR_MdagM;
+  else if (eigParams_->use_norm_op && eigParams_->use_dagger)  dType = MUGIQ_EIG_OPERATOR_MMdag;
+  else errorQuda("%s: Cannot determine Dirac Operator type from eigParams\n", __func__);
+
+  return dType;
+}
+
+  
 void Eigsolve_Mugiq::makeChecks(){
 
   if(!mat) errorQuda("%s: Dirac operator is not defined.\n", __func__);

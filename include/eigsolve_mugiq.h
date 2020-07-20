@@ -5,8 +5,12 @@
 #include <multigrid.h>           //- The QUDA MG header file
 #include <color_spinor_field.h>  //- From QUDA
 #include <mg_mugiq.h>
+#include <enum_mugiq.h>
 
 using namespace quda;
+
+// Forward declaration of the QUDA-interface function that is needed here
+cudaGaugeField *checkGauge(QudaInvertParam *param);
 
 class Eigsolve_Mugiq {
 
@@ -51,6 +55,11 @@ public:
   Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_);
   ~Eigsolve_Mugiq();
 
+  /** @brief Determine the type of Dirac operator for eigenpair calculation
+      @param[in] eigParams_: The eigen-solver parameter structure
+   */
+  MuGiqEigOperator determineEigOperator(QudaEigParam *eigParams_);
+  
   /** @brief Perform basic checks based on parameter structure input values
    */
   void makeChecks();
