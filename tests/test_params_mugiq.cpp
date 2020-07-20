@@ -7,7 +7,7 @@
 #include "test_params_mugiq.h"
 
 MuGiqTask mugiq_task = MUGIQ_TASK_INVALID;
-MuGiqEigOperator mugiq_eig_operator = MUGIQ_EIG_OPERATOR_INVALID;
+MuGiqBool mugiq_use_mg = MUGIQ_BOOL_INVALID;
 
 char mugiq_mom_filename[1024] = "momenta.txt";
 LoopFTSign loop_ft_sign = LOOP_FT_SIGN_INVALID;
@@ -18,8 +18,9 @@ namespace {
   CLI::TransformPairs<MuGiqTask> mugiq_task_map {{"computeEvecsQuda", MUGIQ_COMPUTE_EVECS_QUDA},
 						 {"computeEvecs", MUGIQ_COMPUTE_EVECS_MUGIQ},
 						 {"computeLoopULocal", MUGIQ_COMPUTE_LOOP_ULOCAL}};
-  CLI::TransformPairs<MuGiqEigOperator> mugiq_eig_optr_map {{"mg", MUGIQ_EIG_OPERATOR_MG},
-							    {"no_mg", MUGIQ_EIG_OPERATOR_NO_MG}};
+  
+  CLI::TransformPairs<MuGiqBool> mugiq_use_mg_map {{"yes", MUGIQ_BOOL_TRUE},
+						   {"no", MUGIQ_BOOL_FALSE}};
 
   CLI::TransformPairs<LoopFTSign> loop_ft_sign_map {{"plus", LOOP_FT_SIGN_PLUS},
 						    {"minus", LOOP_FT_SIGN_MINUS}};
@@ -41,8 +42,8 @@ void add_eigen_option_mugiq(std::shared_ptr<QUDAApp> app)
   opgroup->add_option("--mugiq-task", mugiq_task,
 		      "Task to perform in the eigensolve test, options are computeEvecs/computeEvecsQuda (default NULL)")->transform(CLI::QUDACheckedTransformer(mugiq_task_map));
   
-  opgroup->add_option("--mugiq-eig-operator", mugiq_eig_operator,
-		      "Operator of which to calculate eigen-pairs, options are no_mg/mg (default NULL)")->transform(CLI::QUDACheckedTransformer(mugiq_eig_optr_map));
+  opgroup->add_option("--mugiq-use-mg", mugiq_use_mg,
+		      "Whether to use MG in Eigenpair calculation, options are yes/no (default NULL)")->transform(CLI::QUDACheckedTransformer(mugiq_use_mg_map));
 }
 
 

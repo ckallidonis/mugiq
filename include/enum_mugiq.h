@@ -19,8 +19,10 @@ extern "C" {
   
   typedef enum MuGiqEigOperator_s
     {
-     MUGIQ_EIG_OPERATOR_MG,
-     MUGIQ_EIG_OPERATOR_NO_MG,
+     MUGIQ_EIG_OPERATOR_M,
+     MUGIQ_EIG_OPERATOR_Mdag,
+     MUGIQ_EIG_OPERATOR_MdagM,
+     MUGIQ_EIG_OPERATOR_MMdag,
      MUGIQ_EIG_OPERATOR_INVALID = MUGIQ_INVALID_ENUM
     } MuGiqEigOperator;
 

@@ -14,7 +14,7 @@ void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app);
 
 //- External variables used in tests
 extern MuGiqTask mugiq_task;
-extern MuGiqEigOperator mugiq_eig_operator;
+extern MuGiqBool mugiq_use_mg;
 
 extern char mugiq_mom_filename[1024];
 extern LoopFTSign loop_ft_sign;

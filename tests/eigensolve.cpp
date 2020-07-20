@@ -40,7 +40,7 @@ void display_test_info()
              get_prec_str(prec_sloppy), get_recon_str(link_recon), get_recon_str(link_recon_sloppy), xdim, ydim, zdim,
              tdim, Lsdim);
 
-  if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG){
+  if(mugiq_use_mg == MUGIQ_BOOL_TRUE){
     printfQuda("MG parameters\n");
     printfQuda(" - number of levels %d\n", mg_levels);
     for (int i=0; i<mg_levels-1; i++) {
@@ -704,7 +704,7 @@ int main(int argc, char **argv)
   QudaMultigridParam mg_param;
   QudaInvertParam mg_inv_param;
   QudaEigParam mg_eig_param[mg_levels];
-  if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG){
+  if(mugiq_use_mg == MUGIQ_BOOL_TRUE){
     printfQuda("Setting MG parameters\n");
     mg_param  = newQudaMultigridParam();
     mg_inv_param = newQudaInvertParam();
@@ -784,7 +784,7 @@ int main(int argc, char **argv)
   // (in either the smoother or the solver) we do so
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {    
     printfQuda("Loading Clover term\n");
-    if((mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG) &&
+    if((mugiq_use_mg == MUGIQ_BOOL_TRUE) &&
        (mg_param.smoother_solve_type[0] == QUDA_DIRECT_PC_SOLVE ||
     	solve_type == QUDA_DIRECT_PC_SOLVE)) eig_inv_param.solve_type = QUDA_DIRECT_PC_SOLVE;    
     loadCloverQuda(clover, clover_inv, &eig_inv_param);
@@ -798,7 +798,7 @@ int main(int argc, char **argv)
 
   // Call the Eigensolver interface-function
   double time = -((double)clock());
-  if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_NO_MG){
+  if(mugiq_use_mg == MUGIQ_BOOL_FALSE){
     if(mugiq_task == MUGIQ_COMPUTE_EVECS_QUDA){
       void **host_evecs = (void **)malloc(eig_nConv * sizeof(void *));
       for (int i = 0; i < eig_nConv; i++) {
@@ -814,16 +814,16 @@ int main(int argc, char **argv)
     }
     else if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq(eig_param);
     else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeEvecsQuda, computeEvecsMuGiq)\n");
-    else errorQuda("Unsupported option for --mugiq-task! (options are computeEvecsQuda, computeEvecsMuGiq when --mugiq-eig-operator is set to MUGIQ_EIG_OPERATOR_NO_MG)\n");
+    else errorQuda("Unsupported option for --mugiq-task! (options are computeEvecsQuda, computeEvecsMuGiq when --mugiq-use-mg is set to no)\n");
   }
-  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_MG){
+  else if(mugiq_use_mg == MUGIQ_BOOL_TRUE){
     if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq_MG(mg_param, eig_param); //- Compute Coarse MG operator eigenvalues
     else if(mugiq_task == MUGIQ_COMPUTE_LOOP_ULOCAL) computeLoop_uLocal_MG(mg_param, eig_param, loopParams);
     else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeLoopULocal)\n");
-    else errorQuda("Unsupported option for --mugiq-task! (options are computeLoopULocal when --mugiq-eig-operator is set to MUGIQ_EIG_OPERATOR_MG)\n");
+    else errorQuda("Unsupported option for --mugiq-task! (options are computeLoopULocal when --mugiq-use-mg is set to yes)\n");
   }
-  else if(mugiq_eig_operator == MUGIQ_EIG_OPERATOR_INVALID) errorQuda("Option --mugiq-eig-operator not set! (options are mg/no_mg)\n");
-  else errorQuda("Unsupported option --mugiq-eig-operator! (options are mg/no_mg)\n");
+  else if(mugiq_use_mg == MUGIQ_BOOL_INVALID) errorQuda("Option --mugiq-use-mg not set! (options are yes/no)\n");
+  else errorQuda("Unsupported option --mugiq-use-mg! (options are yes/no)\n");
     
   time += (double)clock();
   printfQuda("Time for solution = %f\n", time / CLOCKS_PER_SEC);
