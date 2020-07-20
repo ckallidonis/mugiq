@@ -17,6 +17,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   mat(nullptr),
   eVals_quda(nullptr),
   eVals(nullptr),
+  eVals_sigma(nullptr),
   evals_res(nullptr),
   computeCoarse(computeCoarse_)
 {
@@ -82,9 +83,11 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
 
   
   //- Allocate the eigenvalues
-  eVals_quda = new std::vector<Complex>(eigParams->nEv, 0.0); // These come from the QUDA eigensolver
-  eVals      = new std::vector<Complex>(eigParams->nEv, 0.0); // These are computed from the Eigsolve_Mugiq class
-  evals_res  = new std::vector<double>(eigParams->nEv, 0.0);  // The eigenvalues residual
+  eVals_quda  = new std::vector<Complex>(eigParams->nEv, 0.0); // These come from the QUDA eigensolver
+  eVals       = new std::vector<Complex>(eigParams->nEv, 0.0); // These are computed from the Eigsolve_Mugiq class
+  evals_res   = new std::vector<double>(eigParams->nEv, 0.0);  // The eigenvalues residual
+  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM || eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)
+    eVals_sigma = new std::vector<double>(eigParams->nEv, 0.0); // Singular values of M, eigenvalues of Hermitian g5*M
   
   makeChecks();
   
@@ -105,6 +108,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   mat(nullptr),
   eVals_quda(nullptr),
   eVals(nullptr),
+  eVals_sigma(nullptr),
   evals_res(nullptr),
   computeCoarse(MUGIQ_BOOL_INVALID)
 {
@@ -146,6 +150,8 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   eVals_quda = new std::vector<Complex>(eigParams->nEv, 0.0); // These come from the QUDA eigensolver
   eVals      = new std::vector<Complex>(eigParams->nEv, 0.0); // These are computed from the Eigsolve_Mugiq class
   evals_res  = new std::vector<double>(eigParams->nEv, 0.0);  // The eigenvalues residual
+  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM || eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)
+    eVals_sigma = new std::vector<double>(eigParams->nEv, 0.0); // Singular values of M, eigenvalues of Hermitian g5*M
 
   makeChecks();
 
@@ -158,7 +164,9 @@ Eigsolve_Mugiq::~Eigsolve_Mugiq(){
   delete eVals_quda;
   delete eVals;
   delete evals_res;
-  
+  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM || eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)
+    delete eVals_sigma;
+
   if(mat) delete mat;
   mat = nullptr;
   
@@ -290,6 +298,11 @@ void Eigsolve_Mugiq::computeEvals(){
     r[i] = sqrt(blas::norm2(*w)); // r = ||w||
   }
 
+  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM || eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag){
+    std::vector<double> &sigma = *eVals_sigma;    
+    for(int i=0; i<eigParams->nEv; i++) sigma[i] = sqrt(lambda[i].real());
+  }
+  
   delete w;
 }
 
@@ -302,5 +315,13 @@ void Eigsolve_Mugiq::printEvals(){
   std::vector<double> &res = *evals_res;
   for(int i=0;i<eigParams->nEv;i++)
     printfQuda("Mugiq-Quda: Eval[%04d] = %+.16e %+.16e , %+.16e %+.16e , Residual = %+.16e\n", i,
-               evals[i].real(), evals[i].imag(), evals_quda[i].real(), evals_quda[i].imag(), res[i]);  
+               evals[i].real(), evals[i].imag(), evals_quda[i].real(), evals_quda[i].imag(), res[i]);
+
+  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM || eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag){
+    std::vector<double> &sigma = *eVals_sigma;    
+    printfQuda("\n");
+    for(int i=0;i<eigParams->nEv;i++)
+      printfQuda("Mugiq-Quda: Sigma[%04d] = %+.16e\n", i, sigma[i]);
+  }
+  
 }

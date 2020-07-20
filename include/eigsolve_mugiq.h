@@ -77,6 +77,11 @@ private:
   std::vector<Complex> *eVals_quda; // Eigenvalues from the Quda eigensolver
   std::vector<Complex> *eVals; // Eigenvalues computed within the Eigsolve_Mugiq class
 
+  // Singular values of the non-Hermitian M operator
+  // These are also the eigenvalues of the Hermitian g5*M
+  // sigma = sqrt(eVals)
+  std::vector<double> *eVals_sigma; 
+
   std::vector<ColorSpinorField *> tmpCSF; // Temporary field(s)
   
   std::vector<double> *evals_res;
@@ -131,6 +136,10 @@ public:
   /** @brief Accessor to get the Eigsolve_Mugiq eigenvalues outside of the class
    */
   std::vector<Complex> *getEvals(){ return eVals;}
+  
+  /** @brief Accessor to get the Eigsolve_Mugiq singular values outside of the class
+   */
+  std::vector<double> *getEvalsSigma(){ return eVals_sigma;}
   
   /** @brief Accessor to get the residual of the computed eigenvalues
    */
