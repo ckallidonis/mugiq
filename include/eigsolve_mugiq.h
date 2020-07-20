@@ -46,7 +46,7 @@ struct MugiqEigParam {
       poly_acc_deg = QudaEigParams->poly_deg;
       a_min = QudaEigParams->a_min;
       a_max = QudaEigParams->a_max;
-    }//-if
+    }    
   } //-constructor
   
 };
@@ -103,7 +103,11 @@ public:
   /** @brief Perform basic checks based on parameter structure input values
    */
   void makeChecks();
-  
+
+  /** @brief Print Eigenvolver info
+   */
+  void printInfo();
+
   /** @brief Compute eigenvectors of Dirac operator
    */
   void computeEvecs();

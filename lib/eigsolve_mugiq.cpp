@@ -87,7 +87,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   evals_res  = new std::vector<double>(eigParams->nEv, 0.0);  // The eigenvalues residual
   
   makeChecks();
-
+  
   eigInit = MUGIQ_BOOL_TRUE;
 }
 
@@ -202,6 +202,60 @@ void Eigsolve_Mugiq::makeChecks(){
   if (eigParams->QudaEigParams->use_poly_acc &&
       !eigParams->QudaEigParams->use_norm_op && !(invParams->dslash_type == QUDA_LAPLACE_DSLASH))
     errorQuda("%s: Polynomial acceleration with non-symmetric matrices not supported", __func__);
+}
+
+
+void Eigsolve_Mugiq::printInfo(){
+
+  if(!eigInit) errorQuda("%s: Eigsolve_Mugiq must be initialized first.\n", __func__);
+
+  char optrStr[6];
+  switch (eigParams->diracType) {
+  case MUGIQ_EIG_OPERATOR_M:     strcpy(optrStr,"M");     break;
+  case MUGIQ_EIG_OPERATOR_Mdag:  strcpy(optrStr,"Mdag");  break;
+  case MUGIQ_EIG_OPERATOR_MdagM: strcpy(optrStr,"MdagM"); break;
+  case MUGIQ_EIG_OPERATOR_MMdag: strcpy(optrStr,"MMdag"); break;
+  default: break;
+  }
+
+  char eig_algo[7];
+  switch (eigParams->QudaEigParams->eig_type) {
+  case QUDA_EIG_TR_LANCZOS: strcpy(eig_algo, "TRL");    break;
+  case QUDA_EIG_IR_LANCZOS: strcpy(eig_algo, "IRL");    break;
+  case QUDA_EIG_IR_ARNOLDI: strcpy(eig_algo, "IRA");    break;
+  case QUDA_EIG_PRIMME:     strcpy(eig_algo, "PRIMME"); break;
+  default: break;
+  }
+
+  char spectrum[3];
+  switch (eigParams->QudaEigParams->spectrum) {
+  case QUDA_SPECTRUM_SR_EIG: strcpy(spectrum, "SR"); break;
+  case QUDA_SPECTRUM_LR_EIG: strcpy(spectrum, "LR"); break;
+  case QUDA_SPECTRUM_SM_EIG: strcpy(spectrum, "SM"); break;
+  case QUDA_SPECTRUM_LM_EIG: strcpy(spectrum, "LM"); break;
+  case QUDA_SPECTRUM_SI_EIG: strcpy(spectrum, "SI"); break;
+  case QUDA_SPECTRUM_LI_EIG: strcpy(spectrum, "LI"); break;
+  default: break;
+  }
+    
+  printfQuda("\n\n*****************************************\n");
+  printfQuda("           Eigensolve MUGIQ INFO\n");
+  printfQuda("Will %suse the Multigrid environment\n", useMGenv ? "" : "NOT ");
+  if(useMGenv) printfQuda("Will %suse the Coarse Dirac operator\n", computeCoarse ? "" : "NOT ");
+  printfQuda("Will compute the eigenpairs of the %s Dirac operator\n", optrStr);
+  printfQuda("Will employ the %s algorithm for computation\n", eig_algo);
+  printfQuda("Part of spectrum requested: %s\n", spectrum);
+  printfQuda("Number of eigenvalues requested: %d\n", eigParams->nEv);
+  printfQuda("Size of Krylov space: %d\n", eigParams->nKr);
+  printfQuda("Requested tolerance is: %e\n", eigParams->tol);
+  printfQuda("Will %suse Chebyshev Polynomial Acceleration\n", eigParams->use_poly_acc ? "" : "NOT ");
+  if(eigParams->use_poly_acc){
+    printfQuda("  Poly Acc. Degree: %d\n", eigParams->poly_acc_deg);
+    printfQuda("  Poly Acc. a_min : %e\n", eigParams->a_min);
+    printfQuda("  Poly Acc. a_max : %e\n", eigParams->a_max);
+  }  
+  printfQuda("*****************************************\n\n");
+
 }
 
 

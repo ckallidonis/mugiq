@@ -95,6 +95,8 @@ void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParam
   Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(eigParams, mg_env, &profileEigensolveMuGiq);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
+  eigsolve->printInfo();
+
   //- Compute eigenvectors and (local) eigenvalues
   eigsolve->computeEvecs();
   eigsolve->computeEvals();
@@ -132,6 +134,8 @@ void computeEvecsMuGiq(QudaEigParam QudaEigParams){
   Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(eigParams, &profileEigensolveMuGiq);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
+  eigsolve->printInfo();
+  
   //- Compute eigenvectors and (local) eigenvalues
   eigsolve->computeEvecs();
   eigsolve->computeEvals();
@@ -173,6 +177,8 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigPara
   Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(eigParams, mg_env, &profileEigensolveMuGiq);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
+  eigsolve->printInfo();
+  
   //- Compute eigenvectors and (local) eigenvalues
   eigsolve->computeEvecs();
   eigsolve->computeEvals();
