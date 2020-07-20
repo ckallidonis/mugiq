@@ -2,22 +2,23 @@
 #include <util_quda.h>
 #include <eigensolve_quda.h>
 
-Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_env_,
-			       QudaEigParam *eigParams_,
+Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
+			       MG_Mugiq *mg_env_,
 			       TimeProfile *eigProfile_,
-			       bool computeCoarse_) :
-  mg_env(mg_env_),
-  eigInit(false),
-  mgEigsolve(false),
-  computeCoarse(computeCoarse_),
-  mgParams(mg_env->mgParams),
+			       MuGiqBool computeCoarse_) :
   eigParams(eigParams_),
-  invParams(eigParams->invert_param),
+  eigInit(MUGIQ_BOOL_FALSE),
+  useMGenv(MUGIQ_BOOL_TRUE),
+  mg_env(mg_env_),
+  mgParams(mg_env->mgParams),
+  invParams(eigParams->QudaEigParams->invert_param),
   eigProfile(eigProfile_),
   dirac(nullptr),
   mat(nullptr),
-  pc_solve(false),
-  nConv(eigParams_->nConv)
+  eVals_quda(nullptr),
+  eVals(nullptr),
+  evals_res(nullptr),
+  computeCoarse(computeCoarse_)
 {
   if(!mg_env->mgInit) errorQuda("%s: Multigrid environment must be initialized before Eigensolver.\n", __func__);
   
@@ -25,8 +26,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_env_,
   const int *X = gauge->X(); //- The Lattice Size
 
   if(computeCoarse){
-    int nCoarseLevels = mgParams->n_level-1;
-    int nextCoarse = nCoarseLevels - 1;
+    int nInterLevels = mg_env->nInterLevels;
     
     // Create the Coarse Dirac operator
     dirac = mg_env->diracCoarse; // This is diracCoarseResidual of the QUDA MG class
@@ -37,7 +37,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_env_,
          
     //-Create coarse fields and allocate coarse eigenvectors recursively
     tmpCSF.push_back(ColorSpinorField::Create(csParam)); //- tmpCSF[0] is a fine field
-    for(int lev=0;lev<nextCoarse;lev++){
+    for(int lev=0;lev<nInterLevels;lev++){
       tmpCSF.push_back(tmpCSF[lev]->CreateCoarse(mgParams->geo_block_size[lev],
 						 mgParams->spin_block_size[lev],
 						 mgParams->n_vec[lev],
@@ -45,12 +45,12 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_env_,
 						 mgParams->setup_location[lev+1]));
     }//-lev
 
-    for(int i=0;i<nConv;i++){
-      eVecs.push_back(tmpCSF[nextCoarse]->CreateCoarse(mgParams->geo_block_size[nextCoarse],
-						       mgParams->spin_block_size[nextCoarse],
-						       mgParams->n_vec[nextCoarse],
+    for(int i=0;i<eigParams->nEv;i++){
+      eVecs.push_back(tmpCSF[nInterLevels]->CreateCoarse(mgParams->geo_block_size[nInterLevels],
+						       mgParams->spin_block_size[nInterLevels],
+						       mgParams->n_vec[nInterLevels],
 						       coarsePrec,
-						       mgParams->setup_location[nextCoarse+1]));
+						       mgParams->setup_location[nInterLevels+1]));
     }    
   }
   else{
@@ -64,49 +64,53 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MG_Mugiq *mg_env_,
     ColorSpinorParam cudaParam(cpuParam);
     cudaParam.location = QUDA_CUDA_FIELD_LOCATION;
     cudaParam.create = QUDA_ZERO_FIELD_CREATE;
-    cudaParam.setPrecision(eigParams->cuda_prec_ritz, eigParams->cuda_prec_ritz, true);
+    cudaParam.setPrecision(eigParams->QudaEigParams->cuda_prec_ritz, eigParams->QudaEigParams->cuda_prec_ritz, true);
 
-    for(int i=0;i<nConv;i++)
+    for(int i=0;i<eigParams->nEv;i++)
       eVecs.push_back(ColorSpinorField::Create(cudaParam));
   }
 
   
   //- Determine and create the Dirac matrix whose eigenvalues will be computed
-  MuGiqEigOperator diracType = determineEigOperator(eigParams);
+  eigParams->diracType = determineEigOperator(eigParams->QudaEigParams);
 
-  if      (diracType == MUGIQ_EIG_OPERATOR_M)      mat = new DiracM(*dirac);	  
-  else if (diracType == MUGIQ_EIG_OPERATOR_Mdag)   mat = new DiracMdag(*dirac); 
-  else if (diracType == MUGIQ_EIG_OPERATOR_MdagM)  mat = new DiracMdagM(*dirac);
-  else if (diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
+  if      (eigParams->diracType == MUGIQ_EIG_OPERATOR_M)      mat = new DiracM(*dirac);	  
+  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_Mdag)   mat = new DiracMdag(*dirac); 
+  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM)  mat = new DiracMdagM(*dirac);
+  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
+  else errorQuda("%s: Unsupported Dirac operator type\n", __func__);
 
   
   //- Allocate the eigenvalues
-  eVals_quda = new std::vector<Complex>(nConv, 0.0); // These come from the QUDA eigensolver
-  eVals      = new std::vector<Complex>(nConv, 0.0); // These are computed from the Eigsolve_Mugiq class
-  evals_res  = new std::vector<double>(nConv, 0.0);  // The eigenvalues residual
+  eVals_quda = new std::vector<Complex>(eigParams->nEv, 0.0); // These come from the QUDA eigensolver
+  eVals      = new std::vector<Complex>(eigParams->nEv, 0.0); // These are computed from the Eigsolve_Mugiq class
+  evals_res  = new std::vector<double>(eigParams->nEv, 0.0);  // The eigenvalues residual
   
   makeChecks();
 
-  eigInit = true;
-  mgEigsolve = true;
+  eigInit = MUGIQ_BOOL_TRUE;
 }
 
 
-Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_) :
-  eigInit(false),
-  mgEigsolve(false),
-  computeCoarse(false),
+Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
+			       TimeProfile *eigProfile_) :
   eigParams(eigParams_),
-  invParams(eigParams_->invert_param),
-  eigProfile(profile_),
+  eigInit(MUGIQ_BOOL_FALSE),
+  useMGenv(MUGIQ_BOOL_FALSE),
+  mg_env(nullptr),
+  mgParams(nullptr),
+  invParams(eigParams->QudaEigParams->invert_param),
+  eigProfile(eigProfile_),
   dirac(nullptr),
   mat(nullptr),
-  pc_solve(false),
-  nConv(eigParams_->nConv)
+  eVals_quda(nullptr),
+  eVals(nullptr),
+  evals_res(nullptr),
+  computeCoarse(MUGIQ_BOOL_INVALID)
 {
 
   //- Whether we are running for the "full" or even-odd preconditioned Operator
-  pc_solve = (invParams->solve_type == QUDA_DIRECT_PC_SOLVE) ||
+  bool pc_solve = (invParams->solve_type == QUDA_DIRECT_PC_SOLVE) ||
     (invParams->solve_type == QUDA_NORMOP_PC_SOLVE) ||
     (invParams->solve_type == QUDA_NORMERR_PC_SOLVE);
   
@@ -116,12 +120,13 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_) 
   dirac = Dirac::create(diracParam);
 
   //- Determine and create the Dirac matrix whose eigenvalues will be computed
-  MuGiqEigOperator diracType = determineEigOperator(eigParams);
+  eigParams->diracType = determineEigOperator(eigParams->QudaEigParams);
 
-  if      (diracType == MUGIQ_EIG_OPERATOR_M)      mat = new DiracM(*dirac);	  
-  else if (diracType == MUGIQ_EIG_OPERATOR_Mdag)   mat = new DiracMdag(*dirac); 
-  else if (diracType == MUGIQ_EIG_OPERATOR_MdagM)  mat = new DiracMdagM(*dirac);
-  else if (diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
+  if      (eigParams->diracType == MUGIQ_EIG_OPERATOR_M)      mat = new DiracM(*dirac);	  
+  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_Mdag)   mat = new DiracMdag(*dirac); 
+  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM)  mat = new DiracMdagM(*dirac);
+  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
+  else errorQuda("%s: Unsupported Dirac operator type\n", __func__);
 
   
   cudaGaugeField *gauge = checkGauge(invParams);
@@ -131,26 +136,25 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(QudaEigParam *eigParams_, TimeProfile *profile_) 
   ColorSpinorParam cudaParam(cpuParam);
   cudaParam.location = QUDA_CUDA_FIELD_LOCATION;
   cudaParam.create = QUDA_ZERO_FIELD_CREATE;
-  cudaParam.setPrecision(eigParams->cuda_prec_ritz, eigParams->cuda_prec_ritz, true);
+  cudaParam.setPrecision(eigParams->QudaEigParams->cuda_prec_ritz, eigParams->QudaEigParams->cuda_prec_ritz, true);
 
   //- Allocate the eigenvectors
-  for(int i=0;i<nConv;i++)
+  for(int i=0;i<eigParams->nEv;i++)
     eVecs.push_back(ColorSpinorField::Create(cudaParam));
 
   //- Allocate the eigenvalues
-  eVals_quda = new std::vector<Complex>(nConv, 0.0); // These come from the QUDA eigensolver
-  eVals      = new std::vector<Complex>(nConv, 0.0); // These are computed from the Eigsolve_Mugiq class
-  evals_res  = new std::vector<double>(nConv, 0.0);  // The eigenvalues residual
+  eVals_quda = new std::vector<Complex>(eigParams->nEv, 0.0); // These come from the QUDA eigensolver
+  eVals      = new std::vector<Complex>(eigParams->nEv, 0.0); // These are computed from the Eigsolve_Mugiq class
+  evals_res  = new std::vector<double>(eigParams->nEv, 0.0);  // The eigenvalues residual
 
   makeChecks();
 
-  eigInit = true;
-  mgEigsolve = false;
+  eigInit = MUGIQ_BOOL_TRUE;
 }
 
 
 Eigsolve_Mugiq::~Eigsolve_Mugiq(){  
-  for(int i=0;i<nConv;i++) delete eVecs[i];
+  for(int i=0;i<eigParams->nEv;i++) delete eVecs[i];
   delete eVals_quda;
   delete eVals;
   delete evals_res;
@@ -158,7 +162,7 @@ Eigsolve_Mugiq::~Eigsolve_Mugiq(){
   if(mat) delete mat;
   mat = nullptr;
   
-  if(mgEigsolve){
+  if(useMGenv){
     //- (dirac deletion is taken care by mg_solver destructor in this case)
     int nTmp = static_cast<int>(tmpCSF.size());
     for(int i=0;i<nTmp;i++) if(tmpCSF[i]) delete tmpCSF[i];    
@@ -168,8 +172,7 @@ Eigsolve_Mugiq::~Eigsolve_Mugiq(){
     dirac = nullptr;
   } 
   
-  eigInit = false;
-  mgEigsolve = false;
+  eigInit = MUGIQ_BOOL_FALSE;
 }
 
 
@@ -196,7 +199,8 @@ void Eigsolve_Mugiq::makeChecks(){
     errorQuda("%s: Supports only Wilson and Wilson-Clover operators for now!\n", __func__);
 
   // No polynomial acceleration on non-symmetric matrices
-  if (eigParams->use_poly_acc && !eigParams->use_norm_op && !(invParams->dslash_type == QUDA_LAPLACE_DSLASH))
+  if (eigParams->QudaEigParams->use_poly_acc &&
+      !eigParams->QudaEigParams->use_norm_op && !(invParams->dslash_type == QUDA_LAPLACE_DSLASH))
     errorQuda("%s: Polynomial acceleration with non-symmetric matrices not supported", __func__);
 }
 
@@ -206,7 +210,7 @@ void Eigsolve_Mugiq::computeEvecs(){
   if(!eigInit) errorQuda("%s: Eigsolve_Mugiq must be initialized first.\n", __func__);
 
   //- Perform eigensolve
-  EigenSolver *eigSolve = EigenSolver::create(eigParams, *mat, *eigProfile);
+  EigenSolver *eigSolve = EigenSolver::create(eigParams->QudaEigParams, *mat, *eigProfile);
   (*eigSolve)(eVecs, *eVals_quda);
 
   delete eigSolve;
@@ -223,7 +227,7 @@ void Eigsolve_Mugiq::computeEvals(){
 
   double kappa = invParams->kappa;
   
-  for(int i=0; i<nConv; i++){
+  for(int i=0; i<eigParams->nEv; i++){
     (*mat)(*w,*eVecs[i]); //- w = M*v_i
     if(invParams->mass_normalization == QUDA_MASS_NORMALIZATION) blas::ax(0.25/(kappa*kappa), *w);
     lambda[i] = blas::cDotProduct(*eVecs[i], *w) / sqrt(blas::norm2(*eVecs[i])); // lambda_i = (v_i^dag M v_i) / ||v_i||
@@ -242,7 +246,7 @@ void Eigsolve_Mugiq::printEvals(){
   std::vector<Complex> &evals_quda = *eVals_quda;
   std::vector<Complex> &evals = *eVals;
   std::vector<double> &res = *evals_res;
-  for(int i=0;i<nConv;i++)
+  for(int i=0;i<eigParams->nEv;i++)
     printfQuda("Mugiq-Quda: Eval[%04d] = %+.16e %+.16e , %+.16e %+.16e , Residual = %+.16e\n", i,
                evals[i].real(), evals[i].imag(), evals_quda[i].real(), evals_quda[i].imag(), res[i]);  
 }

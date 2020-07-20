@@ -48,16 +48,16 @@ static void printProfileInfo(TimeProfile profile){
 //- Interface functions begin here
 //--------------------------------
 
-void computeEvecsQudaWrapper(void **eVecs_host, double _Complex *eVals_host, QudaEigParam *eigParams){
+void computeEvecsQudaWrapper(void **eVecs_host, double _Complex *eVals_host, QudaEigParam *QudaEigParams){
   
   // Call the QUDA function
   printfQuda("\n%s: Calling the QUDA-library function for computing eigenvectors!\n", __func__);
-  eigensolveQuda(eVecs_host, eVals_host, eigParams);
+  eigensolveQuda(eVecs_host, eVals_host, QudaEigParams);
 }
 
 
 //- Create the Multigrid environment
-MG_Mugiq* newMG_Mugiq(QudaMultigridParam *mgParams, QudaEigParam *eigParams) {
+MG_Mugiq* newMG_Mugiq(QudaMultigridParam *mgParams, QudaEigParam *QudaEigParams) {
 
   pushVerbosity(mgParams->invert_param->verbosity);
 
@@ -74,23 +74,25 @@ MG_Mugiq* newMG_Mugiq(QudaMultigridParam *mgParams, QudaEigParam *eigParams) {
 
 
 //- Compute the eigenvalues and eigenvectors of the coarse Dirac operator using MG
-void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
+void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams){
 
   printfQuda("\n%s: Using MuGiq interface to compute eigenvectors of coarse Operator using MG!\n", __func__);
 
-  pushVerbosity(eigParams.invert_param->verbosity);
+  pushVerbosity(QudaEigParams.invert_param->verbosity);
   if (getVerbosity() >= QUDA_DEBUG_VERBOSE) {
-    printQudaInvertParam(eigParams.invert_param);
-    printQudaEigParam(&eigParams);
+    printQudaInvertParam(QudaEigParams.invert_param);
+    printQudaEigParam(&QudaEigParams);
   }  
 
   //- Create the Multigrid environment
-  MG_Mugiq *mg_env = newMG_Mugiq(&mgParams, &eigParams);
+  MG_Mugiq *mg_env = newMG_Mugiq(&mgParams, &QudaEigParams);
+
   
   //- Create the eigensolver environment
+  MugiqEigParam *eigParams = new MugiqEigParam(&QudaEigParams);
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);  
-  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(mg_env, &eigParams, &profileEigensolveMuGiq);
+  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(eigParams, mg_env, &profileEigensolveMuGiq);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
   //- Compute eigenvectors and (local) eigenvalues
@@ -113,21 +115,21 @@ void computeEvecsMuGiq_MG(QudaMultigridParam mgParams, QudaEigParam eigParams){
 
 
 //- Compute the eigenvalues and eigenvectors of the Dirac operator
-void computeEvecsMuGiq(QudaEigParam eigParams){
+void computeEvecsMuGiq(QudaEigParam QudaEigParams){
 
   printfQuda("\n%s: Using MuGiq interface to compute eigenvectors of Dirac operator!\n", __func__);
 
-  pushVerbosity(eigParams.invert_param->verbosity);
+  pushVerbosity(QudaEigParams.invert_param->verbosity);
   if (getVerbosity() >= QUDA_DEBUG_VERBOSE) {
-    printQudaInvertParam(eigParams.invert_param);
-    printQudaEigParam(&eigParams);
+    printQudaInvertParam(QudaEigParams.invert_param);
+    printQudaEigParam(&QudaEigParams);
   }  
   
-  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
-  
   //- Create the eigensolver environment
+  MugiqEigParam *eigParams = new MugiqEigParam(&QudaEigParams);
+  profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);  
-  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(&eigParams, &profileEigensolveMuGiq);
+  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(eigParams, &profileEigensolveMuGiq);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
   //- Compute eigenvectors and (local) eigenvalues
@@ -149,25 +151,26 @@ void computeEvecsMuGiq(QudaEigParam eigParams){
 
 
 //- Compute ultra-local (no shifts) disconnected loops using Multigrid deflation
-void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams){
+void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, MugiqLoopParam loopParams){
 
   printfQuda("\n%s: Will compute disconnected loops using Multi-grid deflation!\n", __func__);  
 
-  QudaInvertParam *invParams = eigParams.invert_param;
+  QudaInvertParam *invParams = QudaEigParams.invert_param;
   
-  pushVerbosity(eigParams.invert_param->verbosity);
+  pushVerbosity(QudaEigParams.invert_param->verbosity);
   if (getVerbosity() >= QUDA_DEBUG_VERBOSE) {
     printQudaInvertParam(invParams);
-    printQudaEigParam(&eigParams);
+    printQudaEigParam(&QudaEigParams);
   }
 
   //- Create the Multigrid environment
-  MG_Mugiq *mg_env = newMG_Mugiq(&mgParams, &eigParams);
+  MG_Mugiq *mg_env = newMG_Mugiq(&mgParams, &QudaEigParams);
 
   //- Create the eigensolver environment
+  MugiqEigParam *eigParams = new MugiqEigParam(&QudaEigParams);
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);
-  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(mg_env, &eigParams, &profileEigensolveMuGiq);
+  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(eigParams, mg_env, &profileEigensolveMuGiq);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
   //- Compute eigenvectors and (local) eigenvalues
@@ -262,7 +265,7 @@ std::vector<ColorSpinorField *> tmpCSF;
 ColorSpinorParam ucsParam(*(mg_env->mg_solver->B[0]));
 ucsParam.create = QUDA_ZERO_FIELD_CREATE;
 ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
-QudaPrecision coarsePrec = eigParams.invert_param->cuda_prec;
+QudaPrecision coarsePrec = QudaEigParams.invert_param->cuda_prec;
 ucsParam.setPrecision(coarsePrec);
 int nCoarseLevels = mgParams.n_level-1;
 int nextCoarse = nCoarseLevels - 1;

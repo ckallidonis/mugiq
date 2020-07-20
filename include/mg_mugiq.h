@@ -17,7 +17,8 @@ struct MG_Mugiq {
 
   Transfer *transfer[QUDA_MAX_MG_LEVEL-1];       // Transfer Operator at coarsest Level
 
-  int nCoarseLevels;   // Number of Coarse Levels
+  int nCoarseLevels;   // Number of all Coarse Levels
+  int nInterLevels;    // Number of intermediate levels between finest and coarsest
   int maxCoarseLevels; // Maximum number of coarse levels
   
   TimeProfile &profile; // Profiling
@@ -27,6 +28,7 @@ struct MG_Mugiq {
     mgInit(false),
     diracCoarse(nullptr),
     nCoarseLevels(mgParams->n_level-1),
+    nInterLevels(mgParams->n_level-2),
     maxCoarseLevels(QUDA_MAX_MG_LEVEL-1),
     profile(profile_)
   {
