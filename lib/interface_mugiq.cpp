@@ -25,10 +25,10 @@
 // MUGIQ header files
 #include <mugiq.h>
 #include <linalg_mugiq.h>
+#include <loop_mugiq.h>
 #include <eigsolve_mugiq.h>
 #include <mg_mugiq.h>
 #include <util_mugiq.h>
-#include <loop_coarse.h>
 #include <interface_mugiq.h>
 
 //- Profiling
@@ -185,13 +185,27 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigPara
   eigsolve->printEvals();
 
   
+  //- Determine precision of the calculation
+  QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
+  
+#if (ePrec == QUDA_SINGLE_PRECISION)
+  typedef float F;
+  printfQuda("%s: Running in single precision\n", __func__);
+#elif (ePrec == QUDA_DOUBLE_PRECISION)
+  typedef double F;
+  printfQuda("%s: Running in double precision\n", __func__);
+#endif
+
+  //- Create a new loop object
+  Loop_Mugiq<F> *loop = new Loop_Mugiq<F>(&loopParams);
+
+  
   //- Assemble the coarse part of the loop
   void *loop_h = nullptr;
 
   int globT = mg_env->mg_solver->B[0]->X(3) * comm_dim(3); //- Global time dimension
   long loopElem = loopParams.Nmom * globT * N_GAMMA_;
 
-  QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
   if(ePrec == QUDA_DOUBLE_PRECISION){
     size_t loopSize = sizeof(complex<double>) * loopElem;
     loop_h = static_cast<complex<double>*>(malloc(loopSize));
@@ -254,6 +268,8 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigPara
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);
   delete mg_env;
 
+  delete loop;
+  
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_TOTAL);
   printProfileInfo(profileEigensolveMuGiq);
 
