@@ -11,8 +11,7 @@ quda::cudaGaugeField *checkGauge(QudaInvertParam *param);
 
 //- Forward declarations of functions called from functions inside interface_mugiq.cpp
 template <typename Float>
-void createCoarseLoop_uLocal(complex<Float> *loop_dev,
-                             MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
-                             QudaInvertParam *invParams, MugiqLoopParam *loopParams);
+void createCoarseLoop_uLocal(complex<Float> *loop_dev, MugiqLoopParam *loopParams,
+                             Eigsolve_Mugiq *eigsolve);
 
 #endif // _INTERFACE_MUGIQ_H

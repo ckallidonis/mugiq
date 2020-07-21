@@ -341,23 +341,23 @@ void assembleCoarseLoop_uLocal_opt(complex<Float> *loop_dev,
 
 //- Explicit template instantiations required
 template void assembleCoarseLoop_uLocal_opt<double>(complex<double> *loop_dev,
-						    MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
+						    Eigsolve_Mugiq *eigsolve,
 						    const std::vector<ColorSpinorField*> &unitGammaPos,
 						    const std::vector<ColorSpinorField*> &unitGammaMom,
-						    QudaInvertParam *invParams, MugiqLoopParam *loopParams);
+						    MugiqLoopParam *loopParams);
 
 template void assembleCoarseLoop_uLocal_opt<float>(complex<float> *loop_dev,
-						   MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
+						   Eigsolve_Mugiq *eigsolve,
 						   const std::vector<ColorSpinorField*> &unitGammaPos,
 						   const std::vector<ColorSpinorField*> &unitGammaMom,
-						   QudaInvertParam *invParams, MugiqLoopParam *loopParams);
+						   MugiqLoopParam *loopParams);
 
 template <typename Float>
 void assembleCoarseLoop_uLocal_opt(complex<Float> *loop_dev,
-				   MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
+				   Eigsolve_Mugiq *eigsolve,
 				   const std::vector<ColorSpinorField*> &unitGammaPos,
 				   const std::vector<ColorSpinorField*> &unitGammaMom,
-				   QudaInvertParam *invParams, MugiqLoopParam *loopParams){
+				   MugiqLoopParam *loopParams){
   
   //- Some sanity checks
   const int nSpinEv = eigsolve->getEvecs()[0]->Nspin();
@@ -390,26 +390,26 @@ void assembleCoarseLoop_uLocal_opt(complex<Float> *loop_dev,
 
 //- Explicit template instantiations required
 template void assembleCoarseLoop_uLocal_blas<double>(complex<double> *loop_h,
-						     MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
+						     Eigsolve_Mugiq *eigsolve,
 						     complex<double> gCoeff[][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_],
 						     const std::vector<ColorSpinorField*> &unitGammaPos,
 						     const std::vector<ColorSpinorField*> &unitGammaMom,
-						     QudaInvertParam *invParams, MugiqLoopParam *loopParams);
+						     MugiqLoopParam *loopParams);
 
 template void assembleCoarseLoop_uLocal_blas<float>(complex<float> *loop_h,
-						    MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
+						    Eigsolve_Mugiq *eigsolve,
 						    complex<float> gCoeff[][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_],
 						    const std::vector<ColorSpinorField*> &unitGammaPos,
 						    const std::vector<ColorSpinorField*> &unitGammaMom,
-						    QudaInvertParam *invParams, MugiqLoopParam *loopParams);
+						    MugiqLoopParam *loopParams);
 
 template <typename Float>
 void assembleCoarseLoop_uLocal_blas(complex<Float> *loop_h,
-				    MG_Mugiq *mg_env, Eigsolve_Mugiq *eigsolve,
+				    Eigsolve_Mugiq *eigsolve,
 				    complex<Float> gCoeff[][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_],
 				    const std::vector<ColorSpinorField*> &unitGammaPos,
 				    const std::vector<ColorSpinorField*> &unitGammaMom,
-				    QudaInvertParam *invParams, MugiqLoopParam *loopParams){
+				    MugiqLoopParam *loopParams){
 
   std::vector<ColorSpinorField*> &eVecs = eigsolve->getEvecs();
   std::vector<Complex> &eVals = *(eigsolve->getEvals());

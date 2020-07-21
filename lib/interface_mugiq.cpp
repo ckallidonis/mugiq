@@ -198,9 +198,8 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigPara
     if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
     memset(loop_h, 0, loopSize);
 
-    createCoarseLoop_uLocal<double>(static_cast<complex<double>*>(loop_h),
-				    mg_env, eigsolve,
-				    invParams, &loopParams);
+    createCoarseLoop_uLocal<double>(static_cast<complex<double>*>(loop_h),  &loopParams,
+				    eigsolve);
   }
   else if(ePrec == QUDA_SINGLE_PRECISION){
     size_t loopSize = sizeof(complex<float>) * loopElem;
@@ -208,9 +207,8 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigPara
     if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
     memset(loop_h, 0, loopSize);
 
-    createCoarseLoop_uLocal<float>(static_cast<complex<float>*>(loop_h),
-				   mg_env, eigsolve,
-				   invParams, &loopParams);
+    createCoarseLoop_uLocal<float>(static_cast<complex<float>*>(loop_h), &loopParams,
+				   eigsolve);
   }
   //-----------------------------------------------------------
 
