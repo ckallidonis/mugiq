@@ -4,21 +4,79 @@
 //#include <gamma.h>
 //#include <loop_coarse_ulocal.h>
 #include <loop_mugiq.h>
+#include <util_mugiq.h>
 
 template <typename Float>
-Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams) :
-  loopParams(loopParams)
+Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
+			      Eigsolve_Mugiq *eigsolve_) :
+  loopParams(loopParams_),
+  eigsolve(eigsolve_),
+  data_h(nullptr),
+  data_d(nullptr),
+  nElem(0),
+  globT(0)
 {
 
+  globT = eigsolve->mg_env->mg_solver->B[0]->X(3) * comm_dim(3); //- Global time dimension
+  nElem = loopParams->Nmom * globT * N_GAMMA_;                   //- Number of elements in data buffers
+
+  loopSize = sizeof(complex<Float>) * nElem; //- Size of data buffers in bytes
+
+  //- Allocate host buffer, needed always
+  data_h = static_cast<complex<Float>*>(malloc(loopSize));
+  if(data_h == NULL) errorQuda("%s: Could not allocate host loop data buffer\n", __func__);
+  memset(data_h, 0, loopSize);
+  
 }
 
 template <typename Float>
 Loop_Mugiq<Float>::~Loop_Mugiq(){
 
+  if(data_h) free(data_h);
+  data_h = nullptr;
+}
+
+
+template <typename Float>
+void Loop_Mugiq<Float>::printData_ASCII(){
+
+  for(int im=0;im<loopParams->Nmom;im++){
+    for(int ig=0;ig<N_GAMMA_;ig++){
+      printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
+		 loopParams->momMatrix[im][0],
+		 loopParams->momMatrix[im][1],
+		 loopParams->momMatrix[im][2], ig);
+      for(int it=0;it<globT;it++){
+	int loopIdx = ig + N_GAMMA_*it + N_GAMMA_*globT*im;
+	printfQuda("%d %+.8e %+.8e\n", it, data_h[loopIdx].real(), data_h[loopIdx].imag());
+      }
+    }
+  }
+  
+}
+
+
+template <typename Float>
+void Loop_Mugiq<Float>::createCoarseLoop_uLocal(){
+  
+  if(loopParams->calcType == LOOP_CALC_TYPE_BLAS)
+    createCoarseLoop_uLocal_coarseTrace();
+  else
+    errorQuda("%s: Unsupported calculation type for coarseLoop_uLocal\n", __func__);
+  
+}
+
+
+template <typename Float>
+void Loop_Mugiq<Float>::createCoarseLoop_uLocal_coarseTrace(){
+
+
 }
 
 
 //- Explicit instantiation of the templates of the Loop_Mugiq class
+//- float and double will be the only typename templates that support is required,
+//- so this is a 'feature' rather than a 'bug'
 template class Loop_Mugiq<float>;
 template class Loop_Mugiq<double>;
 

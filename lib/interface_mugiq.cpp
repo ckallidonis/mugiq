@@ -184,28 +184,26 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigPara
   eigsolve->computeEvals();
   eigsolve->printEvals();
 
+  QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
+  if(ePrec == QUDA_SINGLE_PRECISION)
+    printfQuda("%s: Running in single precision\n", __func__);
+  else if(ePrec == QUDA_DOUBLE_PRECISION)
+    printfQuda("%s: Running in double precision\n", __func__);
+
   
   //- Determine precision of the calculation
-  QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
-  
 #if (ePrec == QUDA_SINGLE_PRECISION)
   typedef float F;
-  printfQuda("%s: Running in single precision\n", __func__);
 #elif (ePrec == QUDA_DOUBLE_PRECISION)
   typedef double F;
-  printfQuda("%s: Running in double precision\n", __func__);
 #endif
 
   //- Create a new loop object
-  Loop_Mugiq<F> *loop = new Loop_Mugiq<F>(&loopParams);
+  Loop_Mugiq<F> *loop = new Loop_Mugiq<F>(&loopParams, eigsolve);
 
+  loop->createCoarseLoop_uLocal();
   
-  //- Assemble the coarse part of the loop
-  void *loop_h = nullptr;
-
-  int globT = mg_env->mg_solver->B[0]->X(3) * comm_dim(3); //- Global time dimension
-  long loopElem = loopParams.Nmom * globT * N_GAMMA_;
-
+#if 0  
   if(ePrec == QUDA_DOUBLE_PRECISION){
     size_t loopSize = sizeof(complex<double>) * loopElem;
     loop_h = static_cast<complex<double>*>(malloc(loopSize));
@@ -225,44 +223,16 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigPara
 				   eigsolve);
   }
   //-----------------------------------------------------------
+#endif
 
-
-  if(loopParams.printASCII == MUGIQ_BOOL_TRUE){
-    if(ePrec == QUDA_DOUBLE_PRECISION){
-      for(int im=0;im<loopParams.Nmom;im++){
-	for(int ig=0;ig<N_GAMMA_;ig++){
-	  printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
-		     loopParams.momMatrix[im][0],
-		     loopParams.momMatrix[im][1],
-		     loopParams.momMatrix[im][2], ig);
-	  for(int it=0;it<globT;it++){
-	    int loopIdx = ig + N_GAMMA_*it + N_GAMMA_*globT*im;
-	    printfQuda("%d %+.8e %+.8e\n", it, static_cast<complex<double>*>(loop_h)[loopIdx].real(), static_cast<complex<double>*>(loop_h)[loopIdx].imag());
-	  }
-	}
-      }
-    }
-    else if(ePrec == QUDA_SINGLE_PRECISION){
-      for(int im=0;im<loopParams.Nmom;im++){
-	for(int ig=0;ig<N_GAMMA_;ig++){
-	  printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
-		     loopParams.momMatrix[im][0],
-		     loopParams.momMatrix[im][1],
-		     loopParams.momMatrix[im][2], ig);
-	  for(int it=0;it<globT;it++){
-	    int loopIdx = ig + N_GAMMA_*it + N_GAMMA_*globT*im;
-	    printfQuda("%d %+.8e %+.8e\n", it, static_cast<complex<float>*>(loop_h)[loopIdx].real(), static_cast<complex<float>*>(loop_h)[loopIdx].imag());
-	  }
-	}
-      }
-    }   
-  }
-  
+  if(loopParams.printASCII == MUGIQ_BOOL_TRUE) loop->printData_ASCII();
   
   //- Clean-up
+#if 0
   free(loop_h);
   loop_h = nullptr;
-
+#endif
+  
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
   delete eigsolve;
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);
