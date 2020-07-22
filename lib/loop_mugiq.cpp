@@ -4,51 +4,52 @@
 //#include <gamma.h>
 //#include <loop_coarse_ulocal.h>
 #include <loop_mugiq.h>
-#include <util_mugiq.h>
+//#include <util_mugiq.h>
 
 template <typename Float>
 Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
 			      Eigsolve_Mugiq *eigsolve_) :
-  loopParams(loopParams_),
+  params(nullptr),
   eigsolve(eigsolve_),
-  data_h(nullptr),
-  data_d(nullptr),
-  nElem(0),
-  globT(0)
+  dataMom_h(nullptr),
+  dataMom_d(nullptr),
+  nElemMom(0),
+  loopSizeMom(0)
 {
 
-  globT = eigsolve->mg_env->mg_solver->B[0]->X(3) * comm_dim(3); //- Global time dimension
-  nElem = loopParams->Nmom * globT * N_GAMMA_;                   //- Number of elements in data buffers
+  params = new MugiqTraceParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);
+  
+  nElemMom = params->Nmom * params->totT * params->Ndata;       //- Number of elements in momentum-space data buffers
 
-  loopSize = sizeof(complex<Float>) * nElem; //- Size of data buffers in bytes
+  loopSizeMom = sizeof(complex<Float>) * nElemMom; //- Size of data buffers in bytes
 
   //- Allocate host buffer, needed always
-  data_h = static_cast<complex<Float>*>(malloc(loopSize));
-  if(data_h == NULL) errorQuda("%s: Could not allocate host loop data buffer\n", __func__);
-  memset(data_h, 0, loopSize);
+  dataMom_h = static_cast<complex<Float>*>(malloc(loopSizeMom));
+  if(dataMom_h == NULL) errorQuda("%s: Could not allocate host loop data buffer\n", __func__);
+  memset(dataMom_h, 0, loopSizeMom);
   
 }
 
 template <typename Float>
 Loop_Mugiq<Float>::~Loop_Mugiq(){
 
-  if(data_h) free(data_h);
-  data_h = nullptr;
+  if(dataMom_h) free(dataMom_h);
+  dataMom_h = nullptr;
 }
 
 
 template <typename Float>
 void Loop_Mugiq<Float>::printData_ASCII(){
 
-  for(int im=0;im<loopParams->Nmom;im++){
-    for(int ig=0;ig<N_GAMMA_;ig++){
+  for(int im=0;im<params->Nmom;im++){
+    for(int id=0;id<params->Ndata;id++){
       printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
-		 loopParams->momMatrix[im][0],
-		 loopParams->momMatrix[im][1],
-		 loopParams->momMatrix[im][2], ig);
-      for(int it=0;it<globT;it++){
-	int loopIdx = ig + N_GAMMA_*it + N_GAMMA_*globT*im;
-	printfQuda("%d %+.8e %+.8e\n", it, data_h[loopIdx].real(), data_h[loopIdx].imag());
+		 params->momMatrix[im][0],
+		 params->momMatrix[im][1],
+		 params->momMatrix[im][2], id);
+      for(int it=0;it<params->totT;it++){
+	int loopIdx = id + params->Ndata*it + params->Ndata*params->totT*im;
+	printfQuda("%d %+.8e %+.8e\n", it, dataMom_h[loopIdx].real(), dataMom_h[loopIdx].imag());
       }
     }
   }
@@ -59,8 +60,8 @@ void Loop_Mugiq<Float>::printData_ASCII(){
 template <typename Float>
 void Loop_Mugiq<Float>::createCoarseLoop_uLocal(){
   
-  if(loopParams->calcType == LOOP_CALC_TYPE_BLAS)
-    createCoarseLoop_uLocal_coarseTrace();
+  if(params->calcType == LOOP_CALC_TYPE_OPT_KERNEL)
+    createCoarseLoop_uLocal_optKernel();
   else
     errorQuda("%s: Unsupported calculation type for coarseLoop_uLocal\n", __func__);
   
@@ -68,8 +69,12 @@ void Loop_Mugiq<Float>::createCoarseLoop_uLocal(){
 
 
 template <typename Float>
-void Loop_Mugiq<Float>::createCoarseLoop_uLocal_coarseTrace(){
+void Loop_Mugiq<Float>::createCoarseLoop_uLocal_optKernel(){
 
+
+
+
+  
 
 }
 
@@ -80,184 +85,3 @@ void Loop_Mugiq<Float>::createCoarseLoop_uLocal_coarseTrace(){
 template class Loop_Mugiq<float>;
 template class Loop_Mugiq<double>;
 
-
-//- THE FOLLOWING FUNCTIONS WILL BECOME MEMBER FUNCTIONS OF THE LOOP_MUGIQ CLASS
-
-// template void createCoarseLoop_uLocal<double>(complex<double> *loop_h, MugiqLoopParam *loopParams,
-// 					      Eigsolve_Mugiq *eigsolve);
-// template void createCoarseLoop_uLocal<float>(complex<float> *loop_h, MugiqLoopParam *loopParams,
-// 					     Eigsolve_Mugiq *eigsolve);
-
-// template <typename Float>
-// void createCoarseLoop_uLocal(complex<Float> *loop_h, MugiqLoopParam *loopParams,
-// 			     Eigsolve_Mugiq *eigsolve){
-
-//   QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision(); 
-//   if((ePrec != QUDA_DOUBLE_PRECISION) && (ePrec != QUDA_SINGLE_PRECISION))
-//     errorQuda("%s: Unsupported precision for creating Coarse part of loop\n", __func__);
-//   else printfQuda("%s: Working in %s precision\n", __func__, ePrec == QUDA_DOUBLE_PRECISION ? "double" : "single");
-
-//   QudaInvertParam &invParams = *(eigsolve->getInvParams());
-//   MG_Mugiq &mg_env = *(eigsolve->getMGEnv());
-  
-//   //- Create the coefficients of the gamma matrices and copy them to __constant__ memory
-//   if((invParams.gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS) &&
-//      (mg_env.mgParams->invert_param->gamma_basis != QUDA_DEGRAND_ROSSI_GAMMA_BASIS))
-//     errorQuda("%s: Supports only DeGrand-Rossi gamma basis\n", __func__);
-//   complex<Float> gCoeff[N_GAMMA_][SPINOR_SITE_LEN_*SPINOR_SITE_LEN_];
-//   createGammaCoeff<Float>(gCoeff);
-//   //-----------------------------------------------------------
-  
-  
-//   //- Allocate coarse gamma-matrix unit vectors
-//   int nUnit = SPINOR_SITE_LEN_;
-//   std::vector<ColorSpinorField*> unitGammaPos; // These are coarse fields (no phase)
-//   std::vector<ColorSpinorField*> unitGammaMom; // These are coarse fields with FT phase information
-  
-  
-//   ColorSpinorParam ucsParam(*(eigsolve->getEvecs()[0]));
-//   ucsParam.create = QUDA_ZERO_FIELD_CREATE;
-//   ucsParam.location = QUDA_CUDA_FIELD_LOCATION;
-//   ucsParam.setPrecision(ePrec);
-  
-//   for(int n=0;n<nUnit;n++){
-//     unitGammaPos.push_back(ColorSpinorField::Create(ucsParam));
-//     unitGammaMom.push_back(ColorSpinorField::Create(ucsParam));
-//   }
-//   //-----------------------------------------------------------
-
-//   //- Create one temporary fine and N_coarse-1 temporary coarse fields
-//   //- Will be used for restricting the fine position space and phased
-//   //- Gamma generators 
-//   std::vector<ColorSpinorField *> tmpCSF;
-//   ColorSpinorParam csParam(*(mg_env.mg_solver->B[0]));
-//   QudaPrecision coarsePrec = unitGammaPos[0]->Precision();
-//   csParam.create = QUDA_ZERO_FIELD_CREATE;
-//   csParam.setPrecision(coarsePrec);
-  
-//   tmpCSF.push_back(ColorSpinorField::Create(csParam)); //- tmpCSF[0] is a fine field
-//   for(int lev=0;lev<mg_env.nInterLevels;lev++){
-//     tmpCSF.push_back(tmpCSF[lev]->CreateCoarse(mg_env.mgParams->geo_block_size[lev],
-//   					       mg_env.mgParams->spin_block_size[lev],
-//   					       mg_env.mgParams->n_vec[lev],
-//   					       coarsePrec,
-//   					       mg_env.mgParams->setup_location[lev+1]));
-//   }//-lev
-//   //-----------------------------------------------------------
-  
-//   //- These are fine fields, will be used for both
-//   //- position space and phased generators
-//   std::vector<ColorSpinorField*> gammaGens;
-//   std::vector<ColorSpinorField*> gammaGensTD;
-//   gammaGens.resize(nUnit);
-//   gammaGensTD.resize(nUnit);
-
-//   const int *localL = mg_env.mg_solver->B[0]->X(); //-local space-time coordinates
-  
-//   ColorSpinorParam cpuParam(NULL, invParams, localL,
-//   			    invParams.solution_type, invParams.input_location);
-//   cpuParam.fieldOrder = unitGammaPos[0]->FieldOrder();
-//   cpuParam.siteOrder  = unitGammaPos[0]->SiteOrder();
-//   cpuParam.setPrecision(unitGammaPos[0]->Precision());
-//   ColorSpinorParam cudaParam(cpuParam);
-//   cudaParam.fieldOrder = unitGammaPos[0]->FieldOrder();
-//   cudaParam.siteOrder  = unitGammaPos[0]->SiteOrder();
-//   cudaParam.location   = QUDA_CUDA_FIELD_LOCATION;
-//   cudaParam.create     = QUDA_ZERO_FIELD_CREATE;
-//   cudaParam.setPrecision(unitGammaPos[0]->Precision());
-//   for(int n=0;n<nUnit;n++){
-//     gammaGens[n]   = ColorSpinorField::Create(cudaParam);
-//     gammaGensTD[n] = ColorSpinorField::Create(cudaParam);
-//   }
-//   //-----------------------------------------------------------
-
-//   //- Create the unphased Gamma unity vectors
-//   createUnphasedGammaUnitVectors<Float>(gammaGens);
-//   printfQuda("%s: Unphased Coarse Gamma Vectors created\n", __func__);
-  
-//   //- Restrict unphased fine gamma Generators at the coarsest level
-//   restrictGammaUnitVectors(unitGammaPos, gammaGens, tmpCSF, &mg_env);
-//   printfQuda("%s: Restricting Unphased Gamma Vectors at the coarsest level completed\n", __func__);
-
-
-//   complex<Float> *loop_dev;
-//   size_t loopSize_dev = sizeof(complex<Float>) * N_GAMMA_;
-//   if(loopParams->calcType == LOOP_CALC_TYPE_BASIC_KERNEL){
-//     errorQuda("%s: Loop calculation type 'basic' not supported yet\n", __func__);
-//   }
-//   else if(loopParams->calcType == LOOP_CALC_TYPE_OPT_KERNEL){
-//     printfQuda("%s: Calculating Coarse Loop using optimized tunable CUDA kernel\n", __func__);
-
-//     //- Allocate the device loop buffer
-//     //- It will be overwritten for each momentum and time, hence it has only gamma-matrix dependence
-//     cudaMalloc((void**)&loop_dev, loopSize_dev);
-//     checkCudaError();
-//   }
-//   else if(loopParams->calcType == LOOP_CALC_TYPE_BLAS){
-//     printfQuda("%s: Calculating Coarse Loop using BLAS\n", __func__);
-//   }
-  
-//   for(int p=0;p<loopParams->Nmom;p++){
-//     std::vector<int> mom = loopParams->momMatrix[p];
-//     printfQuda("%s: Performing Coarse part of the loop for momentum (%+02d,%+02d,%+02d)\n", __func__, mom[0], mom[1], mom[2]);
-    
-//     //- Create the phased Gamma unity vectors
-//     createPhasedGammaUnitVectors<Float>(gammaGens, mom, loopParams->FTSign);
-//     printfQuda("%s: Phased Coarse Gamma Vectors created\n", __func__);
-    
-//     /* The restrictor on the phased Gamma generators must run only on the 3d volume (no time). However,
-//      * the QUDA restrictor runs on full volume. Therefore, we perform here a dilution over the time direction,
-//      * so that the QUDA restrictor is called Lt times, where Lt is the global time size. In this way, the QUDA
-//      * restrictor only has effect on the single non-zero time slice.
-//      */
-  
-//     const int globT = localL[3] * comm_dim(3);
-//     for(int gt=0;gt<globT;gt++){
-//       //-Perform time-dilution of gamma generators
-//       timeDilutePhasedGammaUnitVectors<Float>(gammaGensTD, gammaGens, gt);
-      
-//       //- Restrict phased and time-diluted fine gamma Generators at the coarsest level
-//       restrictGammaUnitVectors(unitGammaMom, gammaGensTD, tmpCSF, &mg_env);
-      
-//       //- Call top-level function that calls CUDA kernel to assemble final loop
-//       if(loopParams->calcType == LOOP_CALC_TYPE_OPT_KERNEL){
-//   	cudaMemset(loop_dev,0, loopSize_dev);
-//   	assembleCoarseLoop_uLocal_opt<Float>(loop_dev, eigsolve, unitGammaPos, unitGammaMom, loopParams);
-
-//   	//- Copy device buffer back to appropriate place in host buffer
-//   	//- Host loop buffer runs gamma-inside-time-inside-momentum g + Ng*t + Ng*Nt*p
-//   	int hIdx = N_GAMMA_*gt + N_GAMMA_*globT*p;
-//   	cudaMemcpy(&(loop_h[hIdx]), loop_dev, loopSize_dev, cudaMemcpyDeviceToHost);
-//   	checkCudaError();
-//   	printfQuda("%s: Loop assemble using optimized CUDA kernel for t = %d completed\n", __func__, gt);
-//       }
-//       else if(loopParams->calcType == LOOP_CALC_TYPE_BLAS){
-//   	int hIdx = N_GAMMA_*gt + N_GAMMA_*globT*p;
-//   	assembleCoarseLoop_uLocal_blas<Float>(&(loop_h[hIdx]), eigsolve, gCoeff, unitGammaPos, unitGammaMom, loopParams);
-//   	printfQuda("%s: Loop assemble using BLAS for t = %d completed\n", __func__, gt);
-//       }
-      
-//     }//- time
-    
-//     printfQuda("%s: Coarse part of the loop done for momentum (%+02d,%+02d,%+02d)\n", __func__, mom[0], mom[1], mom[2]);
-//   }//- momentum
-
-    
-//   //- Clean-up
-//   int nTmp = static_cast<int>(tmpCSF.size());
-//   for(int i=0;i<nTmp;i++)  delete tmpCSF[i];
-//   for(int n=0;n<nUnit;n++){
-//     delete gammaGens[n];
-//     delete gammaGensTD[n];
-//     delete unitGammaPos[n];
-//     delete unitGammaMom[n];
-//   }
-
-	
-//   if(loopParams->calcType == LOOP_CALC_TYPE_OPT_KERNEL){
-//     cudaFree(loop_dev);
-//     loop_dev = nullptr;
-//   }
-
-// }
-// //-------------------------------------------------------------------------------
