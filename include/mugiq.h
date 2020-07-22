@@ -25,6 +25,7 @@ extern "C" {
     LoopFTSign FTSign;
     LoopCalcType calcType;
     MuGiqBool printASCII;
+    MuGiqBool doMomProj;
     
   } MugiqLoopParam;
   
