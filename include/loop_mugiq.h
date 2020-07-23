@@ -10,13 +10,58 @@
 
 using namespace quda;
 
+template <typename Float>
+class Loop_Mugiq {
 
-struct MugiqTraceParam {
+private:
+
+  struct MugiqTraceParam;
+  
+  MugiqTraceParam *params; // Parameter structure
+
+  Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
+  
+  complex<Float> *dataMom_h; // Loop data on host (CPU) in momentum-space
+  complex<Float> *dataMom_d; // Loop data on device (GPU) in momentum-space
+
+  long nElemMom; // Number of elements in momentum-space data buffers
+
+  size_t loopSizeMom; // Size of momentum-space data buffers in bytes
+
+  
+  /** @brief Compute the coarse part of the loop for ultra-local currents, using 
+   * an optimized CUDA kernel
+   */
+  void createCoarseLoop_uLocal_optKernel();
+  
+  
+public:
+
+  Loop_Mugiq(MugiqLoopParam *loopParams_, Eigsolve_Mugiq *eigsolve_);
+  ~Loop_Mugiq();
+
+  
+  /** @brief Print the Loop data in ASCII format (in stdout for now)
+   */
+  void printData_ASCII();
+
+  
+  /** @brief Wrapper to create the coarse part of the loop
+   */
+  void createCoarseLoop_uLocal();
+
+
+  
+}; // class Loop_Mugiq
+
+
+template <typename Float>
+struct Loop_Mugiq<Float>::MugiqTraceParam {
 
   const int Ndata = N_GAMMA_;   // Number of Gamma matrices (currents, =16)
   const int momDim = MOM_DIM_;  // Momenta dimensions (=3)
 
-  int Nmom;                                 // Number of Moment
+  int Nmom;                                 // Number of Momenta
   LoopFTSign FTSign;                        // Sign of the Fourier Transform
   std::vector<std::vector<int>> momMatrix;  // Momenta Matrix
   
@@ -65,45 +110,5 @@ struct MugiqTraceParam {
 };
 
 
-template <typename Float>
-class Loop_Mugiq {
-
-private:
-  MugiqTraceParam *params; // Parameter structure
-
-  Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
-  
-  complex<Float> *dataMom_h; // Loop data on host (CPU) in momentum-space
-  complex<Float> *dataMom_d; // Loop data on device (GPU) in momentum-space
-
-  long nElemMom; // Number of elements in momentum-space data buffers
-
-  size_t loopSizeMom; // Size of momentum-space data buffers in bytes
-
-  
-  /** @brief Compute the coarse part of the loop for ultra-local currents, using 
-   * an optimized CUDA kernel
-   */
-  void createCoarseLoop_uLocal_optKernel();
-  
-  
-public:
-
-  Loop_Mugiq(MugiqLoopParam *loopParams_, Eigsolve_Mugiq *eigsolve_);
-  ~Loop_Mugiq();
-
-  
-  /** @brief Print the Loop data in ASCII format (in stdout for now)
-   */
-  void printData_ASCII();
-
-  
-  /** @brief Wrapper to create the coarse part of the loop
-   */
-  void createCoarseLoop_uLocal();
-
-
-  
-}; // class Loop_Mugiq
 
 #endif // _LOOP_MUGIQ_H
