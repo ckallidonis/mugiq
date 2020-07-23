@@ -11,30 +11,100 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
 			      Eigsolve_Mugiq *eigsolve_) :
   trParams(nullptr),
   eigsolve(eigsolve_),
-  dataMom_h(nullptr),
+  dataPos_d(nullptr),
+  dataPos_h(nullptr),
   dataMom_d(nullptr),
-  nElemMom(0),
-  loopSizeMom(0)
+  dataMom_h(nullptr),
+  dataMom_gs(nullptr),
+  dataMom(nullptr),
+  nElemMomTot(0),
+  nElemMomLoc(0)
 {
-
-  trParams = new MugiqTraceParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);
   
-  nElemMom = trParams->Nmom * trParams->totT * trParams->Ndata;       //- Number of elements in momentum-space data buffers
+  trParams = new MugiqTraceParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);  
 
-  loopSizeMom = sizeof(complex<Float>) * nElemMom; //- Size of data buffers in bytes
-
-  //- Allocate host buffer, needed always
-  dataMom_h = static_cast<complex<Float>*>(malloc(loopSizeMom));
-  if(dataMom_h == NULL) errorQuda("%s: Could not allocate host loop data buffer\n", __func__);
-  memset(dataMom_h, 0, loopSizeMom);
+  allocateDataMemory(); 
   
 }
 
 template <typename Float>
+void Loop_Mugiq<Float>::allocateDataMemory(){
+
+  nElemMomTot = trParams->Ndata * trParams->Nmom * trParams->totT;
+  nElemMomLoc = trParams->Ndata * trParams->Nmom * trParams->locT;
+  nElemPosLoc = trParams->Ndata * trParams->locV4;
+  
+  //- Allocate host data buffers
+  dataMom    = static_cast<complex<Float>*>(calloc(nElemMomTot, SizeCplxFloat));
+  dataMom_gs = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
+  dataMom_h  = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
+  
+  if(dataMom    == NULL) errorQuda("%s: Could not allocate buffer: dataMom\n", __func__);
+  if(dataMom_gs == NULL) errorQuda("%s: Could not allocate buffer: dataMom_gs\n", __func__);
+  if(dataMom_h  == NULL) errorQuda("%s: Could not allocate buffer: dataMom_h\n", __func__);
+  
+  if(!trParams->doMomProj){
+    dataPos_h = static_cast<complex<Float>*>(calloc(nElemPosLoc, SizeCplxFloat));
+    if(dataPos_h  == NULL) errorQuda("%s: Could not allocate buffer: dataPos_h\n", __func__);
+  }
+  
+  printfQuda("%s: Host buffers allocated\n", __func__);
+  //------------------------------
+  
+  //- Allocate device data buffers
+  cudaMalloc((void**)&(dataPos_d), SizeCplxFloat*nElemPosLoc);
+  checkCudaError();
+  cudaMemset(dataPos_d, 0, SizeCplxFloat*nElemPosLoc);
+
+  cudaMalloc((void**)&(dataMom_d), SizeCplxFloat*nElemMomLoc);
+  checkCudaError();
+  cudaMemset(dataMom_d, 0, SizeCplxFloat*nElemMomLoc);
+
+  printfQuda("%s: Device buffers allocated\n", __func__);
+  //------------------------------
+  
+}
+
+
+template <typename Float>
+void Loop_Mugiq<Float>::freeDataMemory(){
+
+  if(dataMom){
+    free(dataMom);
+    dataMom = nullptr;
+  }
+  if(dataMom_gs){
+    free(dataMom_gs);
+    dataMom_gs = nullptr;
+  }
+  if(dataMom_h){
+    free(dataMom_h);
+    dataMom_h = nullptr;
+  }
+  if(dataPos_h){
+    free(dataPos_h);
+    dataPos_h = nullptr;
+  }  
+  printfQuda("%s: Host buffers freed\n", __func__);
+  //------------------------------
+
+  if(dataPos_d){
+    cudaFree(dataPos_d);
+    dataPos_d = nullptr;
+  }
+  if(dataMom_d){
+    cudaFree(dataMom_d);
+    dataMom_d = nullptr;
+  }
+  printfQuda("%s: Device buffers freed\n", __func__);
+  //------------------------------
+
+}
+  
+template <typename Float>
 Loop_Mugiq<Float>::~Loop_Mugiq(){
 
-  if(dataMom_h) free(dataMom_h);
-  dataMom_h = nullptr;
+  freeDataMemory();
 
   delete trParams;
 }

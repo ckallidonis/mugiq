@@ -20,13 +20,29 @@ private:
   MugiqTraceParam *trParams; // Trace Parameter structure
 
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
+
+  //- Data buffers
+  complex<Float> *dataPos_d;      //-- Device Position space correlator (local)
+  complex<Float> *dataPos_h;      //-- Host Position space correlator (local, needed only when no Momentum-projection is performed)
+  complex<Float> *dataMom_d;      //-- Device output buffer of cuBlas (local)
+  complex<Float> *dataMom_h;      //-- Host output of cuBlas momentum projection (local)
+  complex<Float> *dataMom_gs;     //-- Host Globally summed momentum projection buffer (local)
+  complex<Float> *dataMom;        //-- Host Final result (global summed, gathered) of momentum projection
+
+  const size_t SizeCplxFloat = sizeof(complex<Float>);
   
-  complex<Float> *dataMom_h; // Loop data on host (CPU) in momentum-space
-  complex<Float> *dataMom_d; // Loop data on device (GPU) in momentum-space
+  long long nElemMomTot; // Number of elements in global momentum-space data buffers
+  long long nElemMomLoc; // Number of elements in local  momentum-space data buffers
+  long long nElemPosLoc; // Number of elements in local  position-space data buffers
 
-  long nElemMom; // Number of elements in momentum-space data buffers
+  
+  /** @brief Allocate host and device data buffers
+   */
+  void allocateDataMemory();
 
-  size_t loopSizeMom; // Size of momentum-space data buffers in bytes
+  /** @brief Free host and device data buffers
+   */
+  void freeDataMemory();
 
   
   /** @brief Compute the coarse part of the loop for ultra-local currents, using 
