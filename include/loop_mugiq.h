@@ -1,9 +1,7 @@
 #ifndef _LOOP_MUGIQ_H
 #define _LOOP_MUGIQ_H
 
-//#include <quda.h>
-//#include <multigrid.h>           //- The QUDA MG header file
-//#include <color_spinor_field.h>  //- From QUDA
+#include <quda.h>
 #include <mugiq.h>
 #include <eigsolve_mugiq.h>
 #include <util_mugiq.h>
@@ -16,9 +14,12 @@ class Loop_Mugiq {
 private:
 
   struct MugiqTraceParam;
+  class MugiqShifts;
   
   MugiqTraceParam *trParams; // Trace Parameter structure
 
+  MugiqShifts *shifts;       // The shifts object
+  
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
 
   //- Data buffers
@@ -132,6 +133,28 @@ struct Loop_Mugiq<Float>::MugiqTraceParam {
     init = MUGIQ_BOOL_FALSE;
   }
 
+};
+
+
+template <typename Float>
+class Loop_Mugiq<Float>::MugiqShifts{
+
+private:
+
+  /** @brief Create a new Gauge Field (it's different from the one used for the MG environment!)
+   */
+  void createCudaGaugeField();
+
+  /** @brief Create a new Gauge Field with Extended Halos (taking corners into account)
+   */
+  void createExtendedCudaGaugeField();
+
+public:
+
+  MugiqShifts();
+  ~MugiqShifts();  
+
+  
 };
 
 

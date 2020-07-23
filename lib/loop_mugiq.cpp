@@ -1,15 +1,10 @@
-//#include <mg_mugiq.h>
-#include <eigsolve_mugiq.h>
-//#include <interface_mugiq.h>
-//#include <gamma.h>
-//#include <loop_coarse_ulocal.h>
 #include <loop_mugiq.h>
-//#include <util_mugiq.h>
 
 template <typename Float>
 Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
 			      Eigsolve_Mugiq *eigsolve_) :
   trParams(nullptr),
+  shifts(nullptr),
   eigsolve(eigsolve_),
   dataPos_d(nullptr),
   dataPos_h(nullptr),
@@ -26,6 +21,16 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   allocateDataMemory(); 
   
 }
+
+  
+template <typename Float>
+Loop_Mugiq<Float>::~Loop_Mugiq(){
+
+  freeDataMemory();
+
+  delete trParams;
+}
+
 
 template <typename Float>
 void Loop_Mugiq<Float>::allocateDataMemory(){
@@ -99,14 +104,6 @@ void Loop_Mugiq<Float>::freeDataMemory(){
   printfQuda("%s: Device buffers freed\n", __func__);
   //------------------------------
 
-}
-  
-template <typename Float>
-Loop_Mugiq<Float>::~Loop_Mugiq(){
-
-  freeDataMemory();
-
-  delete trParams;
 }
 
 
