@@ -9,7 +9,7 @@
 template <typename Float>
 Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
 			      Eigsolve_Mugiq *eigsolve_) :
-  params(nullptr),
+  trParams(nullptr),
   eigsolve(eigsolve_),
   dataMom_h(nullptr),
   dataMom_d(nullptr),
@@ -17,9 +17,9 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   loopSizeMom(0)
 {
 
-  params = new MugiqTraceParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);
+  trParams = new MugiqTraceParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);
   
-  nElemMom = params->Nmom * params->totT * params->Ndata;       //- Number of elements in momentum-space data buffers
+  nElemMom = trParams->Nmom * trParams->totT * trParams->Ndata;       //- Number of elements in momentum-space data buffers
 
   loopSizeMom = sizeof(complex<Float>) * nElemMom; //- Size of data buffers in bytes
 
@@ -35,20 +35,22 @@ Loop_Mugiq<Float>::~Loop_Mugiq(){
 
   if(dataMom_h) free(dataMom_h);
   dataMom_h = nullptr;
+
+  delete trParams;
 }
 
 
 template <typename Float>
 void Loop_Mugiq<Float>::printData_ASCII(){
 
-  for(int im=0;im<params->Nmom;im++){
-    for(int id=0;id<params->Ndata;id++){
+  for(int im=0;im<trParams->Nmom;im++){
+    for(int id=0;id<trParams->Ndata;id++){
       printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
-		 params->momMatrix[im][0],
-		 params->momMatrix[im][1],
-		 params->momMatrix[im][2], id);
-      for(int it=0;it<params->totT;it++){
-	int loopIdx = id + params->Ndata*it + params->Ndata*params->totT*im;
+		 trParams->momMatrix[im][0],
+		 trParams->momMatrix[im][1],
+		 trParams->momMatrix[im][2], id);
+      for(int it=0;it<trParams->totT;it++){
+	int loopIdx = id + trParams->Ndata*it + trParams->Ndata*trParams->totT*im;
 	printfQuda("%d %+.8e %+.8e\n", it, dataMom_h[loopIdx].real(), dataMom_h[loopIdx].imag());
       }
     }
@@ -60,7 +62,7 @@ void Loop_Mugiq<Float>::printData_ASCII(){
 template <typename Float>
 void Loop_Mugiq<Float>::createCoarseLoop_uLocal(){
   
-  if(params->calcType == LOOP_CALC_TYPE_OPT_KERNEL)
+  if(trParams->calcType == LOOP_CALC_TYPE_OPT_KERNEL)
     createCoarseLoop_uLocal_optKernel();
   else
     errorQuda("%s: Unsupported calculation type for coarseLoop_uLocal\n", __func__);

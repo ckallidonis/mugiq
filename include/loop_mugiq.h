@@ -17,7 +17,7 @@ private:
 
   struct MugiqTraceParam;
   
-  MugiqTraceParam *params; // Parameter structure
+  MugiqTraceParam *trParams; // Trace Parameter structure
 
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
   
@@ -79,6 +79,8 @@ struct Loop_Mugiq<Float>::MugiqTraceParam {
   long long totV3 = 1;          // global 3d volume (no time)
 
   LoopCalcType calcType; // Type of computation that will take place
+
+  MuGiqBool init; // Whether the structure has been initialized
   
   MugiqTraceParam(MugiqLoopParam *loopParams, ColorSpinorField *x) :
     Nmom(loopParams->Nmom),
@@ -89,7 +91,8 @@ struct Loop_Mugiq<Float>::MugiqTraceParam {
     totalL{0,0,0,0},
     locT(0), totT(0),
     locV4(1), locV3(1), totV3(1),
-    calcType(loopParams->calcType)
+    calcType(loopParams->calcType),
+    init(MUGIQ_BOOL_FALSE)
   {
     for(int i=0;i<N_DIM_;i++){
       localL[i] = x->X(i);
@@ -105,7 +108,13 @@ struct Loop_Mugiq<Float>::MugiqTraceParam {
 
     for(int im=0;im<Nmom;im++)
       momMatrix.push_back(loopParams->momMatrix[im]);
+
+    init = MUGIQ_BOOL_TRUE;
   } // constructor
+
+  ~MugiqTraceParam(){
+    init = MUGIQ_BOOL_FALSE;
+  }
 
 };
 
