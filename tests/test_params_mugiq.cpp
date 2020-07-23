@@ -13,6 +13,7 @@ char mugiq_mom_filename[1024] = "momenta.txt";
 LoopFTSign loop_ft_sign = LOOP_FT_SIGN_INVALID;
 LoopCalcType loop_calc_type = LOOP_CALC_TYPE_INVALID;
 MuGiqBool loop_print_ascii = MUGIQ_BOOL_FALSE;
+MuGiqBool loop_doMomProj = MUGIQ_BOOL_TRUE;
 
 namespace {
   CLI::TransformPairs<MuGiqTask> mugiq_task_map {{"computeEvecsQuda", MUGIQ_COMPUTE_EVECS_QUDA},
@@ -31,6 +32,9 @@ namespace {
 
   CLI::TransformPairs<MuGiqBool> loop_print_ascii_map {{"yes",  MUGIQ_BOOL_TRUE},
 						       {"no" ,  MUGIQ_BOOL_FALSE}};
+  
+  CLI::TransformPairs<MuGiqBool> loop_doMomProj_map {{"yes",  MUGIQ_BOOL_TRUE},
+						     {"no" ,  MUGIQ_BOOL_FALSE}};
 }
 
 
@@ -62,6 +66,9 @@ void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app)
   
   opgroup->add_option("--loop-print-ascii", loop_print_ascii,
 		      "Whether to write loop in ASCII files (default no, options are yes/no)")->transform(CLI::QUDACheckedTransformer(loop_print_ascii_map));
+
+  opgroup->add_option("--loop-do-mom-proj", loop_doMomProj,
+		      "Whether to perform momentum projection (Fourier Transform) on the disconnected quark loop (default yes, options are yes/no)")->transform(CLI::QUDACheckedTransformer(loop_doMomProj_map));  
 }
 
 

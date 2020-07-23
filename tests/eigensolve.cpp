@@ -618,6 +618,8 @@ void setLoopParam(MugiqLoopParam &loopParams){
   loopParams.calcType = loop_calc_type;
 
   loopParams.printASCII = loop_print_ascii;
+
+  loopParams.doMomProj = loop_doMomProj;
   
   //- Open file to read momenta
   std::ifstream momFile;
