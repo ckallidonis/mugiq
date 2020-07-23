@@ -118,7 +118,7 @@ void Loop_Mugiq<Float>::printData_ASCII(){
 		 trParams->momMatrix[im][2], id);
       for(int it=0;it<trParams->totT;it++){
 	int loopIdx = id + trParams->Ndata*it + trParams->Ndata*trParams->totT*im;
-	printfQuda("%d %+.8e %+.8e\n", it, dataMom_h[loopIdx].real(), dataMom_h[loopIdx].imag());
+	printfQuda("%d %+.8e %+.8e\n", it, dataMom[loopIdx].real(), dataMom[loopIdx].imag());
       }
     }
   }
@@ -128,11 +128,6 @@ void Loop_Mugiq<Float>::printData_ASCII(){
 
 template <typename Float>
 void Loop_Mugiq<Float>::createCoarseLoop_uLocal(){
-  
-  if(trParams->calcType == LOOP_CALC_TYPE_OPT_KERNEL)
-    createCoarseLoop_uLocal_optKernel();
-  else
-    errorQuda("%s: Unsupported calculation type for coarseLoop_uLocal\n", __func__);
   
 }
 
