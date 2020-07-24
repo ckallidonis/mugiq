@@ -820,9 +820,9 @@ int main(int argc, char **argv)
   }
   else if(mugiq_use_mg == MUGIQ_BOOL_TRUE){
     if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq_MG(mg_param, eig_param); //- Compute Coarse MG operator eigenvalues
-    else if(mugiq_task == MUGIQ_COMPUTE_LOOP_ULOCAL) computeLoop_uLocal_MG(mg_param, eig_param, loopParams);
+    else if(mugiq_task == MUGIQ_COMPUTE_LOOP) errorQuda("Got option '--mugiq-task computeLoop'. For this option you need to run the test 'loop'.\n");
     else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeLoopULocal)\n");
-    else errorQuda("Unsupported option for --mugiq-task! (options are computeLoopULocal when --mugiq-use-mg is set to yes)\n");
+    else errorQuda("Unsupported option for --mugiq-task! (options are computeEvecsMuGiq when --mugiq-use-mg is set to yes)\n");
   }
   else if(mugiq_use_mg == MUGIQ_BOOL_INVALID) errorQuda("Option --mugiq-use-mg not set! (options are yes/no)\n");
   else errorQuda("Unsupported option --mugiq-use-mg! (options are yes/no)\n");

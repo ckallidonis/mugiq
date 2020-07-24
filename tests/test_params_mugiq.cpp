@@ -21,7 +21,7 @@ char loop_path_string[1024] = "";
 namespace {
   CLI::TransformPairs<MuGiqTask> mugiq_task_map {{"computeEvecsQuda", MUGIQ_COMPUTE_EVECS_QUDA},
 						 {"computeEvecs", MUGIQ_COMPUTE_EVECS_MUGIQ},
-						 {"computeLoopULocal", MUGIQ_COMPUTE_LOOP_ULOCAL}};
+						 {"computeLoop", MUGIQ_COMPUTE_LOOP}};
   
   CLI::TransformPairs<MuGiqBool> mugiq_use_mg_map {{"yes", MUGIQ_BOOL_TRUE},
 						   {"no", MUGIQ_BOOL_FALSE}};

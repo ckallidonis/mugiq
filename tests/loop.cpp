@@ -825,34 +825,17 @@ int main(int argc, char **argv)
   }
   
 
-  // Call the Eigensolver interface-function
+  // Make some checks
+  if(mugiq_use_mg == MUGIQ_BOOL_FALSE) errorQuda("Test 'loop' supports calculations oncly with MG environment. Set '--mugiq-use-mg yes'\n");
+  if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (supported option are computeLoop)\n");
+
+  
+  // Call the interface function to compute the loop
   double time = -((double)clock());
-  if(mugiq_use_mg == MUGIQ_BOOL_FALSE){
-    if(mugiq_task == MUGIQ_COMPUTE_EVECS_QUDA){
-      void **host_evecs = (void **)malloc(eig_nConv * sizeof(void *));
-      for (int i = 0; i < eig_nConv; i++) {
-	host_evecs[i] = (void *)malloc(V * eig_inv_param.Ls * sss * eig_inv_param.cpu_prec);
-      }
-      double _Complex *host_evals = (double _Complex *)malloc(eig_param.nEv * sizeof(double _Complex));
-      
-      computeEvecsQudaWrapper(host_evecs, host_evals, &eig_param);
-      
-      for (int i = 0; i < eig_nConv; i++) free(host_evecs[i]);
-      free(host_evecs);
-      free(host_evals);    
-    }
-    else if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq(eig_param);
-    else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeEvecsQuda, computeEvecsMuGiq)\n");
-    else errorQuda("Unsupported option for --mugiq-task! (options are computeEvecsQuda, computeEvecsMuGiq when --mugiq-use-mg is set to no)\n");
-  }
-  else if(mugiq_use_mg == MUGIQ_BOOL_TRUE){
-    if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq_MG(mg_param, eig_param); //- Compute Coarse MG operator eigenvalues
-    else if(mugiq_task == MUGIQ_COMPUTE_LOOP_ULOCAL) computeLoop_uLocal_MG(mg_param, eig_param, loopParams);
-    else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeLoopULocal)\n");
-    else errorQuda("Unsupported option for --mugiq-task! (options are computeLoopULocal when --mugiq-use-mg is set to yes)\n");
-  }
-  else if(mugiq_use_mg == MUGIQ_BOOL_INVALID) errorQuda("Option --mugiq-use-mg not set! (options are yes/no)\n");
-  else errorQuda("Unsupported option --mugiq-use-mg! (options are yes/no)\n");
+
+  if(mugiq_task == MUGIQ_COMPUTE_LOOP) computeLoop_MG(mg_param, eig_param, loopParams);
+  else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (supported option are computeLoop)\n");
+  else errorQuda("Unsupported option for --mugiq-task! (supported option is computeLoopU\n");
     
   time += (double)clock();
   printfQuda("Time for solution = %f\n", time / CLOCKS_PER_SEC);
