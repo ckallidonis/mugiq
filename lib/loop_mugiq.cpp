@@ -19,6 +19,10 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   cPrm = new LoopComputeParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);  
 
   allocateDataMemory();
+
+  if(cPrm->doNonLocal){
+    dSt = new LoopDispState(loopParams_);
+  }
   
 }
 
@@ -28,7 +32,12 @@ Loop_Mugiq<Float>::~Loop_Mugiq(){
 
   freeDataMemory();
 
+  if(cPrm->doNonLocal){
+    delete dSt;
+  }  
   delete cPrm;
+
+  
 }
 
 

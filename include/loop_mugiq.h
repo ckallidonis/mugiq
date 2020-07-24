@@ -14,7 +14,7 @@ class Loop_Mugiq {
 private:
 
   struct LoopComputeParam;
-  class LoopShiftState;
+  class LoopDispState;
   
   LoopComputeParam *cPrm; // Loop computation Parameter structure
 
@@ -79,6 +79,7 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
   int max_depth;                // maximum depth of transverse shift length (for later)
 
   MuGiqBool doMomProj;          // whether to do Momentum projection, if false then the position-space trace will be saved
+  MuGiqBool doNonLocal;         // whether to compute loop for non-local currents
 
   int localL[N_DIM_];           // local dimensions
   int totalL[N_DIM_];           // global dimensions
@@ -146,7 +147,7 @@ private:
 
 public:
 
-  LoopDispState();
+  LoopDispState(MugiqLoopParam *loopParams_);
   ~LoopDispState();  
 
   
