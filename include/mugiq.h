@@ -58,7 +58,7 @@ extern "C" {
    * @param eigParams Contains all metadata regarding the type of solve.
    * @param loopParams Contains all metadata regarding the loop calculation
    */
-  void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams);
+  void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams);
   
 #ifdef __cplusplus
 }
