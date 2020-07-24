@@ -28,6 +28,9 @@ extern "C" {
     LoopCalcType calcType;
     MuGiqBool printASCII;
     MuGiqBool doMomProj;
+    MuGiqBool doNonLocal;
+    char pathString[1024];
+    void *gauge[4];
     
   } MugiqLoopParam;
   
