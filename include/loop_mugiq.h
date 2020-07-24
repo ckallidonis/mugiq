@@ -46,12 +46,6 @@ private:
   void freeDataMemory();
 
   
-  /** @brief Compute the coarse part of the loop for ultra-local currents, using 
-   * an optimized CUDA kernel
-   */
-  void createCoarseLoop_uLocal_optKernel();
-  
-  
 public:
 
   Loop_Mugiq(MugiqLoopParam *loopParams_, Eigsolve_Mugiq *eigsolve_);
@@ -65,7 +59,7 @@ public:
   
   /** @brief Wrapper to create the coarse part of the loop
    */
-  void createCoarseLoop_uLocal();
+  void computeCoarseLoop();
 
 
   

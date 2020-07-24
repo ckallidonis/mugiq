@@ -127,19 +127,8 @@ void Loop_Mugiq<Float>::printData_ASCII(){
 
 
 template <typename Float>
-void Loop_Mugiq<Float>::createCoarseLoop_uLocal(){
+void Loop_Mugiq<Float>::computeCoarseLoop(){
   
-}
-
-
-template <typename Float>
-void Loop_Mugiq<Float>::createCoarseLoop_uLocal_optKernel(){
-
-
-
-
-  
-
 }
 
 

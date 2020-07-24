@@ -154,8 +154,8 @@ void computeEvecsMuGiq(QudaEigParam QudaEigParams){
 }
 
 
-//- Compute ultra-local (no shifts) disconnected loops using Multigrid deflation
-void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, MugiqLoopParam loopParams){
+//- Compute disconnected loops using Multigrid deflation
+void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, MugiqLoopParam loopParams){
 
   printfQuda("\n%s: Will compute disconnected loops using Multi-grid deflation!\n", __func__);  
 
@@ -201,29 +201,7 @@ void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigPara
   //- Create a new loop object
   Loop_Mugiq<F> *loop = new Loop_Mugiq<F>(&loopParams, eigsolve);
 
-  loop->createCoarseLoop_uLocal();
-  
-#if 0  
-  if(ePrec == QUDA_DOUBLE_PRECISION){
-    size_t loopSize = sizeof(complex<double>) * loopElem;
-    loop_h = static_cast<complex<double>*>(malloc(loopSize));
-    if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
-    memset(loop_h, 0, loopSize);
-
-    createCoarseLoop_uLocal<double>(static_cast<complex<double>*>(loop_h),  &loopParams,
-				    eigsolve);
-  }
-  else if(ePrec == QUDA_SINGLE_PRECISION){
-    size_t loopSize = sizeof(complex<float>) * loopElem;
-    loop_h = static_cast<complex<float>*>(malloc(loopSize));
-    if(loop_h == NULL) errorQuda("%s: Could not allocate host loop buffer for precision %d\n", __func__, ePrec);
-    memset(loop_h, 0, loopSize);
-
-    createCoarseLoop_uLocal<float>(static_cast<complex<float>*>(loop_h), &loopParams,
-				   eigsolve);
-  }
-  //-----------------------------------------------------------
-#endif
+  loop->computeCoarseLoop();
 
   if(loopParams.printASCII == MUGIQ_BOOL_TRUE) loop->printData_ASCII();
   
