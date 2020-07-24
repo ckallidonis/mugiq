@@ -21,7 +21,7 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   allocateDataMemory();
 
   if(cPrm->doNonLocal){
-    dSt = new LoopDispState(loopParams_);
+    dSt = new LoopDispState<Float>(loopParams_);
   }
   
 }
@@ -146,4 +146,3 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 //- so this is a 'feature' rather than a 'bug'
 template class Loop_Mugiq<float>;
 template class Loop_Mugiq<double>;
-

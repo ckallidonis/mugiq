@@ -5,8 +5,10 @@
 #include <mugiq.h>
 #include <eigsolve_mugiq.h>
 #include <util_mugiq.h>
+#include <disp_state.h>
 
 using namespace quda;
+
 
 template <typename Float>
 class Loop_Mugiq {
@@ -14,11 +16,10 @@ class Loop_Mugiq {
 private:
 
   struct LoopComputeParam;
-  class LoopDispState;
   
   LoopComputeParam *cPrm; // Loop computation Parameter structure
 
-  LoopDispState *dSt;  // structure holding the state of displacements
+  LoopDispState<Float> *dSt;  // structure holding the state of displacements
   
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
 
@@ -44,7 +45,7 @@ private:
   /** @brief Free host and device data buffers
    */
   void freeDataMemory();
-
+  
   
 public:
 
@@ -60,10 +61,10 @@ public:
   /** @brief Wrapper to create the coarse part of the loop
    */
   void computeCoarseLoop();
-
-
   
 }; // class Loop_Mugiq
+
+
 
 
 template <typename Float>
@@ -129,28 +130,6 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     init = MUGIQ_BOOL_FALSE;
   }
 
-};
-
-
-template <typename Float>
-class Loop_Mugiq<Float>::LoopDispState{
-
-private:
-
-  /** @brief Create a new Gauge Field (it's different from the one used for the MG environment!)
-   */
-  void createCudaGaugeField();
-
-  /** @brief Create a new Gauge Field with Extended Halos (taking corners into account)
-   */
-  void createExtendedCudaGaugeField();
-
-public:
-
-  LoopDispState(MugiqLoopParam *loopParams_);
-  ~LoopDispState();  
-
-  
 };
 
 
