@@ -13,12 +13,12 @@ class Loop_Mugiq {
 
 private:
 
-  struct MugiqTraceParam;
-  class MugiqShifts;
+  struct LoopComputeParam;
+  class LoopShiftState;
   
-  MugiqTraceParam *trParams; // Trace Parameter structure
+  LoopComputeParam *cPrm; // Loop computation Parameter structure
 
-  MugiqShifts *shifts;       // The shifts object
+  LoopDispState *dSt;  // structure holding the state of displacements
   
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
 
@@ -67,7 +67,7 @@ public:
 
 
 template <typename Float>
-struct Loop_Mugiq<Float>::MugiqTraceParam {
+struct Loop_Mugiq<Float>::LoopComputeParam {
 
   const int Ndata = N_GAMMA_;   // Number of Gamma matrices (currents, =16)
   const int momDim = MOM_DIM_;  // Momenta dimensions (=3)
@@ -93,11 +93,12 @@ struct Loop_Mugiq<Float>::MugiqTraceParam {
 
   MuGiqBool init; // Whether the structure has been initialized
   
-  MugiqTraceParam(MugiqLoopParam *loopParams, ColorSpinorField *x) :
+  LoopComputeParam(MugiqLoopParam *loopParams, ColorSpinorField *x) :
     Nmom(loopParams->Nmom),
     FTSign(loopParams->FTSign),
     max_depth(0),
     doMomProj(loopParams->doMomProj),
+    doNonLocal(loopParams->doNonLocal),
     localL{0,0,0,0},
     totalL{0,0,0,0},
     locT(0), totT(0),
@@ -123,7 +124,7 @@ struct Loop_Mugiq<Float>::MugiqTraceParam {
     init = MUGIQ_BOOL_TRUE;
   } // constructor
 
-  ~MugiqTraceParam(){
+  ~LoopComputeParam(){
     init = MUGIQ_BOOL_FALSE;
   }
 
@@ -131,7 +132,7 @@ struct Loop_Mugiq<Float>::MugiqTraceParam {
 
 
 template <typename Float>
-class Loop_Mugiq<Float>::MugiqShifts{
+class Loop_Mugiq<Float>::LoopDispState{
 
 private:
 
@@ -145,8 +146,8 @@ private:
 
 public:
 
-  MugiqShifts();
-  ~MugiqShifts();  
+  LoopDispState();
+  ~LoopDispState();  
 
   
 };

@@ -3,8 +3,8 @@
 template <typename Float>
 Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
 			      Eigsolve_Mugiq *eigsolve_) :
-  trParams(nullptr),
-  shifts(nullptr),
+  cPrm(nullptr),
+  dSt(nullptr),
   eigsolve(eigsolve_),
   dataPos_d(nullptr),
   dataPos_h(nullptr),
@@ -16,9 +16,9 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   nElemMomLoc(0)
 {
   
-  trParams = new MugiqTraceParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);  
+  cPrm = new LoopComputeParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);  
 
-  allocateDataMemory(); 
+  allocateDataMemory();
   
 }
 
@@ -28,16 +28,16 @@ Loop_Mugiq<Float>::~Loop_Mugiq(){
 
   freeDataMemory();
 
-  delete trParams;
+  delete cPrm;
 }
 
 
 template <typename Float>
 void Loop_Mugiq<Float>::allocateDataMemory(){
 
-  nElemMomTot = trParams->Ndata * trParams->Nmom * trParams->totT;
-  nElemMomLoc = trParams->Ndata * trParams->Nmom * trParams->locT;
-  nElemPosLoc = trParams->Ndata * trParams->locV4;
+  nElemMomTot = cPrm->Ndata * cPrm->Nmom * cPrm->totT;
+  nElemMomLoc = cPrm->Ndata * cPrm->Nmom * cPrm->locT;
+  nElemPosLoc = cPrm->Ndata * cPrm->locV4;
   
   //- Allocate host data buffers
   dataMom    = static_cast<complex<Float>*>(calloc(nElemMomTot, SizeCplxFloat));
@@ -48,7 +48,7 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
   if(dataMom_gs == NULL) errorQuda("%s: Could not allocate buffer: dataMom_gs\n", __func__);
   if(dataMom_h  == NULL) errorQuda("%s: Could not allocate buffer: dataMom_h\n", __func__);
   
-  if(!trParams->doMomProj){
+  if(!cPrm->doMomProj){
     dataPos_h = static_cast<complex<Float>*>(calloc(nElemPosLoc, SizeCplxFloat));
     if(dataPos_h  == NULL) errorQuda("%s: Could not allocate buffer: dataPos_h\n", __func__);
   }
@@ -110,14 +110,14 @@ void Loop_Mugiq<Float>::freeDataMemory(){
 template <typename Float>
 void Loop_Mugiq<Float>::printData_ASCII(){
 
-  for(int im=0;im<trParams->Nmom;im++){
-    for(int id=0;id<trParams->Ndata;id++){
+  for(int im=0;im<cPrm->Nmom;im++){
+    for(int id=0;id<cPrm->Ndata;id++){
       printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
-		 trParams->momMatrix[im][0],
-		 trParams->momMatrix[im][1],
-		 trParams->momMatrix[im][2], id);
-      for(int it=0;it<trParams->totT;it++){
-	int loopIdx = id + trParams->Ndata*it + trParams->Ndata*trParams->totT*im;
+		 cPrm->momMatrix[im][0],
+		 cPrm->momMatrix[im][1],
+		 cPrm->momMatrix[im][2], id);
+      for(int it=0;it<cPrm->totT;it++){
+	int loopIdx = id + cPrm->Ndata*it + cPrm->Ndata*cPrm->totT*im;
 	printfQuda("%d %+.8e %+.8e\n", it, dataMom[loopIdx].real(), dataMom[loopIdx].imag());
       }
     }
