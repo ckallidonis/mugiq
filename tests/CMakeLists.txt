@@ -24,3 +24,11 @@ endmacro()
 cuda_add_executable(eigensolve eigensolve.cpp)
 target_link_libraries(eigensolve ${EXE_LIBS})
 mugiq_checktest(eigensolve MUGIQ_BUILD_ALL_TESTS)
+
+cuda_add_executable(loop loop.cpp)
+target_link_libraries(loop ${EXE_LIBS})
+mugiq_checktest(loop MUGIQ_BUILD_ALL_TESTS)
+
+
+
+
