@@ -104,7 +104,7 @@ void setGaugeParam(QudaGaugeParam &gauge_param)
   gauge_param.anisotropy = anisotropy;
   gauge_param.type = QUDA_WILSON_LINKS;
   gauge_param.gauge_order = QUDA_QDP_GAUGE_ORDER;
-  gauge_param.t_boundary = QUDA_PERIODIC_T;
+  gauge_param.t_boundary = QUDA_ANTI_PERIODIC_T;
 
   gauge_param.cpu_prec = cpu_prec;
 
@@ -605,7 +605,7 @@ void setMultigridParam(QudaMultigridParam &mg_param)
 //-------------------------------------------------------------------------------
 
 
-void setLoopParam(MugiqLoopParam &loopParams){
+void setLoopParam(MugiqLoopParam &loopParams, QudaGaugeParam &gParam){
 
   const int NspDim = 3; // Number of spatial dimensions
 
@@ -626,6 +626,8 @@ void setLoopParam(MugiqLoopParam &loopParams){
   else
     strcpy(loopParams.pathString,loop_path_string);
   
+
+  loopParams.gauge_param = &gParam;
   
   //- Open file to read momenta
   std::ifstream momFile;
@@ -706,7 +708,7 @@ int main(int argc, char **argv)
 
 
   MugiqLoopParam loopParams;
-  setLoopParam(loopParams);
+  setLoopParam(loopParams, gauge_param);
 
   
   QudaMultigridParam mg_param;

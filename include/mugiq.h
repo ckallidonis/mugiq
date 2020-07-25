@@ -31,6 +31,7 @@ extern "C" {
     MuGiqBool doNonLocal;
     char pathString[1024];
     void *gauge[4];
+    QudaGaugeParam *gauge_param;
     
   } MugiqLoopParam;
   
