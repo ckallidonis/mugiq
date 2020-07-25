@@ -123,6 +123,8 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     for(int im=0;im<Nmom;im++)
       momMatrix.push_back(loopParams->momMatrix[im]);
 
+    printfQuda("%s: Loop compute parameters are set\n", __func__);
+
     init = MUGIQ_BOOL_TRUE;
   } // constructor
 

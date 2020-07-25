@@ -15,15 +15,15 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   nElemMomTot(0),
   nElemMomLoc(0)
 {
+  printfQuda("\n*************************************************\n");
+  printfQuda("%s: Creating Loop computation environment\n", __func__);
   
   cPrm = new LoopComputeParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);  
+  if(cPrm->doNonLocal) dSt = new LoopDispState<Float>(loopParams_);
 
   allocateDataMemory();
-
-  if(cPrm->doNonLocal){
-    dSt = new LoopDispState<Float>(loopParams_);
-  }
   
+  printfQuda("*************************************************\n\n");
 }
 
   
@@ -32,9 +32,7 @@ Loop_Mugiq<Float>::~Loop_Mugiq(){
 
   freeDataMemory();
 
-  if(cPrm->doNonLocal){
-    delete dSt;
-  }  
+  if(cPrm->doNonLocal) delete dSt;
   delete cPrm;
 
   
