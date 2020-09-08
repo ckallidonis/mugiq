@@ -2,6 +2,7 @@
 #define _MUGIQ_UTIL_H
 
 #include <enum_mugiq.h>
+#include <complex_quda.h>
 
 #define PI 2.0*asin(1.0)
 
