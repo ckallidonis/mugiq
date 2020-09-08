@@ -27,6 +27,8 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   copyGammaToConstMem();
   
   printfQuda("*************************************************\n\n");
+
+  printLoopComputeParams();
 }
 
   
@@ -123,6 +125,36 @@ void Loop_Mugiq<Float>::freeDataMemory(){
   printfQuda("%s: Device buffers freed\n", __func__);
   //------------------------------
 
+}
+
+
+template <typename Float>
+void Loop_Mugiq<Float>::printLoopComputeParams(){
+
+  
+  printfQuda("******************************************\n");
+  printfQuda("    Parameters of the Loop Computation\n");
+  printfQuda("Will%s perform Momentum Projection (Fourier Transform)\n", cPrm->doMomProj ? "" : " NOT");
+  if(cPrm->doMomProj){
+    printfQuda("Momentum Projection will be performed on GPU using cuBlas\n");
+    printfQuda("Number of momenta: %d\n", cPrm->Nmom);
+    printfQuda("Fourier transform Exp. Sign: %d\n", (int) cPrm->FTSign);
+  }
+  printfQuda("Will%s perform loop on non-local currents\n", cPrm->doNonLocal ? "" : " NOT");
+  if(cPrm->doNonLocal){
+    printfQuda("Non-local path string: %s\n", cPrm->pathString);
+    printfQuda("Non-local path length: %d\n", cPrm->pathLen);
+  }    
+  printfQuda("Local  lattice size (x,y,z,t): %d %d %d %d \n", cPrm->localL[0], cPrm->localL[1], cPrm->localL[2], cPrm->localL[3]);
+  printfQuda("Global lattice size (x,y,z,t): %d %d %d %d \n", cPrm->totalL[0], cPrm->totalL[1], cPrm->totalL[2], cPrm->totalL[3]);
+  printfQuda("Global time extent: %d\n", cPrm->totT);
+  printfQuda("Local  time extent: %d\n", cPrm->locT);
+  printfQuda("Local  volume: %lld\n", cPrm->locV4);
+  printfQuda("Local  3d volume: %lld\n", cPrm->locV3);
+  printfQuda("Global 3d volume: %lld\n", cPrm->totV3);
+  printfQuda("Transverse shift max. depth (not applicable now): %d\n", cPrm->max_depth);
+  printfQuda("******************************************\n");
+  
 }
 
 
