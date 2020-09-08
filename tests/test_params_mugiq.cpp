@@ -16,7 +16,7 @@ MuGiqBool loop_print_ascii = MUGIQ_BOOL_FALSE;
 MuGiqBool loop_doMomProj = MUGIQ_BOOL_TRUE;
 MuGiqBool loop_doNonLocal = MUGIQ_BOOL_TRUE;
 char loop_gauge_filename[1024] = "";
-char loop_path_string[1024] = "";
+char loop_path_string[MAX_PATH_LEN_] = "";
 
 namespace {
   CLI::TransformPairs<MuGiqTask> mugiq_task_map {{"computeEvecsQuda", MUGIQ_COMPUTE_EVECS_QUDA},

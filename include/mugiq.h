@@ -16,6 +16,9 @@
 extern "C" {
 #endif
 
+
+#define MAX_PATH_LEN_ 4096
+  
   /* Structure that holds parameters related to the calculation of
    * disconnected quark loops.
    * Will be extended according to compuation demands
@@ -29,7 +32,7 @@ extern "C" {
     MuGiqBool printASCII;
     MuGiqBool doMomProj;
     MuGiqBool doNonLocal;
-    char pathString[1024];
+    char pathString[MAX_PATH_LEN_];
     void *gauge[4];
     QudaGaugeParam *gauge_param;
     
