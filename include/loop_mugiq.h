@@ -37,6 +37,10 @@ private:
   long long nElemPosLoc; // Number of elements in local  position-space data buffers
 
   
+  /** @brief Print the Parameters of the Loop computation
+   */
+  void printLoopComputeParams();
+
   /** @brief Allocate host and device data buffers
    */
   void allocateDataMemory();
@@ -95,8 +99,12 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
   long long totV3 = 1;          // global 3d volume (no time)
 
   LoopCalcType calcType; // Type of computation that will take place
+  
+  char pathString[MAX_PATH_LEN_];
+  int pathLen;
 
   MuGiqBool init; // Whether the structure has been initialized
+
   
   LoopComputeParam(MugiqLoopParam *loopParams, ColorSpinorField *x) :
     Nmom(loopParams->Nmom),
@@ -109,6 +117,8 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     locT(0), totT(0),
     locV4(1), locV3(1), totV3(1),
     calcType(loopParams->calcType),
+    pathString("\0"),
+    pathLen(0),
     init(MUGIQ_BOOL_FALSE)
   {
     for(int i=0;i<N_DIM_;i++){
@@ -126,6 +136,10 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     for(int im=0;im<Nmom;im++)
       momMatrix.push_back(loopParams->momMatrix[im]);
 
+    if(doNonLocal){
+      strcpy(pathString, loopParams->pathString);
+      pathLen = strlen(pathString);
+    }
     printfQuda("%s: Loop compute parameters are set\n", __func__);
 
     init = MUGIQ_BOOL_TRUE;
