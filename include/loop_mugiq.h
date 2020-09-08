@@ -1,7 +1,6 @@
 #ifndef _LOOP_MUGIQ_H
 #define _LOOP_MUGIQ_H
 
-#include <quda.h>
 #include <mugiq.h>
 #include <eigsolve_mugiq.h>
 #include <util_mugiq.h>
@@ -45,6 +44,10 @@ private:
   /** @brief Free host and device data buffers
    */
   void freeDataMemory();
+
+  /** @brief Wrapper to copy the gamma matrix coefficients to GPU __constant__ memory
+   */
+  void copyGammaToConstMem();
   
   
 public:

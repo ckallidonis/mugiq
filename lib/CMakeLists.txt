@@ -21,8 +21,9 @@ add_library(mugiq_cpp OBJECT ${MUGIQ_CPP_OBJS})
 if(BUILD_MUGIQ_CUDA_LIB)
 
   # NVCC/CUDA objects
-  set(MUGIQ_CUDA_OBJS )
-    # cmake-format: sortable
+  set(MUGIQ_CUDA_OBJS 
+  # cmake-format: sortable
+  contract_wrappers.cu )
 #    gamma.cu utility_kernels.cu loop_coarse.cu loop_coarse_ulocal.cu)
   # cmake-format: on
 

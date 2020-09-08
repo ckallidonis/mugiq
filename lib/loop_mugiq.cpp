@@ -1,4 +1,5 @@
 #include <loop_mugiq.h>
+#include <contract_util.h>
 
 template <typename Float>
 Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
@@ -18,10 +19,12 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   printfQuda("\n*************************************************\n");
   printfQuda("%s: Creating Loop computation environment\n", __func__);
   
-  cPrm = new LoopComputeParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);  
+  cPrm = new LoopComputeParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);
   if(cPrm->doNonLocal) dSt = new LoopDispState<Float>(loopParams_);
 
   allocateDataMemory();
+
+  copyGammaToConstMem();
   
   printfQuda("*************************************************\n\n");
 }
@@ -75,6 +78,15 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
   printfQuda("%s: Device buffers allocated\n", __func__);
   //------------------------------
   
+}
+
+// That's just a wrapper to copy the Gamma-matrix coefficient structure to constant memory
+template <typename Float>
+void Loop_Mugiq<Float>::copyGammaToConstMem(){
+
+  copyGammaCoeffStructToSymbol<Float>();
+  //copyGammaCoeffStructToSymbol();
+  printfQuda("%s: Gamma coefficient structure copied to constant memory\n", __func__);
 }
 
 
