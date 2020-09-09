@@ -24,7 +24,7 @@
 
 // MUGIQ header files
 #include <mugiq.h>
-#include <linalg_mugiq.h>
+//#include <linalg_mugiq.h>
 #include <loop_mugiq.h>
 #include <eigsolve_mugiq.h>
 #include <mg_mugiq.h>
