@@ -35,7 +35,9 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
 
     ColorSpinorParam csParam(*(mg_env->mg_solver->B[0]));
     QudaPrecision coarsePrec = invParams->cuda_prec;
-         
+    csParam.create = QUDA_ZERO_FIELD_CREATE;
+    csParam.setPrecision(coarsePrec);
+    
     //-Create coarse fields and allocate coarse eigenvectors recursively
     tmpCSF.push_back(ColorSpinorField::Create(csParam)); //- tmpCSF[0] is a fine field
     for(int lev=0;lev<nInterLevels;lev++){

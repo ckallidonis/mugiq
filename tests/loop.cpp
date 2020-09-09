@@ -104,7 +104,7 @@ void setGaugeParam(QudaGaugeParam &gauge_param)
   gauge_param.anisotropy = anisotropy;
   gauge_param.type = QUDA_WILSON_LINKS;
   gauge_param.gauge_order = QUDA_QDP_GAUGE_ORDER;
-  gauge_param.t_boundary = QUDA_PERIODIC_T;
+  gauge_param.t_boundary = QUDA_ANTI_PERIODIC_T;
 
   gauge_param.cpu_prec = cpu_prec;
 
@@ -605,7 +605,7 @@ void setMultigridParam(QudaMultigridParam &mg_param)
 //-------------------------------------------------------------------------------
 
 
-void setLoopParam(MugiqLoopParam &loopParams){
+void setLoopParam(MugiqLoopParam &loopParams, QudaGaugeParam &gParam){
 
   const int NspDim = 3; // Number of spatial dimensions
 
@@ -618,8 +618,16 @@ void setLoopParam(MugiqLoopParam &loopParams){
   loopParams.calcType = loop_calc_type;
 
   loopParams.printASCII = loop_print_ascii;
+  loopParams.doMomProj  = loop_doMomProj;
+  loopParams.doNonLocal = loop_doNonLocal;
 
-  loopParams.doMomProj = loop_doMomProj;
+  if(loopParams.doNonLocal && !strcmp(loop_path_string,""))
+    errorQuda("Got option '--loop-do-nonlocal yes' but option --loop-path-string is not set!\n");
+  else
+    strcpy(loopParams.pathString,loop_path_string);
+  
+
+  loopParams.gauge_param = &gParam;
   
   //- Open file to read momenta
   std::ifstream momFile;
@@ -700,7 +708,7 @@ int main(int argc, char **argv)
 
 
   MugiqLoopParam loopParams;
-  setLoopParam(loopParams);
+  setLoopParam(loopParams, gauge_param);
 
   
   QudaMultigridParam mg_param;
@@ -798,34 +806,38 @@ int main(int argc, char **argv)
   printfQuda("Computing the plaquette...\n");
   printfQuda("Computed plaquette is %e (spatial = %e, temporal = %e)\n", plaq[0], plaq[1], plaq[2]);
 
-  // Call the Eigensolver interface-function
-  double time = -((double)clock());
-  if(mugiq_use_mg == MUGIQ_BOOL_FALSE){
-    if(mugiq_task == MUGIQ_COMPUTE_EVECS_QUDA){
-      void **host_evecs = (void **)malloc(eig_nConv * sizeof(void *));
-      for (int i = 0; i < eig_nConv; i++) {
-	host_evecs[i] = (void *)malloc(V * eig_inv_param.Ls * sss * eig_inv_param.cpu_prec);
-      }
-      double _Complex *host_evals = (double _Complex *)malloc(eig_param.nEv * sizeof(double _Complex));
-      
-      computeEvecsQudaWrapper(host_evecs, host_evals, &eig_param);
-      
-      for (int i = 0; i < eig_nConv; i++) free(host_evecs[i]);
-      free(host_evecs);
-      free(host_evals);    
+
+  //-Read the additional gauge field for loop non-local currents, if applicable
+  void *loop_gauge[4] = {nullptr,nullptr,nullptr,nullptr};
+  if(loopParams.doNonLocal){    
+    if (strcmp(loop_gauge_filename, "")) { // load in the command line supplied gauge field for the loop
+      for (int dir = 0; dir < 4; dir++){
+	loop_gauge[dir] = malloc(V * gaugeSiteSize * gSize);
+	if(!loop_gauge[dir]) errorQuda("Cannot allocate loop_gauge[%d]\n",dir);
+	memset(loop_gauge[dir], 0, V * gaugeSiteSize * gSize);
+      }      
+      read_gauge_field(loop_gauge_filename, loop_gauge, gauge_param.cpu_prec, gauge_param.X, argc, argv);
+      construct_gauge_field(loop_gauge, 2, gauge_param.cpu_prec, &gauge_param);
+
+      for (int dir = 0; dir < 4; dir++) loopParams.gauge[dir] = loop_gauge[dir];
     }
-    else if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq(eig_param);
-    else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeEvecsQuda, computeEvecsMuGiq)\n");
-    else errorQuda("Unsupported option for --mugiq-task! (options are computeEvecsQuda, computeEvecsMuGiq when --mugiq-use-mg is set to no)\n");
+    else{
+      errorQuda("Got option '--loop-do-nonlocal yes' but option --loop-gauge-filename is not set!\n");
+    }
   }
-  else if(mugiq_use_mg == MUGIQ_BOOL_TRUE){
-    if(mugiq_task == MUGIQ_COMPUTE_EVECS_MUGIQ) computeEvecsMuGiq_MG(mg_param, eig_param); //- Compute Coarse MG operator eigenvalues
-    else if(mugiq_task == MUGIQ_COMPUTE_LOOP) errorQuda("Got option '--mugiq-task computeLoop'. For this option you need to run the test 'loop'.\n");
-    else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (options are computeLoopULocal)\n");
-    else errorQuda("Unsupported option for --mugiq-task! (options are computeEvecsMuGiq when --mugiq-use-mg is set to yes)\n");
-  }
-  else if(mugiq_use_mg == MUGIQ_BOOL_INVALID) errorQuda("Option --mugiq-use-mg not set! (options are yes/no)\n");
-  else errorQuda("Unsupported option --mugiq-use-mg! (options are yes/no)\n");
+  
+
+  // Make some checks
+  if(mugiq_use_mg == MUGIQ_BOOL_FALSE) errorQuda("Test 'loop' supports calculations oncly with MG environment. Set '--mugiq-use-mg yes'\n");
+  if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (supported option are computeLoop)\n");
+
+  
+  // Call the interface function to compute the loop
+  double time = -((double)clock());
+
+  if(mugiq_task == MUGIQ_COMPUTE_LOOP) computeLoop_MG(mg_param, eig_param, loopParams);
+  else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (supported option are computeLoop)\n");
+  else errorQuda("Unsupported option for --mugiq-task! (supported option is computeLoopU\n");
     
   time += (double)clock();
   printfQuda("Time for solution = %f\n", time / CLOCKS_PER_SEC);
@@ -845,7 +857,12 @@ int main(int argc, char **argv)
     if (clover) free(clover);
     if (clover_inv) free(clover_inv);
   }
-  for (int dir = 0; dir < 4; dir++) free(gauge[dir]);
+  
+  for (int dir = 0; dir < 4; dir++){
+    free(gauge[dir]);
+    if(loop_gauge[dir]) free(loop_gauge[dir]);
+  }
 
+  
   return 0;
 }

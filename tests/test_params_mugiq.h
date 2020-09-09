@@ -20,6 +20,10 @@ extern char mugiq_mom_filename[1024];
 extern LoopFTSign loop_ft_sign;
 extern LoopCalcType loop_calc_type;
 extern MuGiqBool loop_print_ascii;
+extern MuGiqBool loop_doMomProj;
+extern MuGiqBool loop_doNonLocal;
+extern char loop_gauge_filename[1024];
+extern char loop_path_string[MAX_PATH_LEN_];
 
 /*
 class MUGIQApp : public CLI::App

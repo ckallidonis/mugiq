@@ -13,11 +13,15 @@ char mugiq_mom_filename[1024] = "momenta.txt";
 LoopFTSign loop_ft_sign = LOOP_FT_SIGN_INVALID;
 LoopCalcType loop_calc_type = LOOP_CALC_TYPE_INVALID;
 MuGiqBool loop_print_ascii = MUGIQ_BOOL_FALSE;
+MuGiqBool loop_doMomProj = MUGIQ_BOOL_TRUE;
+MuGiqBool loop_doNonLocal = MUGIQ_BOOL_TRUE;
+char loop_gauge_filename[1024] = "";
+char loop_path_string[MAX_PATH_LEN_] = "";
 
 namespace {
   CLI::TransformPairs<MuGiqTask> mugiq_task_map {{"computeEvecsQuda", MUGIQ_COMPUTE_EVECS_QUDA},
 						 {"computeEvecs", MUGIQ_COMPUTE_EVECS_MUGIQ},
-						 {"computeLoopULocal", MUGIQ_COMPUTE_LOOP_ULOCAL}};
+						 {"computeLoop", MUGIQ_COMPUTE_LOOP}};
   
   CLI::TransformPairs<MuGiqBool> mugiq_use_mg_map {{"yes", MUGIQ_BOOL_TRUE},
 						   {"no", MUGIQ_BOOL_FALSE}};
@@ -31,6 +35,13 @@ namespace {
 
   CLI::TransformPairs<MuGiqBool> loop_print_ascii_map {{"yes",  MUGIQ_BOOL_TRUE},
 						       {"no" ,  MUGIQ_BOOL_FALSE}};
+  
+  CLI::TransformPairs<MuGiqBool> loop_doMomProj_map {{"yes",  MUGIQ_BOOL_TRUE},
+						     {"no" ,  MUGIQ_BOOL_FALSE}};
+
+  CLI::TransformPairs<MuGiqBool> loop_doNonLocal_map {{"yes",  MUGIQ_BOOL_TRUE},
+						      {"no" ,  MUGIQ_BOOL_FALSE}};
+  
 }
 
 
@@ -54,6 +65,10 @@ void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app)
   
   opgroup->add_option("--momenta-filename", mugiq_mom_filename, "Filename with the momenta for Fourier Transform of the loop (default 'momenta.txt')");
 
+  opgroup->add_option("--loop-gauge-filename", loop_gauge_filename, "Gauge field that will be used for non-local currents (default '')");
+
+  opgroup->add_option("--loop-path-string", loop_path_string, "String with non-local current paths (default '')");
+
   opgroup->add_option("--loop-ft-sign", loop_ft_sign,
 		      "Sign of the Loop Fourier Transform phase (default NULL)")->transform(CLI::QUDACheckedTransformer(loop_ft_sign_map));
   
@@ -62,6 +77,13 @@ void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app)
   
   opgroup->add_option("--loop-print-ascii", loop_print_ascii,
 		      "Whether to write loop in ASCII files (default no, options are yes/no)")->transform(CLI::QUDACheckedTransformer(loop_print_ascii_map));
+
+  opgroup->add_option("--loop-do-momproj", loop_doMomProj,
+		      "Whether to perform momentum projection (Fourier Transform) on the disconnected quark loop (default yes, options are yes/no)")->transform(CLI::QUDACheckedTransformer(loop_doMomProj_map));
+
+  opgroup->add_option("--loop-do-nonlocal", loop_doNonLocal,
+		      "Whether to compute quark loops for non-local currents, requires option --loop-gauge-filename and --loop-path-string (default yes, options are yes/no)")->transform(CLI::QUDACheckedTransformer(loop_doNonLocal_map));  
+  
 }
 
 

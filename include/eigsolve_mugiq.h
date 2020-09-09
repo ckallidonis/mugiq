@@ -57,6 +57,11 @@ class Eigsolve_Mugiq {
 
 private:
 
+  //- Loop_Mugiq will substantially use members of Eigsolve_Mugiq
+  //- therefore it deserves to be a friend of this class
+  template <typename Float>
+  friend class Loop_Mugiq;
+  
   MugiqEigParam *eigParams;
   
   MuGiqBool eigInit;        // Initialization switch

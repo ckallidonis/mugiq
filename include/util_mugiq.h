@@ -1,7 +1,9 @@
 #ifndef _MUGIQ_UTIL_H
 #define _MUGIQ_UTIL_H
 
+#include <util_quda.h>
 #include <enum_mugiq.h>
+#include <complex_quda.h>
 
 #define PI 2.0*asin(1.0)
 
@@ -24,10 +26,25 @@
 #define GAMMA_GEN_IDX(s,c)  ( SPINOR_SITE_IDX((s),(c)) )
 #define GAMMA_COEFF_IDX(s1,c1,s2,c2) ( (GAMMA_GEN_IDX((s2),(c2))) + SPINOR_SITE_LEN_ * (GAMMA_GEN_IDX((s1),(c1))) )
 
+#define MOM_MATRIX_IDX(id,im) ( (id) + MOM_DIM_*(im))
+
 #define MUGIQ_MAX_FINE_VEC 24
 #define MUGIQ_MAX_COARSE_VEC 256
 
 #define THREADS_PER_BLOCK 32
 
+/*
+#define checkErrorCudaNoSync() do {                      \
+    cudaError_t error = cudaGetLastError();	         \
+    if (error != cudaSuccess)			         \
+      fprintf(stderr,"(CUDA) %s", cudaGetErrorString(error));	\
+  } while (0)
+
+
+#define checkErrorCuda() do {  \
+    cudaDeviceSynchronize();   \
+    checkErrorCudaNoSync();    \
+  } while (0)
+*/
 
 #endif // _MUGIQ_UTIL_H

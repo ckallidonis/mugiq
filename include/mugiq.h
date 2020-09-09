@@ -10,10 +10,15 @@
 #include <quda.h>
 #include <enum_mugiq.h>
 
+#include <vector>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+
+#define MAX_PATH_LEN_ 4096
+  
   /* Structure that holds parameters related to the calculation of
    * disconnected quark loops.
    * Will be extended according to compuation demands
@@ -25,6 +30,11 @@ extern "C" {
     LoopFTSign FTSign;
     LoopCalcType calcType;
     MuGiqBool printASCII;
+    MuGiqBool doMomProj;
+    MuGiqBool doNonLocal;
+    char pathString[MAX_PATH_LEN_];
+    void *gauge[4];
+    QudaGaugeParam *gauge_param;
     
   } MugiqLoopParam;
   
@@ -52,7 +62,7 @@ extern "C" {
    * @param eigParams Contains all metadata regarding the type of solve.
    * @param loopParams Contains all metadata regarding the loop calculation
    */
-  void computeLoop_uLocal_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams);
+  void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams);
   
 #ifdef __cplusplus
 }
