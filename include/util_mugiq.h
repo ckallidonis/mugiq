@@ -1,6 +1,7 @@
 #ifndef _MUGIQ_UTIL_H
 #define _MUGIQ_UTIL_H
 
+#include <util_quda.h>
 #include <enum_mugiq.h>
 #include <complex_quda.h>
 
@@ -30,5 +31,18 @@
 
 #define THREADS_PER_BLOCK 32
 
+/*
+#define checkErrorCudaNoSync() do {                      \
+    cudaError_t error = cudaGetLastError();	         \
+    if (error != cudaSuccess)			         \
+      fprintf(stderr,"(CUDA) %s", cudaGetErrorString(error));	\
+  } while (0)
+
+
+#define checkErrorCuda() do {  \
+    cudaDeviceSynchronize();   \
+    checkErrorCudaNoSync();    \
+  } while (0)
+*/
 
 #endif // _MUGIQ_UTIL_H
