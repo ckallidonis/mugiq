@@ -1,5 +1,4 @@
 #include <loop_mugiq.h>
-#include <contract_util.h>
 
 template <typename Float>
 Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,

@@ -65,15 +65,4 @@ struct GammaCoeff{
   
 
 
-//- *****************************************
-//- *****************************************
-//- Wrapper functions declaration begin here
-
-
-/** @brief Define the Gamma matrix coefficient structure and copy it to GPU __constant__ memory
- */
-template <typename Float>
-void copyGammaCoeffStructToSymbol();
-
-
 #endif // _CONTRACT_UTIL_H

@@ -8,7 +8,6 @@
 
 using namespace quda;
 
-
 template <typename Float>
 class Loop_Mugiq {
 
@@ -152,5 +151,15 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
 };
 
 
+
+/************************************************************/
+//- Forward declarations of functions called within Loop_Mugiq
+
+
+
+/** @brief Define the Gamma matrix coefficient structure and copy it to GPU __constant__ memory
+ */
+template <typename Float>
+void copyGammaCoeffStructToSymbol();
 
 #endif // _LOOP_MUGIQ_H

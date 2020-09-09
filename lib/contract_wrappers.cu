@@ -1,7 +1,4 @@
-#include <contract_util.h>
-
-template void copyGammaCoeffStructToSymbol<float>();
-template void copyGammaCoeffStructToSymbol<double>();
+#include <contract_util.cuh>
 
 template <typename Float>
 void copyGammaCoeffStructToSymbol(){
@@ -17,3 +14,6 @@ void copyGammaCoeffStructToSymbol(){
   
   cudaMemcpyToSymbol(cGamma, &gamma_h, sizeof(GammaCoeff<Float>));
 }
+
+template void copyGammaCoeffStructToSymbol<float>();
+template void copyGammaCoeffStructToSymbol<double>();
