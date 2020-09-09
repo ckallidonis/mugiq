@@ -1,4 +1,4 @@
-#include <contract_util.cuh>
+#include <mugiq_util_kernels.cuh>
 
 template <typename Float>
 void copyGammaCoeffStructToSymbol(){
@@ -17,3 +17,41 @@ void copyGammaCoeffStructToSymbol(){
 
 template void copyGammaCoeffStructToSymbol<float>();
 template void copyGammaCoeffStructToSymbol<double>();
+//---------------------------------------------------------------
+
+
+template <typename Float>
+void createPhaseMatrixGPU(complex<Float> *phaseMatrix_d, const int* momMatrix_h,
+			  long long locV3, int Nmom, int FTSign,
+			  const int localL[], const int totalL[]){
+
+  int* momMatrix_d;
+  cudaMalloc((void**)&momMatrix_d, sizeof(momMatrix_h));
+  checkCudaError();
+  cudaMemcpy(momMatrix_d, momMatrix_h, sizeof(momMatrix_h), cudaMemcpyHostToDevice);
+
+  MomProjArg arg(locV3, Nmom, FTSign, localL, totalL);
+  MomProjArg *arg_d;
+  cudaMalloc((void**)&(arg_d), sizeof(MomProjArg) );
+  checkCudaError();
+  cudaMemcpy(arg_d, &arg, sizeof(MomProjArg), cudaMemcpyHostToDevice);
+
+  //-Call the kernel
+  dim3 blockDim(THREADS_PER_BLOCK, 1, 1);
+  dim3 gridDim((locV3 + blockDim.x -1)/blockDim.x, 1, 1); // spawn threads only for the spatial volume
+
+  phaseMatrix_kernel<Float><<<gridDim,blockDim>>>(phaseMatrix_d, momMatrix_d, arg_d);
+  cudaDeviceSynchronize();
+  checkCudaError();
+
+  cudaFree(momMatrix_d);
+  cudaFree(arg_d);
+  
+}
+
+template void createPhaseMatrixGPU<float>(complex<float> *phaseMatrix_d, const int* momMatrix_h,
+					  long long locV3, int Nmom, int FTSign,
+					  const int localL[], const int totalL[]);
+template void createPhaseMatrixGPU<double>(complex<double> *phaseMatrix_d, const int* momMatrix_h,
+					   long long locV3, int Nmom, int FTSign,
+					   const int localL[], const int totalL[]);

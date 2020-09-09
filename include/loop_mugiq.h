@@ -29,11 +29,14 @@ private:
   complex<Float> *dataMom_gs;     //-- Host Globally summed momentum projection buffer (local)
   complex<Float> *dataMom;        //-- Host Final result (global summed, gathered) of momentum projection
 
+  complex<Float> *phaseMatrix_d;  //-- Device buffer of the phase matrix
+  
   const size_t SizeCplxFloat = sizeof(complex<Float>);
   
   long long nElemMomTot; // Number of elements in global momentum-space data buffers
   long long nElemMomLoc; // Number of elements in local  momentum-space data buffers
   long long nElemPosLoc; // Number of elements in local  position-space data buffers
+  long long nElemPhMat;  // Number of elements in phase matrix
 
   
   /** @brief Print the Parameters of the Loop computation
@@ -51,6 +54,10 @@ private:
   /** @brief Wrapper to copy the gamma matrix coefficients to GPU __constant__ memory
    */
   void copyGammaToConstMem();
+
+  /** @brief Create the Phase matrix, needed for Momentum Projection (Fourier Transform)
+   */
+  void createPhaseMatrix();
   
   
 public:
@@ -81,7 +88,7 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
 
   int Nmom;                                 // Number of Momenta
   LoopFTSign FTSign;                        // Sign of the Fourier Transform
-  std::vector<std::vector<int>> momMatrix;  // Momenta Matrix
+  int *momMatrix;                           // Momenta Matrix, follows lexicographic order momDim-inside-Nmom
   
   int max_depth;                // maximum depth of transverse shift length (for later)
 
@@ -132,9 +139,13 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     locT = localL[N_DIM_-1];
     totT = totalL[N_DIM_-1];
 
-    for(int im=0;im<Nmom;im++)
-      momMatrix.push_back(loopParams->momMatrix[im]);
-
+    if(doMomProj){
+      momMatrix = static_cast<int*>(calloc(Nmom*momDim, sizeof(int)));
+      for(int im=0;im<Nmom;im++)
+	for(int id=0;id<momDim;id++)
+	  momMatrix[MOM_MATRIX_IDX(id,im)] = loopParams->momMatrix[im][id];
+    }
+    
     if(doNonLocal){
       strcpy(pathString, loopParams->pathString);
       pathLen = strlen(pathString);
@@ -146,20 +157,32 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
 
   ~LoopComputeParam(){
     init = MUGIQ_BOOL_FALSE;
+    if(doMomProj){
+      free(momMatrix);
+      momMatrix = nullptr;
+    }
   }
 
 };
-
 
 
 /************************************************************/
 //- Forward declarations of functions called within Loop_Mugiq
 
 
-
 /** @brief Define the Gamma matrix coefficient structure and copy it to GPU __constant__ memory
  */
 template <typename Float>
 void copyGammaCoeffStructToSymbol();
+
+
+/** @brief Create the phase matrix on GPU
+ */
+template <typename Float>
+void createPhaseMatrixGPU(complex<Float> *phaseMatrix_d, const int* momMatrix_h,
+                          long long locV3, int Nmom, int FTSign,
+			  const int localL[], const int totalL[]);
+
+
 
 #endif // _LOOP_MUGIQ_H

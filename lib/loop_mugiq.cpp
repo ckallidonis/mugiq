@@ -22,8 +22,8 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   if(cPrm->doNonLocal) dSt = new LoopDispState<Float>(loopParams_);
 
   allocateDataMemory();
-
   copyGammaToConstMem();
+  if(cPrm->doMomProj) createPhaseMatrix();
   
   printfQuda("*************************************************\n\n");
 
@@ -49,7 +49,8 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
   nElemMomTot = cPrm->Ndata * cPrm->Nmom * cPrm->totT;
   nElemMomLoc = cPrm->Ndata * cPrm->Nmom * cPrm->locT;
   nElemPosLoc = cPrm->Ndata * cPrm->locV4;
-  
+  nElemPhMat  = cPrm->Nmom  * cPrm->locV3;
+ 
   //- Allocate host data buffers
   dataMom    = static_cast<complex<Float>*>(calloc(nElemMomTot, SizeCplxFloat));
   dataMom_gs = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
@@ -76,18 +77,34 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
   checkCudaError();
   cudaMemset(dataMom_d, 0, SizeCplxFloat*nElemMomLoc);
 
+  if(cPrm->doMomProj){
+    cudaMalloc( (void**)&(phaseMatrix_d), SizeCplxFloat*nElemPhMat);
+    checkCudaError();
+    cudaMemset(phaseMatrix_d, 0, SizeCplxFloat*nElemPhMat);    
+  }
+  
   printfQuda("%s: Device buffers allocated\n", __func__);
   //------------------------------
   
 }
 
+
 // That's just a wrapper to copy the Gamma-matrix coefficient structure to constant memory
 template <typename Float>
 void Loop_Mugiq<Float>::copyGammaToConstMem(){
-
   copyGammaCoeffStructToSymbol<Float>();
-  //copyGammaCoeffStructToSymbol();
   printfQuda("%s: Gamma coefficient structure copied to constant memory\n", __func__);
+}
+
+
+// Wrapper to create the Phase Matrix on GPU
+template <typename Float>
+void Loop_Mugiq<Float>::createPhaseMatrix(){
+  createPhaseMatrixGPU<Float>(phaseMatrix_d, cPrm->momMatrix,
+  			      cPrm->locV3, cPrm->Nmom, (int)cPrm->FTSign,
+			      cPrm->localL, cPrm->totalL);
+  
+  printfQuda("%s: Phase matrix created\n", __func__);
 }
 
 
@@ -120,6 +137,11 @@ void Loop_Mugiq<Float>::freeDataMemory(){
   if(dataMom_d){
     cudaFree(dataMom_d);
     dataMom_d = nullptr;
+  }
+
+  if(phaseMatrix_d){
+    cudaFree(phaseMatrix_d);
+    phaseMatrix_d = nullptr;
   }
   printfQuda("%s: Device buffers freed\n", __func__);
   //------------------------------
@@ -163,10 +185,11 @@ void Loop_Mugiq<Float>::printData_ASCII(){
   for(int im=0;im<cPrm->Nmom;im++){
     for(int id=0;id<cPrm->Ndata;id++){
       printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
-		 cPrm->momMatrix[im][0],
-		 cPrm->momMatrix[im][1],
-		 cPrm->momMatrix[im][2], id);
+		 cPrm->momMatrix[MOM_MATRIX_IDX(0,im)],
+		 cPrm->momMatrix[MOM_MATRIX_IDX(1,im)],
+		 cPrm->momMatrix[MOM_MATRIX_IDX(2,im)], id);
       for(int it=0;it<cPrm->totT;it++){
+	//- FIXME: Check if loop Index is correct
 	int loopIdx = id + cPrm->Ndata*it + cPrm->Ndata*cPrm->totT*im;
 	printfQuda("%d %+.8e %+.8e\n", it, dataMom[loopIdx].real(), dataMom[loopIdx].imag());
       }

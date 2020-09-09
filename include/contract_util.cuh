@@ -1,7 +1,8 @@
-#ifndef _CONTRACT_UTIL_H
-#define _CONTRACT_UTIL_H
+#ifndef _CONTRACT_UTIL_CUH
+#define _CONTRACT_UTIL_CUH
 
 #include <util_mugiq.h>
+#include <mugiq.h>
 
 using namespace quda;
 
@@ -62,7 +63,28 @@ struct GammaCoeff{
   complex<Float> row_value[N_GAMMA_][N_SPIN_];
   int column_index[N_GAMMA_][N_SPIN_];
 }; // GammaCoeff
+
+
+
+//- Argument structure for creating the Phase Matrix on GPU
+struct MomProjArg{
   
+  const int momDim = MOM_DIM_;
+  const long long locV3;
+  const int Nmom;
+  const int FTSign;
+  const int localL[N_DIM_];
+  const int totalL[N_DIM_];
+  const int commCoord[N_DIM_];
+  
+  MomProjArg(long long locV3_, int Nmom_, int FTSign_, const int localL_[], const int totalL_[])
+    :   locV3(locV3_), Nmom(Nmom_), FTSign(FTSign_),
+	localL{localL_[0],localL_[1],localL_[2],localL_[3]},
+	totalL{totalL_[0],totalL_[1],totalL_[2],totalL_[3]},
+	commCoord{comm_coord(0),comm_coord(1),comm_coord(2),comm_coord(3)}
+  { }
+}; //-- structure
 
 
-#endif // _CONTRACT_UTIL_H
+
+#endif // _CONTRACT_UTIL_CUH
