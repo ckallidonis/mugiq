@@ -17,7 +17,7 @@ void copyGammaCoeffStructToSymbol(){
 
 template void copyGammaCoeffStructToSymbol<float>();
 template void copyGammaCoeffStructToSymbol<double>();
-//---------------------------------------------------------------
+//----------------------------------------------------------------------------
 
 
 template <typename Float>
@@ -55,3 +55,16 @@ template void createPhaseMatrixGPU<float>(complex<float> *phaseMatrix_d, const i
 template void createPhaseMatrixGPU<double>(complex<double> *phaseMatrix_d, const int* momMatrix_h,
 					   long long locV3, int Nmom, int FTSign,
 					   const int localL[], const int totalL[]);
+//----------------------------------------------------------------------------
+
+
+template <typename Float>
+void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR){
+
+
+
+}
+
+
+template void performLoopContraction<float> (complex<float>  *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR);
+template void performLoopContraction<double>(complex<double> *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR);

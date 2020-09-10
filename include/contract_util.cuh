@@ -3,6 +3,7 @@
 
 #include <util_mugiq.h>
 #include <mugiq.h>
+#include <color_spinor_field.h>
 
 using namespace quda;
 
