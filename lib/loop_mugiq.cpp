@@ -219,7 +219,6 @@ void Loop_Mugiq<Float>::prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorFi
                                                coarsePrec,
                                                mg_env.mgParams->setup_location[lev+1]));
   }//-lev
-
   
   //- Prolongate the coarse eigenvectors recursively to get
   //- to the finest level  
