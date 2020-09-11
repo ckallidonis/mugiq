@@ -42,7 +42,8 @@ template <> struct FieldMapper<float> {
  * Hard-coded gamma coefficients for the DeGrand-Rossi basis
  * Gamma-index notation is: G{x,y,z,t} = G{1,2,3,4}
  * Gamma matrices are defined as: G(n) = g1^n0 . g2^n1 . g3^n2 . g4^n3, where n = n0*2^0 + n1*2^1 + n2*2^2 + n3*2^3
- * This parametrization helps in efficient unrolling and usage when performing contractions on the GPU
+ * This parametrization helps in efficient unrolling and usage when performing trace contractions on the GPU,
+ * taking into account only non-zero elements when performing the relevant summations of the Traces.
  * Any Gamma-matrix element can be obtained as: G(n)_{ij} = RowValue[n][i] * (ColumnIndex[n][i]==j ? 1 : 0)
  */
 
@@ -173,9 +174,11 @@ struct LoopContractArg : public ArgGeom {
 
   typename FieldMapper<Float>::FermionField eVecL; //- Left  eigenvector in trace
   typename FieldMapper<Float>::FermionField eVecR; //- Right eigenvector in trace
+
+  Float inv_sigma; //- The inverse(!) of the eigenvalue corresponding to eVecL and eVecR
   
-  LoopContractArg(ColorSpinorField *eVecL_, ColorSpinorField *eVecR_)
-    : ArgGeom(eVecL_), eVecL(*eVecL_), eVecR(*eVecR_)
+  LoopContractArg(ColorSpinorField *eVecL_, ColorSpinorField *eVecR_, Float sigma)
+    : ArgGeom(eVecL_), eVecL(*eVecL_), eVecR(*eVecR_), inv_sigma(1.0/sigma)
   { }
   
 };//-- LoopContractArg
