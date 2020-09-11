@@ -174,8 +174,8 @@ struct LoopContractArg : public ArgGeom {
   typename FieldMapper<Float>::FermionField eVecL; //- Left  eigenvector in trace
   typename FieldMapper<Float>::FermionField eVecR; //- Right eigenvector in trace
   
-  LoopContractArg(cudaColorSpinorField *eVecL_, cudaColorSpinorField *eVecR_)
-    : ArgGeom(eVecL_), eVecL(eVecL_), eVecR(eVecR_)
+  LoopContractArg(ColorSpinorField *eVecL_, ColorSpinorField *eVecR_)
+    : ArgGeom(eVecL_), eVecL(*eVecL_), eVecR(*eVecR_)
   { }
   
 };//-- LoopContractArg
