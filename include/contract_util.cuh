@@ -3,6 +3,11 @@
 
 #include <util_mugiq.h>
 #include <mugiq.h>
+#include <color_spinor.h>
+#include <color_spinor_field.h>
+#include <color_spinor_field_order.h>
+#include <gauge_field.h>
+#include <gauge_field_order.h>
 
 using namespace quda;
 
@@ -11,11 +16,34 @@ constexpr int cSize = 4096; // Size of constant memory symbols
 __constant__ char cGamma[cSize]; // constant buffer for gamma matrices on GPU
 
 
+//- Templates of the Fermion/Gauge mappers on the precision, used for fine fields
+template <typename T> struct FieldMapper {};
+
+template <> struct FieldMapper<double> {
+  typedef typename colorspinor_mapper<double, N_SPIN_, N_COLOR_>::type FermionField;
+  typedef ColorSpinor<double, N_SPIN_, N_COLOR_> Vector;
+
+  typedef typename gauge_mapper<double, QUDA_RECONSTRUCT_NO>::type GaugeField;
+  typedef Matrix<complex<double>, N_COLOR_> Link;
+};
+
+template <> struct FieldMapper<float> {
+  typedef typename colorspinor_mapper<float, N_SPIN_, N_COLOR_>::type FermionField;
+  typedef ColorSpinor<float, N_SPIN_, N_COLOR_> Vector;
+
+  typedef typename gauge_mapper<float, QUDA_RECONSTRUCT_NO>::type GaugeField;
+  typedef Matrix<complex<float>, N_COLOR_> Link;
+};
+
+
+
+
 /**
  * Hard-coded gamma coefficients for the DeGrand-Rossi basis
  * Gamma-index notation is: G{x,y,z,t} = G{1,2,3,4}
  * Gamma matrices are defined as: G(n) = g1^n0 . g2^n1 . g3^n2 . g4^n3, where n = n0*2^0 + n1*2^1 + n2*2^2 + n3*2^3
- * This parametrization helps in efficient unrolling and usage when performing contractions on the GPU
+ * This parametrization helps in efficient unrolling and usage when performing trace contractions on the GPU,
+ * taking into account only non-zero elements when performing the relevant summations of the Traces.
  * Any Gamma-matrix element can be obtained as: G(n)_{ij} = RowValue[n][i] * (ColumnIndex[n][i]==j ? 1 : 0)
  */
 
@@ -84,6 +112,76 @@ struct MomProjArg{
 	commCoord{comm_coord(0),comm_coord(1),comm_coord(2),comm_coord(3)}
   { }
 }; //-- structure
+
+
+//- Base argument structure holding geometry-related parameters
+struct ArgGeom {
+  
+  int parity;                 // hard code to 0 for now
+  int nParity;                // number of parities we're working on
+  int nFace;                  // hard code to 1 for now
+  int dim[5];                 // full (not checkerboard) local lattice dimensions
+  int commDim[4];             // whether a given dimension is partitioned or not
+  int lL[4];                  // 4-d local lattice dimensions
+  int volumeCB;               // checkerboarded volume
+  int volume;                 // full-site local volume
+  
+  int dimEx[4]; // extended Gauge field dimensions
+  int brd[4];   // Border of extended gauge field (size of extended halos)
+  
+  ArgGeom () {}
+  
+  ArgGeom(ColorSpinorField *x)
+    : parity(0), nParity(x->SiteSubset()), nFace(1),
+      dim{ (3-nParity) * x->X(0), x->X(1), x->X(2), x->X(3), 1 },
+      commDim{comm_dim_partitioned(0), comm_dim_partitioned(1), comm_dim_partitioned(2), comm_dim_partitioned(3)},
+      lL{x->X(0), x->X(1), x->X(2), x->X(3)},
+      volumeCB(x->VolumeCB()), volume(x->Volume())
+  { }
+  
+  ArgGeom(cudaGaugeField *u)
+    : parity(0), nParity(u->SiteSubset()), nFace(1),
+      commDim{comm_dim_partitioned(0), comm_dim_partitioned(1), comm_dim_partitioned(2), comm_dim_partitioned(3)},
+      lL{u->X()[0], u->X()[1], u->X()[2], u->X()[3]}
+  {
+    if(u->GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED){
+      volume = 1;
+      for(int dir=0;dir<4;dir++){
+	dim[dir] = u->X()[dir] - 2*u->R()[dir];   //-- Actual lattice dimensions (NOT extended)
+	dimEx[dir] = dim[dir] + 2*u->R()[dir];    //-- Extended lattice dimensions
+	brd[dir] = u->R()[dir];
+	volume *= dim[dir];
+      }
+      volumeCB = volume/2;
+    }
+    else{
+      volume = 1;
+      for(int dir=0;dir<4;dir++){
+	dim[dir] = u->X()[dir];
+	volume *= dim[dir];
+      }
+      volumeCB = volume/2;
+      dim[0] *= (3-nParity);
+    }
+    dim[4] = 1;
+  }
+};//-- ArgGeom
+
+
+//- Argument Structure for performing the loop contractions
+template <typename Float>
+struct LoopContractArg : public ArgGeom {
+
+  typename FieldMapper<Float>::FermionField eVecL; //- Left  eigenvector in trace
+  typename FieldMapper<Float>::FermionField eVecR; //- Right eigenvector in trace
+
+  Float inv_sigma; //- The inverse(!) of the eigenvalue corresponding to eVecL and eVecR
+  
+  LoopContractArg(ColorSpinorField *eVecL_, ColorSpinorField *eVecR_, Float sigma)
+    : ArgGeom(eVecL_), eVecL(*eVecL_), eVecR(*eVecR_), inv_sigma(1.0/sigma)
+  { }
+  
+};//-- LoopContractArg
 
 
 

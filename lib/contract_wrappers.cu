@@ -1,4 +1,5 @@
 #include <mugiq_util_kernels.cuh>
+#include <mugiq_contract_kernels.cuh>
 
 template <typename Float>
 void copyGammaCoeffStructToSymbol(){
@@ -17,7 +18,7 @@ void copyGammaCoeffStructToSymbol(){
 
 template void copyGammaCoeffStructToSymbol<float>();
 template void copyGammaCoeffStructToSymbol<double>();
-//---------------------------------------------------------------
+//----------------------------------------------------------------------------
 
 
 template <typename Float>
@@ -55,3 +56,38 @@ template void createPhaseMatrixGPU<float>(complex<float> *phaseMatrix_d, const i
 template void createPhaseMatrixGPU<double>(complex<double> *phaseMatrix_d, const int* momMatrix_h,
 					   long long locV3, int Nmom, int FTSign,
 					   const int localL[], const int totalL[]);
+//----------------------------------------------------------------------------
+
+
+template <typename Float>
+void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL, ColorSpinorField *eVecR, Float sigma){
+
+  LoopContractArg<Float> arg(eVecL, eVecR, sigma);
+  LoopContractArg<Float> *arg_d;
+  cudaMalloc((void**)&(arg_d), sizeof(arg) );
+  checkCudaError();
+  cudaMemcpy(arg_d, &arg, sizeof(arg), cudaMemcpyHostToDevice);
+  checkCudaError();
+
+  if(arg.nParity != 2) errorQuda("%s: Loop contraction kernels support only Full Site Subset spinors!\n", __func__);
+
+  dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, SHMEM_BLOCK_Z_SIZE);
+  dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);  
+
+  //- Size of the required shared memory in bytes
+  size_t shmemByteSize = sizeof(complex<Float>) * NELEM_SHMEM_CPLX_BUF * blockDim.x * blockDim.y;
+  
+  //-Call the kernel
+  loopContract_kernel<Float><<<gridDim,blockDim,shmemByteSize>>>(loopData_d, arg_d);
+  cudaDeviceSynchronize();
+  checkCudaError();
+  
+  cudaFree(arg_d);  
+}
+
+
+template void performLoopContraction<float> (complex<float>  *loopData_d,
+					     ColorSpinorField *evecL, ColorSpinorField *evecR, float sigma);
+template void performLoopContraction<double>(complex<double> *loopData_d,
+					     ColorSpinorField *evecL, ColorSpinorField *evecR, double sigma);
+//----------------------------------------------------------------------------

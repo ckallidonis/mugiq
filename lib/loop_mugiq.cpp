@@ -38,8 +38,6 @@ Loop_Mugiq<Float>::~Loop_Mugiq(){
 
   if(cPrm->doNonLocal) delete dSt;
   delete cPrm;
-
-  
 }
 
 
@@ -199,8 +197,84 @@ void Loop_Mugiq<Float>::printData_ASCII(){
 }
 
 
+
+template <typename Float>
+void Loop_Mugiq<Float>::prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorField *coarseEvec){
+
+  MG_Mugiq &mg_env = *(eigsolve->getMGEnv());
+  
+  //- Create one fine and N_coarse temporary coarse fields
+  //- Will be used for prolongating the coarse eigenvectors back to the fine lattice
+  std::vector<ColorSpinorField *> tmpCSF;
+  ColorSpinorParam csParam(*(mg_env.mg_solver->B[0]));
+  QudaPrecision coarsePrec = coarseEvec->Precision();
+  csParam.create = QUDA_ZERO_FIELD_CREATE;
+  csParam.setPrecision(coarsePrec);
+  
+  tmpCSF.push_back(ColorSpinorField::Create(csParam)); //- tmpCSF[0] is a fine field
+  for(int lev=0;lev<mg_env.nCoarseLevels;lev++){
+    tmpCSF.push_back(tmpCSF[lev]->CreateCoarse(mg_env.mgParams->geo_block_size[lev],
+                                               mg_env.mgParams->spin_block_size[lev],
+                                               mg_env.mgParams->n_vec[lev],
+                                               coarsePrec,
+                                               mg_env.mgParams->setup_location[lev+1]));
+  }//-lev
+  
+  //- Prolongate the coarse eigenvectors recursively to get
+  //- to the finest level  
+  *(tmpCSF[mg_env.nCoarseLevels]) = *coarseEvec;
+  for(int lev=mg_env.nCoarseLevels;lev>1;lev--){
+    blas::zero(*tmpCSF[lev-1]);
+    if(!mg_env.transfer[lev-1]) errorQuda("%s: Transfer operator for level %d does not exist!\n", __func__, lev);
+    mg_env.transfer[lev-1]->P(*(tmpCSF[lev-1]), *(tmpCSF[lev]));
+  }
+  blas::zero(*fineEvec);
+  if(!mg_env.transfer[0]) errorQuda("%s: Transfer operator for finest level does not exist!\n", __func__);
+  mg_env.transfer[0]->P(*fineEvec, *(tmpCSF[1]));
+
+  for(int i=0;i<static_cast<int>(tmpCSF.size());i++) delete tmpCSF[i];
+  
+}
+
+  
+
 template <typename Float>
 void Loop_Mugiq<Float>::computeCoarseLoop(){
+
+  int nEv = eigsolve->eigParams->nEv; // Number of eigenvectors
+
+  //- Create a fine field, this will hold the prolongated version of each eigenvector
+  ColorSpinorParam csParam(*(eigsolve->mg_env->mg_solver->B[0]));
+  QudaPrecision coarsePrec = eigsolve->eVecs[0]->Precision();
+  csParam.create = QUDA_ZERO_FIELD_CREATE;
+  csParam.setPrecision(coarsePrec);
+  ColorSpinorField *fineEvecL = ColorSpinorField::Create(csParam);
+  ColorSpinorField *fineEvecR = ColorSpinorField::Create(csParam);
+
+  cudaMemset(dataPos_d, 0, SizeCplxFloat*nElemPosLoc);
+  for(int n=0;n<nEv;n++){
+    Float sigma = (Float)(*(eigsolve->eVals_sigma))[n];
+    printfQuda("**************** %+.16e\n", sigma);
+
+    if(eigsolve->computeCoarse) prolongateEvec(fineEvecL, eigsolve->eVecs[n]);
+    else *fineEvecL = *(eigsolve->eVecs[n]);
+
+    if(!cPrm->doNonLocal) *fineEvecR = *fineEvecL;
+    else{
+      //-Perform Shifts
+      //- TODO: Probably not as simple as that, but not much more complicated either
+      //      dSt->performShift(fineEvecR, fineEvecL);
+      //- For now, just set them equal
+      *fineEvecR = *fineEvecL;
+    }
+
+    performLoopContraction<Float>(dataPos_d, fineEvecL, fineEvecR, sigma);
+
+  } //- Eigenvectors
+
+  
+  delete fineEvecL;
+  delete fineEvecR;
   
 }
 

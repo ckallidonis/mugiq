@@ -38,6 +38,12 @@ private:
   long long nElemPosLoc; // Number of elements in local  position-space data buffers
   long long nElemPhMat;  // Number of elements in phase matrix
 
+
+  
+  /** @brief Prolongate the coarse eigenvectors to fine fields
+   */
+  void prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorField *coarseEvec);
+
   
   /** @brief Print the Parameters of the Loop computation
    */
@@ -182,6 +188,14 @@ template <typename Float>
 void createPhaseMatrixGPU(complex<Float> *phaseMatrix_d, const int* momMatrix_h,
                           long long locV3, int Nmom, int FTSign,
 			  const int localL[], const int totalL[]);
+
+
+
+/** @brief Perform the loop contractions
+ */
+template <typename Float>
+void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR, Float sigma);
+
 
 
 
