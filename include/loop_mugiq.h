@@ -194,7 +194,7 @@ void createPhaseMatrixGPU(complex<Float> *phaseMatrix_d, const int* momMatrix_h,
 /** @brief Perform the loop contractions
  */
 template <typename Float>
-void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR);
+void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR, Float sigma);
 
 
 

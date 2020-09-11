@@ -268,7 +268,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       *fineEvecR = *fineEvecL;
     }
 
-    performLoopContraction<Float>(dataPos_d, fineEvecL, fineEvecR);    
+    performLoopContraction<Float>(dataPos_d, fineEvecL, fineEvecR, sigma);
 
   } //- Eigenvectors
 
