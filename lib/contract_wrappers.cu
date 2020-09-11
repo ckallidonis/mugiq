@@ -60,9 +60,9 @@ template void createPhaseMatrixGPU<double>(complex<double> *phaseMatrix_d, const
 
 
 template <typename Float>
-void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL, ColorSpinorField *eVecR){
+void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL, ColorSpinorField *eVecR, Float sigma){
 
-  LoopContractArg<Float> arg(eVecL, eVecR);
+  LoopContractArg<Float> arg(eVecL, eVecR, sigma);
   LoopContractArg<Float> *arg_d;
   cudaMalloc((void**)&(arg_d), sizeof(arg) );
   checkCudaError();
@@ -71,11 +71,14 @@ void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL,
 
   if(arg.nParity != 2) errorQuda("%s: Loop contraction kernels support only Full Site Subset spinors!\n", __func__);
 
-  //-Call the kernel
-  dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, 1);
+  dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, SHMEM_BLOCK_Z_SIZE);
   dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);  
 
-  loopContract_kernel<Float><<<gridDim,blockDim>>>(loopData_d, arg_d);
+  //- Size of the required shared memory in bytes
+  size_t shmemByteSize = sizeof(complex<Float>) * NELEM_SHMEM_CPLX_BUF * blockDim.x * blockDim.y;
+  
+  //-Call the kernel
+  loopContract_kernel<Float><<<gridDim,blockDim,shmemByteSize>>>(loopData_d, arg_d);
   cudaDeviceSynchronize();
   checkCudaError();
   
@@ -83,6 +86,8 @@ void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL,
 }
 
 
-template void performLoopContraction<float> (complex<float>  *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR);
-template void performLoopContraction<double>(complex<double> *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR);
+template void performLoopContraction<float> (complex<float>  *loopData_d,
+					     ColorSpinorField *evecL, ColorSpinorField *evecR, float sigma);
+template void performLoopContraction<double>(complex<double> *loopData_d,
+					     ColorSpinorField *evecL, ColorSpinorField *evecR, double sigma);
 //----------------------------------------------------------------------------
