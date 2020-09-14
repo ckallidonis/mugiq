@@ -260,7 +260,8 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   const int Nmom  = cPrm->Nmom;
   const int Ndata = cPrm->Ndata;
 
-  convertIdxOrderToMomProj<Float>(dataPosMP_d, dataPos_d, cPrm->nParity, cPrm->localL);
+  //- Convert indices from volume4d-inside-gamma to volumeXYZ-inside-gamma-inside-time
+  convertIdxOrderToMomProj<Float>(dataPosMP_d, dataPos_d, cPrm->Ndata, cPrm->nParity, cPrm->volumeCB, cPrm->localL);
   
   /** Perform momentum projection
    *-----------------------------
