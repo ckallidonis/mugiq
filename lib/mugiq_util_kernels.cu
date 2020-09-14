@@ -37,3 +37,37 @@ __global__ void phaseMatrix_kernel(complex<Float> *phaseMatrix, int *momMatrix, 
 template __global__ void phaseMatrix_kernel<float> (complex<float>  *phaseMatrix, int *momMatrix, MomProjArg *arg);
 template __global__ void phaseMatrix_kernel<double>(complex<double> *phaseMatrix, int *momMatrix, MomProjArg *arg);
 //---------------------------------------------------------------------------
+
+
+
+template <typename Float>
+__global__ void convertIdxMomProj_kernel(complex<Float> *dataOut, const complex<Float> *dataIn, ConvertIdxArg *arg){
+
+  int x_cb  = blockIdx.x*blockDim.x + threadIdx.x; // checkerboard site within 4d local volume
+  int pty   = blockIdx.y*blockDim.y + threadIdx.y; // parity (even/odd)
+  int idata = blockIdx.z*blockDim.z + threadIdx.z; // idata index
+  
+  if(x_cb >= arg->volumeCB) return;
+  if(pty  >= arg->nParity)  return;
+  
+  int crd[5];
+  getCoords(crd, x_cb, arg->localL, pty);
+  int x = crd[0];
+  int y = crd[1];
+  int z = crd[2];
+  int t = crd[3];
+
+  int tid = x_cb + arg->volumeCB*pty; // full site index
+  int idxFrom = tid + arg->volumeCB*arg->nParity*idata;
+
+  int v3 = x + arg->localL[0]*y + arg->localL[0]*arg->localL[1]*z; // x + Lx*y + Lx*Ly*z
+  int idxTo = v3 + arg->locV3*idata +  arg->locV3*arg->Ndata*t;
+
+  dataOut[idxTo] = dataIn[idxFrom];  
+}
+
+template __global__ void convertIdxMomProj_kernel<float> (complex<float> *dataOut,  const complex<float> *dataIn,
+							  ConvertIdxArg *arg);
+template __global__ void convertIdxMomProj_kernel<double>(complex<double> *dataOut, const complex<double> *dataIn,
+							  ConvertIdxArg *arg);
+//---------------------------------------------------------------------------
