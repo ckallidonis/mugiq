@@ -91,3 +91,18 @@ template void performLoopContraction<float> (complex<float>  *loopData_d,
 template void performLoopContraction<double>(complex<double> *loopData_d,
 					     ColorSpinorField *evecL, ColorSpinorField *evecR, double sigma);
 //----------------------------------------------------------------------------
+
+
+
+template <typename Float>
+void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
+                              const int nParity, const int localL[]){
+
+}
+
+
+template void convertIdxOrderToMomProj<float> (complex<float> *dataPosMP_d, const complex<float> *dataPos_d,
+					       const int nParity, const int localL[]);
+template void convertIdxOrderToMomProj<double>(complex<double> *dataPosMP_d, const complex<double> *dataPos_d,
+					       const int nParity, const int localL[]);
+//----------------------------------------------------------------------------

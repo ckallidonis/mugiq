@@ -9,6 +9,7 @@
 
 #define MOM_DIM_ 3
 #define N_DIM_ 4
+#define T_DIM_ 3
 #define N_SPIN_ 4
 #define N_COLOR_ 3
 #define N_GAMMA_ (N_SPIN_ * N_SPIN_)
