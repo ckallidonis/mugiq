@@ -184,5 +184,43 @@ struct LoopContractArg : public ArgGeom {
 };//-- LoopContractArg
 
 
+//- Structure used for index-converting kernel
+struct ConvertIdxArg{
+  
+  const int tAxis = T_AXIS_;    // direction of the time-axis
+  const int Ndata;              // Number of fields in correlator to be used in momentum projection (destination)
+  const int nParity;            // number of parities we're working on
+  const int volumeCB;           // checkerboarded volume
+  const int localL[4];          // 4-d local lattice dimensions
+
+  int stride_3d[4];             // stride in spatial volume
+  int locV3;                    // spatial volume
+  
+  ConvertIdxArg(int Ndata_, int nParity_, int volumeCB_, const int localL_[])
+    : Ndata(Ndata_), nParity(nParity_), volumeCB(volumeCB_),
+      localL{localL_[0], localL_[1], localL_[2], localL_[3]},
+      stride_3d{0,0,0,0}, locV3(0)
+  {
+    
+    if(tAxis >= 0){
+      int mul3d = 1;
+      for(int i=0;i<N_DIM_;i++){
+	if(i == tAxis) stride_3d[i] = 0;
+	else{
+	  stride_3d[i] = mul3d;
+	  mul3d *= localL[i];
+	}
+	locV3 = mul3d;
+      }//-for
+    }//-if
+    
+  }//-- constructor
+  
+  ~ConvertIdxArg() {}
+  
+};//-- Structure definition
+
+
+
 
 #endif // _CONTRACT_UTIL_CUH
