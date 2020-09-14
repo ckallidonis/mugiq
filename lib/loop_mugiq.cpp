@@ -1,4 +1,6 @@
 #include <loop_mugiq.h>
+#include <cublas_v2.h>
+#include <mpi.h>
 
 template <typename Float>
 Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
@@ -48,17 +50,18 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
   nElemMomLoc = cPrm->Ndata * cPrm->Nmom * cPrm->locT;
   nElemPosLoc = cPrm->Ndata * cPrm->locV4;
   nElemPhMat  = cPrm->Nmom  * cPrm->locV3;
- 
-  //- Allocate host data buffers
-  dataMom    = static_cast<complex<Float>*>(calloc(nElemMomTot, SizeCplxFloat));
-  dataMom_gs = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
-  dataMom_h  = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
-  
-  if(dataMom    == NULL) errorQuda("%s: Could not allocate buffer: dataMom\n", __func__);
-  if(dataMom_gs == NULL) errorQuda("%s: Could not allocate buffer: dataMom_gs\n", __func__);
-  if(dataMom_h  == NULL) errorQuda("%s: Could not allocate buffer: dataMom_h\n", __func__);
-  
-  if(!cPrm->doMomProj){
+   
+  if(cPrm->doMomProj){
+    //- Allocate host data buffers
+    dataMom    = static_cast<complex<Float>*>(calloc(nElemMomTot, SizeCplxFloat));
+    dataMom_gs = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
+    dataMom_h  = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
+    
+    if(dataMom    == NULL) errorQuda("%s: Could not allocate buffer: dataMom\n", __func__);
+    if(dataMom_gs == NULL) errorQuda("%s: Could not allocate buffer: dataMom_gs\n", __func__);
+    if(dataMom_h  == NULL) errorQuda("%s: Could not allocate buffer: dataMom_h\n", __func__);
+  }
+  else{
     dataPos_h = static_cast<complex<Float>*>(calloc(nElemPosLoc, SizeCplxFloat));
     if(dataPos_h  == NULL) errorQuda("%s: Could not allocate buffer: dataPos_h\n", __func__);
   }
@@ -67,18 +70,25 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
   //------------------------------
   
   //- Allocate device data buffers
+
+  //- That's the device loop-trace data buffer, always needed!
   cudaMalloc((void**)&(dataPos_d), SizeCplxFloat*nElemPosLoc);
   checkCudaError();
   cudaMemset(dataPos_d, 0, SizeCplxFloat*nElemPosLoc);
 
-  cudaMalloc((void**)&(dataMom_d), SizeCplxFloat*nElemMomLoc);
-  checkCudaError();
-  cudaMemset(dataMom_d, 0, SizeCplxFloat*nElemMomLoc);
-
   if(cPrm->doMomProj){
     cudaMalloc( (void**)&(phaseMatrix_d), SizeCplxFloat*nElemPhMat);
     checkCudaError();
-    cudaMemset(phaseMatrix_d, 0, SizeCplxFloat*nElemPhMat);    
+    cudaMemset(phaseMatrix_d, 0, SizeCplxFloat*nElemPhMat);
+    
+    cudaMalloc((void**)&(dataMom_d), SizeCplxFloat*nElemMomLoc);
+    checkCudaError();
+    cudaMemset(dataMom_d, 0, SizeCplxFloat*nElemMomLoc);
+
+    cudaMalloc((void**)&(dataPosMP_d), SizeCplxFloat*nElemPosLoc);
+    checkCudaError();
+    cudaMemset(dataPosMP_d, 0, SizeCplxFloat*nElemPosLoc);
+    
   }
   
   printfQuda("%s: Device buffers allocated\n", __func__);
@@ -131,6 +141,10 @@ void Loop_Mugiq<Float>::freeDataMemory(){
   if(dataPos_d){
     cudaFree(dataPos_d);
     dataPos_d = nullptr;
+  }
+  if(dataPosMP_d){
+    cudaFree(dataPosMP_d);
+    dataPosMP_d = nullptr;
   }
   if(dataMom_d){
     cudaFree(dataMom_d);
@@ -236,8 +250,126 @@ void Loop_Mugiq<Float>::prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorFi
   
 }
 
-  
 
+template <typename Float>
+void Loop_Mugiq<Float>::performMomentumProjection(){
+
+  const long long locV3 = cPrm->locV3;
+  const int locT  = cPrm->locT;
+  const int totT  = cPrm->totT;
+  const int Nmom  = cPrm->Nmom;
+  const int Ndata = cPrm->Ndata;
+
+  //- Convert indices from volume4d-inside-gamma to volumeXYZ-inside-gamma-inside-time
+  convertIdxOrderToMomProj<Float>(dataPosMP_d, dataPos_d, cPrm->Ndata, cPrm->nParity, cPrm->volumeCB, cPrm->localL);
+  
+  /** Perform momentum projection
+   *-----------------------------
+   * Matrix Multiplication Out = PH^T * In.
+   *  phaseMatrix_dev=(locV3,Nmom) is the phase matrix in column-major format, its transpose is used for multiplication
+   *  dataPosMP_d = (locV3,NGamma*locT) is the device input loop-trace matrix with shuffled(converted) indices
+   *  dataMom_d = (Nmom,NGamma*locT) is the output matrix in column-major format (device)
+   */  
+    
+  cublasHandle_t handle;
+  cublasStatus_t stat = cublasCreate(&handle);
+  complex<Float> al = complex<Float>{1.0,0.0};
+  complex<Float> be = complex<Float>{0.0,0.0};
+
+  if(typeid(Float) == typeid(double)){
+    stat = cublasZgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, Nmom, Ndata*locT, locV3,
+                       (cuDoubleComplex*)&al, (cuDoubleComplex*)phaseMatrix_d, locV3,
+                       (cuDoubleComplex*)dataPosMP_d, locV3,
+		       (cuDoubleComplex*)&be,
+                       (cuDoubleComplex*)dataMom_d, Nmom);
+  }
+  else if(typeid(Float) == typeid(float)){
+    stat = cublasCgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, Nmom, Ndata*locT, locV3,
+                       (cuComplex*)&al, (cuComplex*)phaseMatrix_d, locV3,
+                       (cuComplex*)dataPosMP_d, locV3,
+		       (cuComplex*)&be,
+                       (cuComplex*)dataMom_d, Nmom);
+  }
+  else errorQuda("%s: Precision not supported!\n", __func__);
+
+  if(stat != CUBLAS_STATUS_SUCCESS)
+    errorQuda("%s: Momentum projection failed!\n", __func__);  
+
+  
+  //-- extract the result from GPU to CPU
+  stat = cublasGetMatrix(Nmom, Ndata*locT, sizeof(complex<Float>), dataMom_d, Nmom, dataMom_h, Nmom);
+  if(stat != CUBLAS_STATUS_SUCCESS) errorQuda("%s: cuBlas data copying to CPU failed!\n", __func__);
+  // ---------------------------------------------------------------------------------------
+
+  
+  /** Perform reduction over all processes
+   * -------------------------------------
+   * Create separate communicators
+   * All processes with the same comm_coord(3) belong to COMM_SPACE communicator.
+   * When performing the reduction over the COMM_SPACE communicator, the global sum
+   * will be performed across all processes with the same time-coordinate,
+   * and the result will be placed at the "root" of each of the "time" groups.
+   * This means that the global result will exist only at the "time" processes, where each will
+   * hold the sum for its corresponing time slices.
+   * (In the case where only the time-direction is partitioned, MPI_Reduce is essentially a memcpy).
+   *
+   * Then a Gathering is required, in order to put the global result from each of the "time" processes
+   * into the final buffer (dataMom). This gathering must take place only across the "time" processes,
+   * therefore another communicator involving only these processes must be created (COMM_TIME).
+   * Finally, we need to Broadcast the final result to ALL processes, such that it is accessible to all of them.
+   *
+   * The final buffer follows order Mom-inside-Gamma-inside-T: im + Nmom*ig + Nmom*Ndata*t
+   */
+
+  MPI_Datatype dataTypeMPI;
+  if     ( typeid(Float) == typeid(float) ) dataTypeMPI = MPI_COMPLEX;
+  else if( typeid(Float) == typeid(double)) dataTypeMPI = MPI_DOUBLE_COMPLEX;
+
+  //-- Create space-communicator
+  int space_rank, space_size;
+  MPI_Comm COMM_SPACE;
+  int tCoord = comm_coord(3);
+  int cRank = comm_rank();
+  MPI_Comm_split(MPI_COMM_WORLD, tCoord, cRank, &COMM_SPACE);
+  MPI_Comm_rank(COMM_SPACE,&space_rank);
+  MPI_Comm_size(COMM_SPACE,&space_size);
+
+  //-- Create time communicator
+  int time_rank, time_size;
+  int time_tag = 1000;
+  MPI_Comm COMM_TIME;
+  int time_color = comm_rank();   //-- Determine the "color" which distinguishes the "time" processes from the rest
+  if( (comm_coord(0) == 0) &&
+      (comm_coord(1) == 0) &&
+      (comm_coord(2) == 0) ) time_color = (time_tag>comm_size()) ? time_tag : time_tag+comm_size();
+
+  MPI_Comm_split(MPI_COMM_WORLD, time_color, tCoord, &COMM_TIME);
+  MPI_Comm_rank(COMM_TIME,&time_rank);
+  MPI_Comm_size(COMM_TIME,&time_size);
+
+  
+  MPI_Reduce(dataMom_h, dataMom_gs, Nmom*Ndata*locT, dataTypeMPI, MPI_SUM, 0, COMM_SPACE);
+
+  
+  MPI_Gather(dataMom_gs, Nmom*Ndata*locT, dataTypeMPI,
+             dataMom   , Nmom*Ndata*locT, dataTypeMPI,
+             0, COMM_TIME);
+
+  
+  MPI_Bcast(dataMom, Nmom*Ndata*totT, dataTypeMPI, 0, MPI_COMM_WORLD);
+
+  
+  //-- cleanup & return
+  MPI_Comm_free(&COMM_SPACE);
+  MPI_Comm_free(&COMM_TIME);
+
+  cublasDestroy(handle);
+
+}
+
+
+//- This is the function that actually performs the trace
+//- It's a public function, and it's called from the interface
 template <typename Float>
 void Loop_Mugiq<Float>::computeCoarseLoop(){
 
@@ -269,9 +401,19 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
     }
 
     performLoopContraction<Float>(dataPos_d, fineEvecL, fineEvecR, sigma);
-
+    printfQuda("%s: Loop trace for eigenvector %d completed\n", __func__, n);
   } //- Eigenvectors
 
+  
+  if(cPrm->doMomProj){
+    performMomentumProjection();
+    printfQuda("%s: Momentum projection completed\n", __func__);
+  }
+  else{
+    cudaMemcpy(dataPos_h, dataPos_d, SizeCplxFloat*nElemPosLoc, cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+    checkCudaError();
+  }
   
   delete fineEvecL;
   delete fineEvecR;

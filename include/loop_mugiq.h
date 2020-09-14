@@ -22,14 +22,15 @@ private:
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
 
   //- Data buffers
-  complex<Float> *dataPos_d;      //-- Device Position space correlator (local)
-  complex<Float> *dataPos_h;      //-- Host Position space correlator (local, needed only when no Momentum-projection is performed)
-  complex<Float> *dataMom_d;      //-- Device output buffer of cuBlas (local)
-  complex<Float> *dataMom_h;      //-- Host output of cuBlas momentum projection (local)
-  complex<Float> *dataMom_gs;     //-- Host Globally summed momentum projection buffer (local)
-  complex<Float> *dataMom;        //-- Host Final result (global summed, gathered) of momentum projection
+  complex<Float> *dataPos_d = nullptr;   // Device Position space correlator (local)
+  complex<Float> *dataPosMP_d = nullptr; // Device Position space correlator (local), with changed index order for Mom. projection 
+  complex<Float> *dataPos_h = nullptr;   // Host Position space correlator (local)
+  complex<Float> *dataMom_d = nullptr;   // Device output buffer of cuBlas (local)
+  complex<Float> *dataMom_h = nullptr;   // Host output of cuBlas momentum projection (local)
+  complex<Float> *dataMom_gs = nullptr;  // Host Globally summed momentum projection buffer (local)
+  complex<Float> *dataMom = nullptr;     // Host Final result (global summed, gathered) of momentum projection
 
-  complex<Float> *phaseMatrix_d;  //-- Device buffer of the phase matrix
+  complex<Float> *phaseMatrix_d;  // Device buffer of the phase matrix
   
   const size_t SizeCplxFloat = sizeof(complex<Float>);
   
@@ -64,6 +65,11 @@ private:
   /** @brief Create the Phase matrix, needed for Momentum Projection (Fourier Transform)
    */
   void createPhaseMatrix();
+
+
+  /** @@brief Perform Fourier Transform (Momentum Projection) on the loop trace
+   */
+  void performMomentumProjection();
   
   
 public:
@@ -104,6 +110,9 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
   int localL[N_DIM_];           // local dimensions
   int totalL[N_DIM_];           // global dimensions
 
+  int nParity;  // Number of parities in ColorSpinorFields (even/odd or single-parity spinors)
+  int volumeCB; // Checkerboard volume of the vectors, if even/odd then volumeCV is half the total volume
+  
   int locT;                     // local  time dimension
   int totT;                     // global time dimension
   long long locV4 = 1;          // local spatial volume
@@ -126,6 +135,8 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     doNonLocal(loopParams->doNonLocal),
     localL{0,0,0,0},
     totalL{0,0,0,0},
+    nParity(x->SiteSubset()),
+    volumeCB(x->VolumeCB()),
     locT(0), totT(0),
     locV4(1), locV3(1), totV3(1),
     calcType(loopParams->calcType),
@@ -195,6 +206,15 @@ void createPhaseMatrixGPU(complex<Float> *phaseMatrix_d, const int* momMatrix_h,
  */
 template <typename Float>
 void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR, Float sigma);
+
+
+
+/** @brief Convert buffer index order from QUDA-Even/Odd (xyzt-inside-Gamma) to full lexicographic as
+ * v3 + locV3*Ngamma + locV3*Ngamma*t
+ */
+template <typename Float>
+void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
+			      int Ndata, int nParity, int volumeCB, const int localL[]);
 
 
 
