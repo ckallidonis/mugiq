@@ -9,73 +9,23 @@
 
 using namespace quda;
 
-#define nDisplaceFlags 8
-#define nDisplaceTypes 1
-#define nDisplaceSigns 2
-
-template <typename T>
-class Displace {
-
-private:
-
-  template <typename Float>
-  friend class Loop_Mugiq;
-
-  const char *DisplaceFlagArray = "XxYyZzTt" ;
-  const char *DisplaceTypeArray[nDisplaceTypes] = {"Covariant"};
-  
-  const char *DisplaceDirArray[N_DIM_]  = {"x", "y", "z", "t"};
-  const char *DisplaceSignArray[nDisplaceSigns] = {"-", "+"};  
-  
-  //- The pointer with the gauge data coming from the interface
-  void *gaugePtr[N_DIM_];
-
-  QudaGaugeParam *qGaugePrm;
-  
-  //- The extended gauge field that will be used for covariant derivative (displacement) of color-spinor fields
-  cudaGaugeField *gaugeField; 
-
-  //- Auxilliary color-spinor-field used for shifts/displacements
-  cudaColorSpinorField *auxCSF;
-
-  //- This prevents redundant halo exchange (as set in QUDA)
-  static const MuGiqBool redundantComms = MUGIQ_BOOL_FALSE;
-
-  //- Range/Size of extended Halos
-  int exRng[N_DIM_];
-  
-  
-  /** @brief Create a new Gauge Field (it's different from the one used for the MG environment!)
-   */
-  cudaGaugeField *createCudaGaugeField();
-  
-  /** @brief Create a new Gauge Field with Extended Halos (taking corners into account)
-   */
-  void createExtendedCudaGaugeField(bool copyGauge=true,
-				    bool redundant_comms=redundantComms ? true : false,
-				    QudaReconstructType recon=QUDA_RECONSTRUCT_INVALID);
-
-public:
-
-  Displace(MugiqLoopParam *loopParams_);
-  ~Displace();
-
-
-};
+#define N_DISPLACE_FLAGS 8
+#define N_DISPLACE_TYPES 1
+#define N_DISPLACE_SIGNS 2
 
 
 //- Some enums about the Displacements
 
 typedef enum DisplaceFlag_s {
-  DispStr_None = -1,
-  DispStr_X = 0,  // +x
-  DispStr_x = 1,  // -x
-  DispStr_Y = 2,  // +y
-  DispStr_y = 3,  // -y
-  DispStr_Z = 4,  // +z
-  DispStr_z = 5,  // -z
-  DispStr_T = 6,  // +t
-  DispStr_t = 7,  // -t
+  DispFlag_None = -1,
+  DispFlag_X = 0,  // +x
+  DispFlag_x = 1,  // -x
+  DispFlag_Y = 2,  // +y
+  DispFlag_y = 3,  // -y
+  DispFlag_Z = 4,  // +z
+  DispFlag_z = 5,  // -z
+  DispFlag_T = 6,  // +t
+  DispFlag_t = 7,  // -t
 } DisplaceFlag;
 
 
@@ -99,6 +49,88 @@ typedef enum DisplaceType_s {
   InvalidDisplace = -1,
   CovDisplace = 0
 } DisplaceType;
+
+
+
+template <typename T>
+class Displace {
+
+private:
+
+  template <typename Float>
+  friend class Loop_Mugiq;
+
+  const char *DisplaceFlagArray = "XxYyZzTt" ;
+  const char *DisplaceTypeArray[N_DISPLACE_TYPES] = {"Covariant"};
+  
+  const char *DisplaceDirArray[N_DIM_]  = {"x", "y", "z", "t"};
+  const char *DisplaceSignArray[N_DISPLACE_SIGNS] = {"-", "+"};  
+
+  char dispStr;     //- Current Displacement string
+  char prevDispStr; //- Previous displacement string 
+
+  DisplaceFlag dispFlag;
+  DisplaceDir  dispDir;
+  DisplaceSign dispSign;
+
+  
+  //- The pointer with the gauge data coming from the interface
+  void *gaugePtr[N_DIM_];
+
+  QudaGaugeParam *qGaugePrm;
+  
+  //- The extended gauge field that will be used for covariant derivative (displacement) of color-spinor fields
+  cudaGaugeField *gaugeField; 
+
+  //- Auxilliary color-spinor-field used for displacements
+  cudaColorSpinorField *dispVec;
+
+  //- This prevents redundant halo exchange (as set in QUDA)
+  static const MuGiqBool redundantComms = MUGIQ_BOOL_FALSE;
+
+  //- Range/Size of extended Halos
+  int exRng[N_DIM_];
+  
+  
+  /** @brief Create a new Gauge Field (it's different from the one used for the MG environment!)
+   */
+  cudaGaugeField *createCudaGaugeField();
+  
+  /** @brief Create a new Gauge Field with Extended Halos (taking corners into account)
+   */
+  void createExtendedCudaGaugeField(bool copyGauge=true,
+				    bool redundant_comms=redundantComms ? true : false,
+				    QudaReconstructType recon=QUDA_RECONSTRUCT_INVALID);
+
+  
+  /** @brief Set up the displacement
+   */
+  void setupDisplacement(char dStr);
+
+  /** @brief Parse the displacement flag
+   */
+  DisplaceFlag ParseDisplaceFlag();
+
+  /** @brief Parse the displacement directory
+   */
+  DisplaceDir ParseDisplaceDir();
+
+  /** @brief Parse the displacement sign
+   */
+  DisplaceSign ParseDisplaceSign();
+
+  
+
+  
+public:
+
+  Displace(MugiqLoopParam *loopParams_);
+  ~Displace();
+
+
+};
+
+
 
 
 #endif // _DISPLACE_H
