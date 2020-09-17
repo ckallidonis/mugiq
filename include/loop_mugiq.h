@@ -4,7 +4,7 @@
 #include <mugiq.h>
 #include <eigsolve_mugiq.h>
 #include <util_mugiq.h>
-#include <disp_state.h>
+#include <displace.h>
 
 using namespace quda;
 
@@ -17,7 +17,7 @@ private:
   
   LoopComputeParam *cPrm; // Loop computation Parameter structure
 
-  LoopDispState<Float> *dSt;  // structure holding the state of displacements
+  Displace<Float> *displace;  // structure holding the displacements
   
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
 
@@ -121,8 +121,8 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
 
   LoopCalcType calcType; // Type of computation that will take place
   
-  char pathString[MAX_PATH_LEN_];
-  int pathLen;
+  char FullPathString[MAX_PATH_LEN_];
+  int FullPathLen;
 
   MuGiqBool init; // Whether the structure has been initialized
 
@@ -140,8 +140,8 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     locT(0), totT(0),
     locV4(1), locV3(1), totV3(1),
     calcType(loopParams->calcType),
-    pathString("\0"),
-    pathLen(0),
+    FullPathString("\0"),
+    FullPathLen(0),
     init(MUGIQ_BOOL_FALSE)
   {
     for(int i=0;i<N_DIM_;i++){
@@ -164,8 +164,11 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     }
     
     if(doNonLocal){
-      strcpy(pathString, loopParams->pathString);
-      pathLen = strlen(pathString);
+      strcpy(FullPathString, loopParams->pathString);
+      FullPathLen = strlen(FullPathString);
+    }
+    else{
+      FullPathLen = 0; //- only ultra-local
     }
     printfQuda("%s: Loop compute parameters are set\n", __func__);
 
