@@ -1,5 +1,5 @@
-#ifndef _DISP_STATE_H
-#define _DISP_STATE_H
+#ifndef _DISPLACE_H
+#define _DISPLACE_H
 
 #include <quda.h>
 #include <mugiq.h>
@@ -9,9 +9,12 @@
 
 using namespace quda;
 
+#define nDisplaceFlags 8
+#define nDisplaceTypes 1
+#define nDisplaceSigns 2
 
 template <typename T>
-class LoopDispState {
+class Displace {
 
 private:
 
@@ -19,10 +22,10 @@ private:
   friend class Loop_Mugiq;
 
   const char *DisplaceFlagArray = "XxYyZzTt" ;
-  const char *DisplaceTypeArray[] = {"Covariant"};
+  const char *DisplaceTypeArray[nDisplaceTypes] = {"Covariant"};
   
-  const char *DisplaceDirArray[]  = {"x", "y", "z", "t"};
-  const char *DisplaceSignArray[] = {"-", "+"};  
+  const char *DisplaceDirArray[N_DIM_]  = {"x", "y", "z", "t"};
+  const char *DisplaceSignArray[nDisplaceSigns] = {"-", "+"};  
   
   //- The pointer with the gauge data coming from the interface
   void *gaugePtr[N_DIM_];
@@ -54,17 +57,14 @@ private:
 
 public:
 
-  LoopDispState(MugiqLoopParam *loopParams_);
-  ~LoopDispState();
+  Displace(MugiqLoopParam *loopParams_);
+  ~Displace();
 
 
 };
 
 
 //- Some enums about the Displacements
-
-#define nDisplaceFlags 8
-#define nDisplaceTypes 1
 
 typedef enum DisplaceFlag_s {
   DispStr_None = -1,
@@ -101,4 +101,4 @@ typedef enum DisplaceType_s {
 } DisplaceType;
 
 
-#endif
+#endif // _DISPLACE_H

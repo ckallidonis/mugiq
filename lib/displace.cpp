@@ -1,8 +1,8 @@
-#include <disp_state.h>
+#include <displace.h>
 
 
 template <typename T>
-LoopDispState<T>::LoopDispState(MugiqLoopParam *loopParams_) :
+Displace<T>::Displace(MugiqLoopParam *loopParams_) :
   gaugePtr{loopParams_->gauge[0],loopParams_->gauge[1],loopParams_->gauge[2],loopParams_->gauge[3]},
   qGaugePrm(loopParams_->gauge_param)
 {
@@ -15,7 +15,7 @@ LoopDispState<T>::LoopDispState(MugiqLoopParam *loopParams_) :
 
 
 template <typename T>
-LoopDispState<T>::~LoopDispState()
+Displace<T>::~Displace()
 {
 
   for(int i=0;i<N_DIM_;i++) gaugePtr[i] = nullptr;
@@ -25,7 +25,7 @@ LoopDispState<T>::~LoopDispState()
 
 
 template <typename T>
-cudaGaugeField* LoopDispState<T>::createCudaGaugeField(){
+cudaGaugeField* Displace<T>::createCudaGaugeField(){
 
   cudaGaugeField *cudaGaugeField = NULL;
   
@@ -40,7 +40,7 @@ cudaGaugeField* LoopDispState<T>::createCudaGaugeField(){
 
   if((qGaugePrm->cuda_prec == QUDA_SINGLE_PRECISION && typeid(T) != typeid(float)) ||
      (qGaugePrm->cuda_prec == QUDA_DOUBLE_PRECISION && typeid(T) != typeid(double)))
-    errorQuda("%s: Incompatible precision settings between LoopDispState template and gauge field parameters\n");
+    errorQuda("%s: Incompatible precision settings between Displace template and gauge field parameters\n");
   
   gParam.setPrecision(qGaugePrm->cuda_prec, true);  
   
@@ -58,7 +58,7 @@ cudaGaugeField* LoopDispState<T>::createCudaGaugeField(){
 
 
 template <typename T>
-void LoopDispState<T>::createExtendedCudaGaugeField(bool copyGauge, bool redundant_comms, QudaReconstructType recon){
+void Displace<T>::createExtendedCudaGaugeField(bool copyGauge, bool redundant_comms, QudaReconstructType recon){
 
   cudaGaugeField *tmpGauge = createCudaGaugeField();
  
@@ -94,5 +94,5 @@ void LoopDispState<T>::createExtendedCudaGaugeField(bool copyGauge, bool redunda
 
 
 
-template class LoopDispState<float>;
-template class LoopDispState<double>;
+template class Displace<float>;
+template class Displace<double>;
