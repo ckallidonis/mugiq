@@ -6,7 +6,7 @@ template <typename Float>
 Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
 			      Eigsolve_Mugiq *eigsolve_) :
   cPrm(nullptr),
-  dSt(nullptr),
+  displace(nullptr),
   eigsolve(eigsolve_),
   dataPos_d(nullptr),
   dataPos_h(nullptr),
@@ -21,7 +21,7 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   printfQuda("%s: Creating Loop computation environment\n", __func__);
   
   cPrm = new LoopComputeParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);
-  if(cPrm->doNonLocal) dSt = new LoopDispState<Float>(loopParams_);
+  if(cPrm->doNonLocal) displace = new Displace<Float>(loopParams_);
 
   allocateDataMemory();
   copyGammaToConstMem();
@@ -38,7 +38,7 @@ Loop_Mugiq<Float>::~Loop_Mugiq(){
 
   freeDataMemory();
 
-  if(cPrm->doNonLocal) delete dSt;
+  if(cPrm->doNonLocal) delete displace;
   delete cPrm;
 }
 
@@ -175,8 +175,18 @@ void Loop_Mugiq<Float>::printLoopComputeParams(){
   }
   printfQuda("Will%s perform loop on non-local currents\n", cPrm->doNonLocal ? "" : " NOT");
   if(cPrm->doNonLocal){
-    printfQuda("Non-local path string: %s\n", cPrm->pathString);
-    printfQuda("Non-local path length: %d\n", cPrm->pathLen);
+    printfQuda("Will perform the following %d displacement entries:\n", cPrm->dispLen);
+    for(int id=0;id<cPrm->dispLen;id++){
+      char dispStr_c[cPrm->dispStr.at(id).size()+1];
+      strcpy(dispStr_c, cPrm->dispStr.at(id).c_str());      
+
+      if(cPrm->dispStop.at(id) == -1)
+	printfQuda("  %d: %s with length %d\n", id,
+		   dispStr_c, cPrm->dispStart.at(id));
+      else
+	printfQuda("  %d: %s with lengths from %d to %d\n", id,
+		   dispStr_c, cPrm->dispStart.at(id),cPrm->dispStop.at(id));
+    }   
   }    
   printfQuda("Local  lattice size (x,y,z,t): %d %d %d %d \n", cPrm->localL[0], cPrm->localL[1], cPrm->localL[2], cPrm->localL[3]);
   printfQuda("Global lattice size (x,y,z,t): %d %d %d %d \n", cPrm->totalL[0], cPrm->totalL[1], cPrm->totalL[2], cPrm->totalL[3]);
@@ -373,7 +383,7 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
 template <typename Float>
 void Loop_Mugiq<Float>::computeCoarseLoop(){
 
-  int nEv = eigsolve->eigParams->nEv; // Number of eigenvectors
+  //  int nEv = eigsolve->eigParams->nEv; // Number of eigenvectors
 
   //- Create a fine field, this will hold the prolongated version of each eigenvector
   ColorSpinorParam csParam(*(eigsolve->mg_env->mg_solver->B[0]));
@@ -383,37 +393,57 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
   ColorSpinorField *fineEvecL = ColorSpinorField::Create(csParam);
   ColorSpinorField *fineEvecR = ColorSpinorField::Create(csParam);
 
-  cudaMemset(dataPos_d, 0, SizeCplxFloat*nElemPosLoc);
-  for(int n=0;n<nEv;n++){
-    Float sigma = (Float)(*(eigsolve->eVals_sigma))[n];
-    printfQuda("**************** %+.16e\n", sigma);
-
-    if(eigsolve->computeCoarse) prolongateEvec(fineEvecL, eigsolve->eVecs[n]);
-    else *fineEvecL = *(eigsolve->eVecs[n]);
-
-    if(!cPrm->doNonLocal) *fineEvecR = *fineEvecL;
-    else{
-      //-Perform Shifts
-      //- TODO: Probably not as simple as that, but not much more complicated either
-      //      dSt->performShift(fineEvecR, fineEvecL);
-      //- For now, just set them equal
-      *fineEvecR = *fineEvecL;
+  /*  
+  for(int ip=-1;ip<cPrm->FullPathLen;ip++){
+    
+    if( cPrm->doNonLocal && (ip != -1) ){
+      printfQuda("%s: Will perform displacement\n", __func__);
+      char newDisp = cPrm->FullPathString[ip];
+      displace->setupDisplacement(newDisp);
     }
+    else{
+      printfQuda("%s: Will Run for ultra-local current (displacement = 0)\n", __func__);
+    }
+  */
+    /*    
+    cudaMemset(dataPos_d, 0, SizeCplxFloat*nElemPosLoc);
+    for(int n=0;n<nEv;n++){
+      Float sigma = (Float)(*(eigsolve->eVals_sigma))[n];
+      printfQuda("**************** %+.16e\n", sigma);
+      
+      if(eigsolve->computeCoarse) prolongateEvec(fineEvecL, eigsolve->eVecs[n]);
+      else *fineEvecL = *(eigsolve->eVecs[n]);
+      
+      if( cPrm->doNonLocal && (ip != -1) ){
+	//-Perform Shifts
+	//- TODO: Probably not as simple as that, but not much more complicated either
+	//      displace->performShift(fineEvecR, fineEvecL);
+	//- For now, just set them equal
+      }
+      else *fineEvecR = *fineEvecL;
+      
+      performLoopContraction<Float>(dataPos_d, fineEvecL, fineEvecR, sigma);
+      printfQuda("%s: Loop trace for eigenvector %d completed\n", __func__, n);
+    } //- Eigenvectors
+    
+    if(cPrm->doMomProj){
+      performMomentumProjection();
+      printfQuda("%s: Momentum projection completed\n", __func__);
+    }
+    else{
+      cudaMemcpy(dataPos_h, dataPos_d, SizeCplxFloat*nElemPosLoc, cudaMemcpyDeviceToHost);
+      cudaDeviceSynchronize();
+      checkCudaError();
+    }
+    
+  }//- Loop over path
+    */
 
-    performLoopContraction<Float>(dataPos_d, fineEvecL, fineEvecR, sigma);
-    printfQuda("%s: Loop trace for eigenvector %d completed\n", __func__, n);
-  } //- Eigenvectors
+
+
 
   
-  if(cPrm->doMomProj){
-    performMomentumProjection();
-    printfQuda("%s: Momentum projection completed\n", __func__);
-  }
-  else{
-    cudaMemcpy(dataPos_h, dataPos_d, SizeCplxFloat*nElemPosLoc, cudaMemcpyDeviceToHost);
-    cudaDeviceSynchronize();
-    checkCudaError();
-  }
+
   
   delete fineEvecL;
   delete fineEvecR;

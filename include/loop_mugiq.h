@@ -120,9 +120,12 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
   long long totV3 = 1;          // global 3d volume (no time)
 
   LoopCalcType calcType; // Type of computation that will take place
-  
-  char FullPathString[MAX_PATH_LEN_];
-  int FullPathLen;
+
+
+  std::vector<std::string> dispStr;
+  std::vector<int> dispStart;
+  std::vector<int> dispStop;
+  int dispLen;
 
   MuGiqBool init; // Whether the structure has been initialized
 
@@ -140,8 +143,6 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     locT(0), totT(0),
     locV4(1), locV3(1), totV3(1),
     calcType(loopParams->calcType),
-    FullPathString("\0"),
-    FullPathLen(0),
     init(MUGIQ_BOOL_FALSE)
   {
     for(int i=0;i<N_DIM_;i++){
@@ -164,11 +165,19 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     }
     
     if(doNonLocal){
-      strcpy(FullPathString, loopParams->pathString);
-      FullPathLen = strlen(FullPathString);
+      dispLen = loopParams->disp_str.size();
+      if(dispLen != static_cast<int>(loopParams->disp_start.size()) ||
+	 dispLen != static_cast<int>(loopParams->disp_stop.size()))
+	errorQuda("Displacement string length not compatible with displacement limits length\n");
+
+      for(int id=0;id<dispLen;id++){
+	dispStr.push_back(loopParams->disp_str.at(id));
+	dispStart.push_back(loopParams->disp_start.at(id));
+	dispStop.push_back(loopParams->disp_stop.at(id));
+      }      
     }
     else{
-      FullPathLen = 0; //- only ultra-local
+      dispLen = 0; //- only ultra-local
     }
     printfQuda("%s: Loop compute parameters are set\n", __func__);
 

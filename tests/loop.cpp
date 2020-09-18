@@ -604,6 +604,31 @@ void setMultigridParam(QudaMultigridParam &mg_param)
 }
 //-------------------------------------------------------------------------------
 
+std::vector<std::string> ParseDispEntry(std::string disp_entry, char delim){
+  std::vector<std::string> result;
+  std::stringstream s_stream(disp_entry);
+  //  printfQuda("Got into %s\n", __func__);
+  while(s_stream.good()) {
+    std::string substr;
+    getline(s_stream, substr, delim); // get entry sub-strings
+    // char substr_c[substr.size()+1];
+    // strcpy(substr_c, substr.c_str());
+    // printfQuda("%s: Substring is %s\n", __func__, substr_c);
+    result.push_back(substr);
+  }
+  return result;  
+}
+
+std::vector<int> ParseDispLimits(std::string lim_str, char delim){
+  std::vector<int> result;
+  std::stringstream s_stream(lim_str);
+  while(s_stream.good()) {
+    std::string substr;
+    getline(s_stream, substr, delim); // get limit sub-strings delimited by comma
+    result.push_back(std::stoi(substr));
+  }
+  return result;
+}
 
 void setLoopParam(MugiqLoopParam &loopParams, QudaGaugeParam &gParam){
 
@@ -621,12 +646,65 @@ void setLoopParam(MugiqLoopParam &loopParams, QudaGaugeParam &gParam){
   loopParams.doMomProj  = loop_doMomProj;
   loopParams.doNonLocal = loop_doNonLocal;
 
-  if(loopParams.doNonLocal && !strcmp(loop_path_string,""))
-    errorQuda("Got option '--loop-do-nonlocal yes' but option --loop-path-string is not set!\n");
-  else
-    strcpy(loopParams.pathString,loop_path_string);
-  
+  if(!loopParams.doNonLocal){
+    printfQuda("Will NOT perform displacements!!!");
+  }
+  else{
+    int des_size = disp_entry_string.size();
+    if(des_size == 0)
+      errorQuda("Got option '--loop-do-nonlocal yes' but option --displace-entry-string is not set!\n");
+    else{
+      //- Parse displacement entries
+      char disp_entry_char[des_size+1];
+      strcpy(disp_entry_char, disp_entry_string.c_str());
+      printfQuda("Got displacement entry string %s\n", disp_entry_char);    
+      
+      std::vector<std::string> displace_entries = ParseDispEntry(disp_entry_string, ';');
+      int Ndisp = displace_entries.size();
+      
+      printfQuda("Will perform the following displacements:\n");
 
+      for(int id=0;id<Ndisp;id++){
+	char disp_entry_c[displace_entries.at(id).size()+1];
+	strcpy(disp_entry_c, displace_entries.at(id).c_str());
+
+	std::vector<std::string> disp_split = ParseDispEntry(displace_entries.at(id),':');
+	if(disp_split.size() != 2){
+	  for(int is=0;is<static_cast<int>(disp_split.size());is++){
+	    char i_disp_split_c[disp_split.at(is).size()+1];
+	    strcpy(i_disp_split_c, disp_split.at(is).c_str());
+	    printfQuda("%s\n", i_disp_split_c);
+	  }
+	  errorQuda("Displacement entry %d has the Wrong format. Example of good entries: +z:1,8 , +x:3\n", id);
+	}
+		
+	std::vector<int> disp_lim = ParseDispLimits(disp_split.at(1),',');
+	if(disp_lim.size() == 0 || disp_lim.size() > 2)
+	  errorQuda("Wrong format of displacement entry %d. Example of good entries: +z:1,8 , +x:3\n", id);
+	
+	loopParams.disp_str.push_back(disp_split.at(0));
+	char disp_str_c[loopParams.disp_str.at(id).size()+1];
+	strcpy(disp_str_c, loopParams.disp_str.at(id).c_str());
+
+	loopParams.disp_start.push_back(disp_lim.at(0));
+	
+	if(disp_lim.size() == 2){
+	  loopParams.disp_stop.push_back(disp_lim.at(1));
+	  printfQuda("  %d %s: %s with lengths from %d to %d\n", id, disp_entry_c,
+		     disp_str_c, loopParams.disp_start.at(id),loopParams.disp_stop.at(id));
+	}
+	else{
+	  loopParams.disp_stop.push_back(-1);
+	  printfQuda("  %d %s: %s with length %d\n", id, disp_entry_c,
+		     disp_str_c, loopParams.disp_start.at(id));
+	}
+
+	
+      }//-for displacements   
+    }
+  }
+
+  
   loopParams.gauge_param = &gParam;
   
   //- Open file to read momenta

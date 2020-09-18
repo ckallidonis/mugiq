@@ -16,7 +16,9 @@ MuGiqBool loop_print_ascii = MUGIQ_BOOL_FALSE;
 MuGiqBool loop_doMomProj = MUGIQ_BOOL_TRUE;
 MuGiqBool loop_doNonLocal = MUGIQ_BOOL_TRUE;
 char loop_gauge_filename[1024] = "";
-char loop_path_string[MAX_PATH_LEN_] = "";
+
+std::string disp_entry_string;
+
 
 namespace {
   CLI::TransformPairs<MuGiqTask> mugiq_task_map {{"computeEvecsQuda", MUGIQ_COMPUTE_EVECS_QUDA},
@@ -67,8 +69,6 @@ void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app)
 
   opgroup->add_option("--loop-gauge-filename", loop_gauge_filename, "Gauge field that will be used for non-local currents (default '')");
 
-  opgroup->add_option("--loop-path-string", loop_path_string, "String with non-local current paths (default '')");
-
   opgroup->add_option("--loop-ft-sign", loop_ft_sign,
 		      "Sign of the Loop Fourier Transform phase (default NULL)")->transform(CLI::QUDACheckedTransformer(loop_ft_sign_map));
   
@@ -82,8 +82,11 @@ void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app)
 		      "Whether to perform momentum projection (Fourier Transform) on the disconnected quark loop (default yes, options are yes/no)")->transform(CLI::QUDACheckedTransformer(loop_doMomProj_map));
 
   opgroup->add_option("--loop-do-nonlocal", loop_doNonLocal,
-		      "Whether to compute quark loops for non-local currents, requires option --loop-gauge-filename and --loop-path-string (default yes, options are yes/no)")->transform(CLI::QUDACheckedTransformer(loop_doNonLocal_map));  
-  
+		      "Whether to compute quark loops for non-local currents, requires option --loop-gauge-filename and --loop-path-string (default yes, options are yes/no)")->transform(CLI::QUDACheckedTransformer(loop_doNonLocal_map));
+
+  opgroup->add_option("--displace-entry-string", disp_entry_string,
+		      "Set displacement entries in the form, e.g: +z:1,8;-x:3;+y:2,5.");
+
 }
 
 
