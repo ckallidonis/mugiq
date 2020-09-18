@@ -125,7 +125,7 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
   std::vector<std::string> dispStr;
   std::vector<int> dispStart;
   std::vector<int> dispStop;
-  int dispLen;
+  int nDispEntries;
 
   MuGiqBool init; // Whether the structure has been initialized
 
@@ -165,19 +165,19 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     }
     
     if(doNonLocal){
-      dispLen = loopParams->disp_str.size();
-      if(dispLen != static_cast<int>(loopParams->disp_start.size()) ||
-	 dispLen != static_cast<int>(loopParams->disp_stop.size()))
+      nDispEntries = loopParams->disp_str.size();
+      if(nDispEntries != static_cast<int>(loopParams->disp_start.size()) ||
+	 nDispEntries != static_cast<int>(loopParams->disp_stop.size()))
 	errorQuda("Displacement string length not compatible with displacement limits length\n");
 
-      for(int id=0;id<dispLen;id++){
+      for(int id=0;id<nDispEntries;id++){
 	dispStr.push_back(loopParams->disp_str.at(id));
 	dispStart.push_back(loopParams->disp_start.at(id));
 	dispStop.push_back(loopParams->disp_stop.at(id));
       }      
     }
     else{
-      dispLen = 0; //- only ultra-local
+      nDispEntries = 0; //- only ultra-local
     }
     printfQuda("%s: Loop compute parameters are set\n", __func__);
 

@@ -175,8 +175,8 @@ void Loop_Mugiq<Float>::printLoopComputeParams(){
   }
   printfQuda("Will%s perform loop on non-local currents\n", cPrm->doNonLocal ? "" : " NOT");
   if(cPrm->doNonLocal){
-    printfQuda("Will perform the following %d displacement entries:\n", cPrm->dispLen);
-    for(int id=0;id<cPrm->dispLen;id++){
+    printfQuda("Will perform the following %d displacement entries:\n", cPrm->nDispEntries);
+    for(int id=0;id<cPrm->nDispEntries;id++){
       char dispStr_c[cPrm->dispStr.at(id).size()+1];
       strcpy(dispStr_c, cPrm->dispStr.at(id).c_str());      
 
