@@ -3,14 +3,13 @@
 
 template <typename T>
 Displace<T>::Displace(MugiqLoopParam *loopParams_) :
-  dispStr('\0'), prevDispStr('\0'),
-  dispFlag(DispFlag_None), dispDir(DispDirNone), dispSign(DispSignNone),
+  dispString("\0"), dispString_c("\0"),
+  dispFlag(DispFlagNone), dispDir(DispDirNone), dispSign(DispSignNone),
   gaugePtr{loopParams_->gauge[0],loopParams_->gauge[1],loopParams_->gauge[2],loopParams_->gauge[3]},
   qGaugePrm(loopParams_->gauge_param),
   gaugeField(nullptr),
   dispVec(nullptr)
 {
-
   for (int d=0;d<N_DIM_;d++) exRng[d] = 2 * (redundantComms || commDimPartitioned(d));
 
   //-Create the gauge field with extended ghost exchange, will be used for displacements
@@ -22,9 +21,7 @@ Displace<T>::Displace(MugiqLoopParam *loopParams_) :
 template <typename T>
 Displace<T>::~Displace()
 {
-
   for(int i=0;i<N_DIM_;i++) gaugePtr[i] = nullptr;
-
   if(gaugeField) delete gaugeField;
 }
 
@@ -96,22 +93,22 @@ void Displace<T>::createExtendedCudaGaugeField(bool copyGauge, bool redundant_co
 
 
 template <typename T>
-DisplaceFlag Displace<T>::ParseDisplaceFlag(){
-
-  DisplaceFlag dFlag = DispFlag_None;
-  for(int iopt=0;iopt<N_DISPLACE_FLAGS;iopt++){
-    if( dispStr == DisplaceFlagArray[iopt] ){
-      dFlag = (DisplaceFlag)iopt;
+DisplaceFlag Displace<T>::WhichDisplaceFlag(){
+  
+  DisplaceFlag dFlag = DispFlagNone;
+  for(int i=0;i<N_DISPLACE_FLAGS;i++){
+    if( dispString == DisplaceFlagArray.at(i) ){
+      dFlag = static_cast<DisplaceFlag>(i);
       break;
     }
   }
-  if(dFlag == DispFlag_None) errorQuda("%s: Cannot parse given displacement string = %c.\n", __func__, dispStr);
+  if(dFlag == DispFlagNone) errorQuda("%s: Cannot parse given displacement string = %s.\n", __func__, dispString_c);
   return dFlag;
 }
 
 
 template <typename T>
-DisplaceDir Displace<T>::ParseDisplaceDir(){
+DisplaceDir Displace<T>::WhichDisplaceDir(){
 
   DisplaceDir dDir = DispDirNone;
   switch(dispFlag){
@@ -131,16 +128,15 @@ DisplaceDir Displace<T>::ParseDisplaceDir(){
   case DispFlag_T: {
     dDir = DispDir_t;
   } break;
-  default: errorQuda("%s: Unsupported displacement flag, dispFlag = %c.\n",
-		     __func__, (dispFlag >=0 && dispFlag<N_DISPLACE_FLAGS) ? DisplaceFlagArray[(int)dispFlag] : '?');
-    }//-- switch
+  default: errorQuda("%s: Unsupported/unrecongized displacement string %s and/or flag %d.\n",
+		     __func__, dispString_c, static_cast<int>(dispFlag));
+  }//-- switch
 
   return dDir;
-  
 }
 
 template <typename T>
-DisplaceSign Displace<T>::ParseDisplaceSign(){
+DisplaceSign Displace<T>::WhichDisplaceSign(){
   
   DisplaceSign dSign = DispSignNone;
   switch(dispFlag){
@@ -156,8 +152,8 @@ DisplaceSign Displace<T>::ParseDisplaceSign(){
   case DispFlag_t: {
     dSign = DispSignMinus;
   } break;
-  default: errorQuda("%s: Unsupported displace flag, dispFlag = %c.\n",
-		     __func__, (dispFlag >=0 && dispFlag<N_DISPLACE_FLAGS) ? DisplaceFlagArray[(int)dispFlag] : '?');
+  default: errorQuda("%s: Unsupported/unrecongized displacement string %s and/or flag %d.\n",
+                     __func__, dispString_c, static_cast<int>(dispFlag));
   }//-- switch
   
   return dSign;
@@ -166,26 +162,23 @@ DisplaceSign Displace<T>::ParseDisplaceSign(){
 
 
 template <typename T>
-void Displace<T>::setupDisplacement(char dStr){
+void Displace<T>::setupDisplacement(std::string dStr){
 
-  dispStr = dStr;
-  
-  dispFlag = ParseDisplaceFlag();
-  dispDir  = ParseDisplaceDir();
-  dispSign = ParseDisplaceSign();
+  dispString = dStr;
+  strcpy(dispString_c, dispString.c_str());  
+
+  dispFlag = WhichDisplaceFlag();
+  dispDir  = WhichDisplaceDir();
+  dispSign = WhichDisplaceSign();
   
   if( ((int)dispSign>=0 && (int)dispSign<N_DISPLACE_SIGNS) && ((int)dispDir>=0 && (int)dispDir<N_DIM_)  ){
     if(getVerbosity() >= QUDA_VERBOSE)
-      printfQuda("%s: Displacement is in the %s%s direction\n",
+      printfQuda("%s: Displacement(s) will take place in the %s%s direction\n",
 		 __func__, DisplaceSignArray[(int)dispSign], DisplaceDirArray[(int)dispDir]);
   }
   else
     errorQuda("%s: Got invalid dispDir and/or dispSign.\n", __func__);
-
 }
-
-
-
 
 
 

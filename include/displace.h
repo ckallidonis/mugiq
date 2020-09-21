@@ -17,7 +17,7 @@ using namespace quda;
 //- Some enums about the Displacements
 
 typedef enum DisplaceFlag_s {
-  DispFlag_None = -1,
+  DispFlagNone = MUGIQ_INVALID_ENUM,
   DispFlag_X = 0,  // +x
   DispFlag_x = 1,  // -x
   DispFlag_Y = 2,  // +y
@@ -30,7 +30,7 @@ typedef enum DisplaceFlag_s {
 
 
 typedef enum DisplaceDir_s {
-  DispDirNone = -1,
+  DispDirNone = MUGIQ_INVALID_ENUM,
   DispDir_x = 0,
   DispDir_y = 1,
   DispDir_z = 2,
@@ -39,17 +39,16 @@ typedef enum DisplaceDir_s {
 
 
 typedef enum DisplaceSign_s {
-  DispSignNone  = -1,
+  DispSignNone  = MUGIQ_INVALID_ENUM,
   DispSignMinus =  0,
   DispSignPlus  =  1
 } DisplaceSign;
 
 
 typedef enum DisplaceType_s {
-  InvalidDisplace = -1,
+  InvalidDisplace = MUGIQ_INVALID_ENUM,
   CovDisplace = 0
 } DisplaceType;
-
 
 
 template <typename T>
@@ -59,20 +58,18 @@ private:
 
   template <typename Float>
   friend class Loop_Mugiq;
-
-  const char *DisplaceFlagArray = "XxYyZzTt" ;
+  
+  const std::vector<std::string> DisplaceFlagArray {"+x","-x","+y","-y","+z","-z","+t","-t"} ;
   const char *DisplaceTypeArray[N_DISPLACE_TYPES] = {"Covariant"};
   
   const char *DisplaceDirArray[N_DIM_]  = {"x", "y", "z", "t"};
   const char *DisplaceSignArray[N_DISPLACE_SIGNS] = {"-", "+"};  
-
-  char dispStr;     //- Current Displacement string
-  char prevDispStr; //- Previous displacement string 
-
-  DisplaceFlag dispFlag;
-  DisplaceDir  dispDir;
-  DisplaceSign dispSign;
-
+  
+  std::string  dispString;    //- Current Displacement string
+  char dispString_c[3];       //- Current Displacement string in char type
+  DisplaceFlag dispFlag;      //- Enum of displacement string (helpful for switch cases)
+  DisplaceDir  dispDir;       //- Direction of displacement
+  DisplaceSign dispSign;      //- Sign of displacement
   
   //- The pointer with the gauge data coming from the interface
   void *gaugePtr[N_DIM_];
@@ -105,19 +102,19 @@ private:
   
   /** @brief Set up the displacement
    */
-  void setupDisplacement(char dStr);
+  void setupDisplacement(std::string dStr);
 
-  /** @brief Parse the displacement flag
+  /** @brief Parse the displacement string to get the displacement flag enum
    */
-  DisplaceFlag ParseDisplaceFlag();
+  DisplaceFlag WhichDisplaceFlag();
 
-  /** @brief Parse the displacement directory
+  /** @brief Get the displacement direction from the displacement flag
    */
-  DisplaceDir ParseDisplaceDir();
+  DisplaceDir WhichDisplaceDir();
 
-  /** @brief Parse the displacement sign
+  /** @brief Get the displacement sign from the displacement flag
    */
-  DisplaceSign ParseDisplaceSign();
+  DisplaceSign WhichDisplaceSign();
 
   
 
