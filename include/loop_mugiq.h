@@ -176,7 +176,15 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
 	dispString.push_back(loopParams->disp_str.at(id));
 	dispStart.push_back(loopParams->disp_start.at(id));
 	dispStop.push_back(loopParams->disp_stop.at(id));
-      }
+
+	//-Some sanity checks
+	if(dispStart.at(id) > dispStop.at(id)){
+	  warningQuda("Stop length is smaller than Start length for displacement %d. Will switch lengths!\n", id);
+	  int s = dispStart.at(id);
+	  dispStart.at(id) = dispStop.at(id);
+	  dispStop.at(id) = s;
+	}
+      } //- for disp entries
     }
     else{
       nDispEntries = 0; //- only ultra-local
