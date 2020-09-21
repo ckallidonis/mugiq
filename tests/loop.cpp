@@ -695,7 +695,7 @@ void setLoopParam(MugiqLoopParam &loopParams, QudaGaugeParam &gParam){
 		     disp_str_c, loopParams.disp_start.at(id),loopParams.disp_stop.at(id));
 	}
 	else{
-	  loopParams.disp_stop.push_back(-1);
+	  loopParams.disp_stop.push_back(loopParams.disp_start.at(id));
 	  printfQuda("  %d %s: %s with length %d\n", id, disp_entry_c,
 		     disp_str_c, loopParams.disp_start.at(id));
 	}
