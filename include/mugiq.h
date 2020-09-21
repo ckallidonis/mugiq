@@ -34,6 +34,7 @@ extern "C" {
     MuGiqBool printASCII;
     MuGiqBool doMomProj;
     MuGiqBool doNonLocal;
+    std::vector<std::string> disp_entry;
     std::vector<std::string> disp_str;
     std::vector<int> disp_start;
     std::vector<int> disp_stop;

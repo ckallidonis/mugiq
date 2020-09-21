@@ -667,7 +667,8 @@ void setLoopParam(MugiqLoopParam &loopParams, QudaGaugeParam &gParam){
       for(int id=0;id<Ndisp;id++){
 	char disp_entry_c[displace_entries.at(id).size()+1];
 	strcpy(disp_entry_c, displace_entries.at(id).c_str());
-
+	loopParams.disp_entry.push_back(displace_entries.at(id));
+	
 	std::vector<std::string> disp_split = ParseDispEntry(displace_entries.at(id),':');
 	if(disp_split.size() != 2){
 	  for(int is=0;is<static_cast<int>(disp_split.size());is++){
