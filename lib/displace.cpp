@@ -2,19 +2,24 @@
 
 
 template <typename T>
-Displace<T>::Displace(MugiqLoopParam *loopParams_) :
+Displace<T>::Displace(MugiqLoopParam *loopParams_, ColorSpinorField *csf_, QudaPrecision coarsePrec_) :
   dispString("\0"), dispString_c("\0"),
   dispFlag(DispFlagNone), dispDir(DispDirNone), dispSign(DispSignNone),
   gaugePtr{loopParams_->gauge[0],loopParams_->gauge[1],loopParams_->gauge[2],loopParams_->gauge[3]},
   qGaugePrm(loopParams_->gauge_param),
   gaugeField(nullptr),
-  dispVec(nullptr)
+  displacedVec(nullptr)
 {
   for (int d=0;d<N_DIM_;d++) exRng[d] = 2 * (redundantComms || commDimPartitioned(d));
 
   //-Create the gauge field with extended ghost exchange, will be used for displacements
   createExtendedCudaGaugeField();
-  
+
+  //- Create a color spinor field to hold the displaced vector
+  ColorSpinorParam csParam(*csf_);
+  csParam.create = QUDA_ZERO_FIELD_CREATE;
+  csParam.setPrecision(coarsePrec_);
+  displacedVec = ColorSpinorField::Create(csParam);  
 }
 
 
@@ -23,6 +28,7 @@ Displace<T>::~Displace()
 {
   for(int i=0;i<N_DIM_;i++) gaugePtr[i] = nullptr;
   if(gaugeField) delete gaugeField;
+  if(displacedVec) delete displacedVec;
 }
 
 

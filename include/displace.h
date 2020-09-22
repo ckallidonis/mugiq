@@ -80,7 +80,7 @@ private:
   cudaGaugeField *gaugeField; 
 
   //- Auxilliary color-spinor-field used for displacements
-  cudaColorSpinorField *dispVec;
+  ColorSpinorField *displacedVec;
 
   //- This prevents redundant halo exchange (as set in QUDA)
   static const MuGiqBool redundantComms = MUGIQ_BOOL_FALSE;
@@ -121,7 +121,7 @@ private:
   
 public:
 
-  Displace(MugiqLoopParam *loopParams_);
+  Displace(MugiqLoopParam *loopParams_, ColorSpinorField *csf, QudaPrecision coarsePrec_);
   ~Displace();
 
 
