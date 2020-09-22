@@ -51,7 +51,10 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
   nElemMomLoc = cPrm->Ndata * cPrm->Nmom * cPrm->locT;
   nElemPosLoc = cPrm->Ndata * cPrm->locV4;
   nElemPhMat  = cPrm->Nmom  * cPrm->locV3;
-   
+
+  printfQuda("%s: Memory report before Allocations", __func__);
+  printMemoryInfo();
+  
   if(cPrm->doMomProj){
     //- Allocate host data buffers
     dataMom    = static_cast<complex<Float>*>(calloc(nElemMomTot, SizeCplxFloat));
@@ -91,7 +94,10 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
     cudaMemset(dataPosMP_d, 0, SizeCplxFloat*nElemPosLoc);
     
   }
-  
+
+  printfQuda("%s: Memory report after Allocations", __func__);
+  printMemoryInfo();
+
   printfQuda("%s: Device buffers allocated\n", __func__);
   //------------------------------
   
@@ -120,6 +126,10 @@ void Loop_Mugiq<Float>::createPhaseMatrix(){
 template <typename Float>
 void Loop_Mugiq<Float>::freeDataMemory(){
 
+  printfQuda("%s: Memory report before freeing", __func__);
+  printMemoryInfo();
+
+  
   if(dataMom){
     free(dataMom);
     dataMom = nullptr;
@@ -159,6 +169,8 @@ void Loop_Mugiq<Float>::freeDataMemory(){
   printfQuda("%s: Device buffers freed\n", __func__);
   //------------------------------
 
+  printfQuda("%s: Memory report after freeing", __func__);
+  printMemoryInfo();
 }
 
 
@@ -422,7 +434,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 	  displace->doDisplacement(DISPLACE_TYPE_COVARIANT, fineEvecR, idisp);
 	  if(idisp >= cPrm->dispStart.at(id) && idisp <= cPrm->dispStop.at(id)){
 	    performLoopContraction<Float>(dataPos_d, fineEvecL, fineEvecR, sigma);
-	    printfQuda("%s: EV[%d] Loop trace for displacement = %02d completed\n", __func__, n, idisp);
+	    printfQuda("%s: EV[%04d] Loop trace for displacement = %02d completed\n", __func__, n, idisp);
 	  }
 	}//-for displacement
       }
