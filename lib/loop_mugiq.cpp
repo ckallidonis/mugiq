@@ -47,9 +47,13 @@ Loop_Mugiq<Float>::~Loop_Mugiq(){
 template <typename Float>
 void Loop_Mugiq<Float>::allocateDataMemory(){
 
-  nElemMomTot = cPrm->Ndata * cPrm->Nmom * cPrm->totT;
-  nElemMomLoc = cPrm->Ndata * cPrm->Nmom * cPrm->locT;
-  nElemPosLoc = cPrm->Ndata * cPrm->locV4;
+  nElemMomTotPerLoop = cPrm->nG * cPrm->Nmom * cPrm->totT;
+  nElemMomLocPerLoop = cPrm->nG * cPrm->Nmom * cPrm->locT;
+  nElemPosLocPerLoop = cPrm->nG * cPrm->locV4;
+  
+  nElemMomTot = nElemMomTotPerLoop * cPrm->nLoop;
+  nElemMomLoc = nElemMomLocPerLoop * cPrm->nLoop;
+  nElemPosLoc = nElemPosLocPerLoop * cPrm->nLoop;
   nElemPhMat  = cPrm->Nmom  * cPrm->locV3;
 
   printfQuda("%s: Memory report before Allocations", __func__);
@@ -188,17 +192,17 @@ void Loop_Mugiq<Float>::printLoopComputeParams(){
   }
   printfQuda("Will%s perform loop on non-local currents\n", cPrm->doNonLocal ? "" : " NOT");
   if(cPrm->doNonLocal){
-    printfQuda("Will perform the following %d displacement entries:\n", cPrm->nDispEntries);
+    printfQuda("Will perform ultra-local loop, plus the following %d displacement entries:\n", cPrm->nDispEntries);
     for(int id=0;id<cPrm->nDispEntries;id++){
       char dispStr_c[cPrm->dispString.at(id).size()+1];
       strcpy(dispStr_c, cPrm->dispString.at(id).c_str());      
 
       if(cPrm->dispStop.at(id) == cPrm->dispStart.at(id))
-	printfQuda("  %d: %s with length %d\n", id,
-		   dispStr_c, cPrm->dispStart.at(id));
+	printfQuda("  %d: %s with length %d, #loops = %d, loop-offset = %d\n", id,
+		   dispStr_c, cPrm->dispStart.at(id), cPrm->nLoopPerEntry.at(id), cPrm->nLoopOffset.at(id));
       else
-	printfQuda("  %d: %s with lengths from %d to %d\n", id,
-		   dispStr_c, cPrm->dispStart.at(id),cPrm->dispStop.at(id));
+	printfQuda("  %d: %s with lengths from %d to %d, #loops = %d, loop-offset = %d\n", id,
+		   dispStr_c, cPrm->dispStart.at(id),cPrm->dispStop.at(id), cPrm->nLoopPerEntry.at(id), cPrm->nLoopOffset.at(id));
     }   
   }
   printfQuda("Total number of Loop Traces to perform: %d\n", cPrm->nLoop);
@@ -217,16 +221,17 @@ void Loop_Mugiq<Float>::printLoopComputeParams(){
 
 template <typename Float>
 void Loop_Mugiq<Float>::printData_ASCII(){
+  errorQuda("%s: This function unsupported for now!\n");
 
   for(int im=0;im<cPrm->Nmom;im++){
-    for(int id=0;id<cPrm->Ndata;id++){
+    for(int id=0;id<cPrm->nData;id++){
       printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
 		 cPrm->momMatrix[MOM_MATRIX_IDX(0,im)],
 		 cPrm->momMatrix[MOM_MATRIX_IDX(1,im)],
 		 cPrm->momMatrix[MOM_MATRIX_IDX(2,im)], id);
       for(int it=0;it<cPrm->totT;it++){
 	//- FIXME: Check if loop Index is correct
-	int loopIdx = id + cPrm->Ndata*it + cPrm->Ndata*cPrm->totT*im;
+	int loopIdx = id + cPrm->nData*it + cPrm->nData*cPrm->totT*im;
 	printfQuda("%d %+.8e %+.8e\n", it, dataMom[loopIdx].real(), dataMom[loopIdx].imag());
       }
     }
@@ -282,10 +287,10 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   const int locT  = cPrm->locT;
   const int totT  = cPrm->totT;
   const int Nmom  = cPrm->Nmom;
-  const int Ndata = cPrm->Ndata;
+  const int nData = cPrm->nData;
 
   //- Convert indices from volume4d-inside-gamma to volumeXYZ-inside-gamma-inside-time
-  convertIdxOrderToMomProj<Float>(dataPosMP_d, dataPos_d, cPrm->Ndata, cPrm->nParity, cPrm->volumeCB, cPrm->localL);
+  //  convertIdxOrderToMomProj<Float>(dataPosMP_d, dataPos_d, cPrm->nData, cPrm->nParity, cPrm->volumeCB, cPrm->localL);
   
   /** Perform momentum projection
    *-----------------------------
@@ -301,14 +306,14 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   complex<Float> be = complex<Float>{0.0,0.0};
 
   if(typeid(Float) == typeid(double)){
-    stat = cublasZgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, Nmom, Ndata*locT, locV3,
+    stat = cublasZgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, Nmom, nData*locT, locV3,
                        (cuDoubleComplex*)&al, (cuDoubleComplex*)phaseMatrix_d, locV3,
                        (cuDoubleComplex*)dataPosMP_d, locV3,
 		       (cuDoubleComplex*)&be,
                        (cuDoubleComplex*)dataMom_d, Nmom);
   }
   else if(typeid(Float) == typeid(float)){
-    stat = cublasCgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, Nmom, Ndata*locT, locV3,
+    stat = cublasCgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, Nmom, nData*locT, locV3,
                        (cuComplex*)&al, (cuComplex*)phaseMatrix_d, locV3,
                        (cuComplex*)dataPosMP_d, locV3,
 		       (cuComplex*)&be,
@@ -321,7 +326,7 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
 
   
   //-- extract the result from GPU to CPU
-  stat = cublasGetMatrix(Nmom, Ndata*locT, sizeof(complex<Float>), dataMom_d, Nmom, dataMom_h, Nmom);
+  stat = cublasGetMatrix(Nmom, nData*locT, sizeof(complex<Float>), dataMom_d, Nmom, dataMom_h, Nmom);
   if(stat != CUBLAS_STATUS_SUCCESS) errorQuda("%s: cuBlas data copying to CPU failed!\n", __func__);
   // ---------------------------------------------------------------------------------------
 
@@ -342,7 +347,7 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
    * therefore another communicator involving only these processes must be created (COMM_TIME).
    * Finally, we need to Broadcast the final result to ALL processes, such that it is accessible to all of them.
    *
-   * The final buffer follows order Mom-inside-Gamma-inside-T: im + Nmom*ig + Nmom*Ndata*t
+   * The final buffer follows order Mom-inside-Gamma-inside-T: im + Nmom*ig + Nmom*nData*t
    */
 
   MPI_Datatype dataTypeMPI;
@@ -372,15 +377,15 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   MPI_Comm_size(COMM_TIME,&time_size);
 
   
-  MPI_Reduce(dataMom_h, dataMom_gs, Nmom*Ndata*locT, dataTypeMPI, MPI_SUM, 0, COMM_SPACE);
+  MPI_Reduce(dataMom_h, dataMom_gs, Nmom*nData*locT, dataTypeMPI, MPI_SUM, 0, COMM_SPACE);
 
   
-  MPI_Gather(dataMom_gs, Nmom*Ndata*locT, dataTypeMPI,
-             dataMom   , Nmom*Ndata*locT, dataTypeMPI,
+  MPI_Gather(dataMom_gs, Nmom*nData*locT, dataTypeMPI,
+             dataMom   , Nmom*nData*locT, dataTypeMPI,
              0, COMM_TIME);
 
   
-  MPI_Bcast(dataMom, Nmom*Ndata*totT, dataTypeMPI, 0, MPI_COMM_WORLD);
+  MPI_Bcast(dataMom, Nmom*nData*totT, dataTypeMPI, 0, MPI_COMM_WORLD);
 
   
   //-- cleanup & return
@@ -407,7 +412,6 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
   csParam.setPrecision(coarsePrec);
   ColorSpinorField *fineEvecL = ColorSpinorField::Create(csParam);
   ColorSpinorField *fineEvecR = ColorSpinorField::Create(csParam);
-
   
   for(int id=-1;id<cPrm->nDispEntries;id++){
     char *dispEntry_c = nullptr;
@@ -417,9 +421,21 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       printfQuda("\n\n%s: Will perform loop for displacement entry %s\n", __func__, dispEntry_c);
       displace->setupDisplacement(cPrm->dispString.at(id));
     }
-    else printfQuda("\n\n%s: Will Run for ultra-local currents (displacement = 0)\n", __func__);
+    else printfQuda("\n\n%s: Will Run for ultra-local currents (displacement = 0)\n", __func__);    
+
+    long long bufOffset;
+    size_t bufByteSize;
+    if( cPrm->doNonLocal && (id != -1) ){
+      bufOffset = nElemPosLocPerLoop*cPrm->nLoopOffset.at(id); //- Jump the ultra-local plus loops of previous entry
+      bufByteSize = SizeCplxFloat*nElemPosLocPerLoop*cPrm->nLoopPerEntry.at(id); //- #elem/entry 
+    }
+    else{
+      bufOffset = 0;
+      bufByteSize = SizeCplxFloat*nElemPosLocPerLoop;
+    }
+
+    cudaMemset(&dataPos_d[bufOffset], 0, bufByteSize);
     
-    cudaMemset(dataPos_d, 0, SizeCplxFloat*nElemPosLoc);
     for(int n=0;n<nEv;n++){
       Float sigma = (Float)(*(eigsolve->eVals_sigma))[n];
       printfQuda("%s: Performing Loop trace for EV[%04d] = %+.16e\n", __func__, n, sigma);
@@ -430,11 +446,13 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       if( cPrm->doNonLocal && (id != -1) ){
 	//-Perform Displacements
 	displace->resetDisplacedVec(fineEvecL); //- reset consecutively displaced vector to the original vector
+	int dispOffset = 0;
 	for(int idisp=1;idisp<=cPrm->dispStop.at(id);idisp++){
 	  displace->doDisplacement(DISPLACE_TYPE_COVARIANT, fineEvecR, idisp);
 	  if(idisp >= cPrm->dispStart.at(id) && idisp <= cPrm->dispStop.at(id)){
-	    performLoopContraction<Float>(dataPos_d, fineEvecL, fineEvecR, sigma);
+	    performLoopContraction<Float>(&dataPos_d[bufOffset+dispOffset], fineEvecL, fineEvecR, sigma);
 	    printfQuda("%s: EV[%04d] Loop trace for displacement = %02d completed\n", __func__, n, idisp);
+	    dispOffset++;
 	  }
 	}//-for displacement
       }
@@ -445,7 +463,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       }
 
     } //- Eigenvectors
-    
+    /*    
     if(cPrm->doMomProj){
       performMomentumProjection();
       if(cPrm->doNonLocal && (id != -1))
@@ -458,7 +476,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       cudaDeviceSynchronize();
       checkCudaError();
     }
-
+    */
     if(dispEntry_c) free(dispEntry_c);
   }//- Loop over displace entries
 

@@ -33,10 +33,14 @@ private:
   complex<Float> *phaseMatrix_d;  // Device buffer of the phase matrix
   
   const size_t SizeCplxFloat = sizeof(complex<Float>);
+
+  long long nElemMomTotPerLoop; // Number of elements in global momentum-space data buffers, per loop
+  long long nElemMomLocPerLoop; // Number of elements in local  momentum-space data buffers, per loop
+  long long nElemPosLocPerLoop; // Number of elements in local  position-space data buffers, per loop
   
-  long long nElemMomTot; // Number of elements in global momentum-space data buffers
-  long long nElemMomLoc; // Number of elements in local  momentum-space data buffers
-  long long nElemPosLoc; // Number of elements in local  position-space data buffers
+  long long nElemMomTot; // Total Number of elements in global momentum-space data buffers
+  long long nElemMomLoc; // Total Number of elements in local  momentum-space data buffers
+  long long nElemPosLoc; // Total Number of elements in local  position-space data buffers
   long long nElemPhMat;  // Number of elements in phase matrix
 
 
@@ -95,7 +99,7 @@ public:
 template <typename Float>
 struct Loop_Mugiq<Float>::LoopComputeParam {
 
-  const int Ndata = N_GAMMA_;   // Number of Gamma matrices (currents, =16)
+  const int nG = N_GAMMA_;   // Number of Gamma matrices (currents, =16)
   const int momDim = MOM_DIM_;  // Momenta dimensions (=3)
 
   int Nmom;                                 // Number of Momenta
@@ -122,14 +126,17 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
   LoopCalcType calcType; // Type of computation that will take place
 
 
-  std::vector<std::string> dispEntry;
-  std::vector<std::string> dispString;
-  std::vector<int> dispStart;
-  std::vector<int> dispStop;
-  int nDispEntries;
+  int nDispEntries;                     // Number of displacement entries
+  std::vector<std::string> dispEntry;   // The displacement entry, e.g. +z:1,8
+  std::vector<std::string> dispString;  // The displacement string, e.g. +z,-x, etc
+  std::vector<int> dispStart;           // Displacement start
+  std::vector<int> dispStop;            // Displacement stop
+  std::vector<int> nLoopPerEntry;       // Number of loop traces per displacement entry = dispStop - dispStart +1
+  std::vector<int> nLoopOffset;         // Number of loop traces up to given entry
 
-  int nLoop; // This is the total number of loop traces
-
+  int nLoop; // Total number of loop traces
+  int nData; // Total number of loop data (nLoop*Ngamma)
+  
   MuGiqBool init; // Whether the structure has been initialized
 
   
@@ -147,7 +154,7 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     locV4(1), locV3(1), totV3(1),
     calcType(loopParams->calcType),
     nDispEntries(0),
-    nLoop(0),
+    nLoop(0), nData(0),
     init(MUGIQ_BOOL_FALSE)
   {
     for(int i=0;i<N_DIM_;i++){
@@ -188,14 +195,24 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
 	  dispStart.at(id) = dispStop.at(id);
 	  dispStop.at(id) = s;
 	}
-	nLoop += dispStop.at(id) - dispStart.at(id) + 1;
+
+	nLoopPerEntry.push_back(dispStop.at(id) - dispStart.at(id) + 1);	
+	nLoop += nLoopPerEntry.at(id);
+
+	int osum = 1; //-start with ultra-local
+	for(int is=0;is<id;is++)
+	  osum += nLoopPerEntry.at(is);
+	nLoopOffset.push_back(osum);
+	
       } //- for disp entries
       nLoop += 1; // Don't forget ultra-local case!!
     }
     else{
       nDispEntries = 0; //- only ultra-local
       nLoop = 1;
-    }    
+    }
+    nData = nLoop*nG;
+    
     printfQuda("%s: Loop compute parameters are set\n", __func__);
 
     init = MUGIQ_BOOL_TRUE;
