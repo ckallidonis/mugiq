@@ -128,6 +128,8 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
   std::vector<int> dispStop;
   int nDispEntries;
 
+  int nLoop; // This is the total number of loop traces
+
   MuGiqBool init; // Whether the structure has been initialized
 
   
@@ -144,6 +146,8 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     locT(0), totT(0),
     locV4(1), locV3(1), totV3(1),
     calcType(loopParams->calcType),
+    nDispEntries(0),
+    nLoop(0),
     init(MUGIQ_BOOL_FALSE)
   {
     for(int i=0;i<N_DIM_;i++){
@@ -184,10 +188,13 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
 	  dispStart.at(id) = dispStop.at(id);
 	  dispStop.at(id) = s;
 	}
+	nLoop += dispStop.at(id) - dispStart.at(id) + 1;
       } //- for disp entries
+      nLoop += 1; // Don't forget ultra-local case!!
     }
     else{
       nDispEntries = 0; //- only ultra-local
+      nLoop = 1;
     }    
     printfQuda("%s: Loop compute parameters are set\n", __func__);
 

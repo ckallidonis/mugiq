@@ -188,7 +188,8 @@ void Loop_Mugiq<Float>::printLoopComputeParams(){
 	printfQuda("  %d: %s with lengths from %d to %d\n", id,
 		   dispStr_c, cPrm->dispStart.at(id),cPrm->dispStop.at(id));
     }   
-  }    
+  }
+  printfQuda("Total number of Loop Traces to perform: %d\n", cPrm->nLoop);
   printfQuda("Local  lattice size (x,y,z,t): %d %d %d %d \n", cPrm->localL[0], cPrm->localL[1], cPrm->localL[2], cPrm->localL[3]);
   printfQuda("Global lattice size (x,y,z,t): %d %d %d %d \n", cPrm->totalL[0], cPrm->totalL[1], cPrm->totalL[2], cPrm->totalL[3]);
   printfQuda("Global time extent: %d\n", cPrm->totT);
