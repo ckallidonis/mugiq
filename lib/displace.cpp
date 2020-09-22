@@ -8,7 +8,7 @@ Displace<T>::Displace(MugiqLoopParam *loopParams_, ColorSpinorField *csf_, QudaP
   gaugePtr{loopParams_->gauge[0],loopParams_->gauge[1],loopParams_->gauge[2],loopParams_->gauge[3]},
   qGaugePrm(loopParams_->gauge_param),
   gaugeField(nullptr),
-  displacedVec(nullptr)
+  auxDispVec(nullptr)
 {
   for (int d=0;d<N_DIM_;d++) exRng[d] = 2 * (redundantComms || commDimPartitioned(d));
 
@@ -19,16 +19,33 @@ Displace<T>::Displace(MugiqLoopParam *loopParams_, ColorSpinorField *csf_, QudaP
   ColorSpinorParam csParam(*csf_);
   csParam.create = QUDA_ZERO_FIELD_CREATE;
   csParam.setPrecision(coarsePrec_);
-  displacedVec = ColorSpinorField::Create(csParam);  
+  auxDispVec = ColorSpinorField::Create(csParam);  
 }
 
 
 template <typename T>
-Displace<T>::~Displace()
-{
+Displace<T>::~Displace(){
   for(int i=0;i<N_DIM_;i++) gaugePtr[i] = nullptr;
   if(gaugeField) delete gaugeField;
-  if(displacedVec) delete displacedVec;
+  if(auxDispVec) delete auxDispVec;
+}
+
+
+template <typename T>
+void Displace<T>::resetDisplacedVec(ColorSpinorField *fineEvec){
+  *auxDispVec = *fineEvec;
+  printfQuda("%s: Reset of auxilliary displaced vector done\n", __func__);
+}
+
+
+template <typename T>
+void Displace<T>::doDisplacement(DisplaceType dispType, ColorSpinorField *displacedEvec, int idisp){
+
+  if(dispType == DISPLACE_TYPE_COVARIANT){
+    //    performCovariantDisplacement(displacedEvec);
+    printfQuda("%s: Step-%02d of a Covariant displacement done\n", __func__, idisp);
+  }
+
 }
 
 
@@ -179,7 +196,7 @@ void Displace<T>::setupDisplacement(std::string dStr){
   
   if( ((int)dispSign>=0 && (int)dispSign<N_DISPLACE_SIGNS) && ((int)dispDir>=0 && (int)dispDir<N_DIM_)  ){
     if(getVerbosity() >= QUDA_VERBOSE)
-      printfQuda("%s: Displacement(s) will take place in the %s%s direction\n",
+      printfQuda("%s: Displacement(s) will take place in the %s%s direction\n\n",
 		 __func__, DisplaceSignArray[(int)dispSign], DisplaceDirArray[(int)dispDir]);
   }
   else

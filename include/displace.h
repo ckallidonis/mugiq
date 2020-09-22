@@ -45,12 +45,6 @@ typedef enum DisplaceSign_s {
 } DisplaceSign;
 
 
-typedef enum DisplaceType_s {
-  InvalidDisplace = MUGIQ_INVALID_ENUM,
-  CovDisplace = 0
-} DisplaceType;
-
-
 template <typename T>
 class Displace {
 
@@ -80,7 +74,7 @@ private:
   cudaGaugeField *gaugeField; 
 
   //- Auxilliary color-spinor-field used for displacements
-  ColorSpinorField *displacedVec;
+  ColorSpinorField *auxDispVec;
 
   //- This prevents redundant halo exchange (as set in QUDA)
   static const MuGiqBool redundantComms = MUGIQ_BOOL_FALSE;
@@ -116,6 +110,15 @@ private:
    */
   DisplaceSign WhichDisplaceSign();
 
+  /** @brief Reset the displaced Vector to the original, un-displaced eigenvector
+   */
+  void resetDisplacedVec(ColorSpinorField *fineEvec);
+
+  
+  /** @brief Perform the displacement
+   */
+  void doDisplacement(DisplaceType dispType, ColorSpinorField *displacedEvec, int idisp);
+  
   
 
   
