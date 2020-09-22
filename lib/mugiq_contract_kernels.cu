@@ -78,7 +78,7 @@ __global__ void loopContract_kernel(complex<Float> *loopData, LoopContractArg<Fl
   //- In this notation the indices in GAMMA_MAT_IDX(i1, i2) are as:
   //- the first  index corresponds to the left  vector, i1 <-> be
   //- the second index corresponds to the right vector, i2 <-> al
-  resG[GAMMA_MAT_IDX(al, be)] = 0.;
+  resG[GAMMA_MAT_IDX(be, al)] = 0.;
   for (int kc=0;kc<N_COLOR_;kc++)
     resG[GAMMA_MAT_IDX(be, al)] += conj(vL[SPINOR_SITE_IDX(be,kc)]) * vR[SPINOR_SITE_IDX(al,kc)];    
 
