@@ -41,6 +41,12 @@ extern "C" {
      LOOP_CALC_TYPE_INVALID = MUGIQ_INVALID_ENUM
     } LoopCalcType;
 
+  typedef enum DisplaceType_s
+    {
+     DISPLACE_TYPE_COVARIANT = 0,      //- Perform a Covariant displacement
+     DISPLACE_TYPE_INVALID = MUGIQ_INVALID_ENUM
+    } DisplaceType;
+ 
   typedef enum MuGiqBool_s
     { MUGIQ_BOOL_FALSE   = 0,
       MUGIQ_BOOL_TRUE    = 1,     
