@@ -9,11 +9,12 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   displace(nullptr),
   eigsolve(eigsolve_),
   dataPos_d(nullptr),
-  dataPos_h(nullptr),
+  dataPosMP_d(nullptr),
   dataMom_d(nullptr),
+  dataPos_h(nullptr),
   dataMom_h(nullptr),
-  dataMom_gs(nullptr),
   dataMom(nullptr),
+  dataMom_bcast(nullptr),
   nElemMomTot(0),
   nElemMomLoc(0)
 {
@@ -61,13 +62,13 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
   
   if(cPrm->doMomProj){
     //- Allocate host data buffers
-    dataMom    = static_cast<complex<Float>*>(calloc(nElemMomTot, SizeCplxFloat));
-    dataMom_gs = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
-    dataMom_h  = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
+    dataMom_bcast = static_cast<complex<Float>*>(calloc(nElemMomTot, SizeCplxFloat));
+    dataMom_h     = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
+    dataMom       = static_cast<complex<Float>*>(calloc(nElemMomLoc, SizeCplxFloat));
     
-    if(dataMom    == NULL) errorQuda("%s: Could not allocate buffer: dataMom\n", __func__);
-    if(dataMom_gs == NULL) errorQuda("%s: Could not allocate buffer: dataMom_gs\n", __func__);
-    if(dataMom_h  == NULL) errorQuda("%s: Could not allocate buffer: dataMom_h\n", __func__);
+    if(dataMom_bcast == NULL) errorQuda("%s: Could not allocate buffer: dataMom_bcast\n", __func__);
+    if(dataMom_h     == NULL) errorQuda("%s: Could not allocate buffer: dataMom_h\n", __func__);
+    if(dataMom       == NULL) errorQuda("%s: Could not allocate buffer: dataMom\n", __func__);
   }
   else{
     dataPos_h = static_cast<complex<Float>*>(calloc(nElemPosLoc, SizeCplxFloat));
@@ -131,17 +132,17 @@ void Loop_Mugiq<Float>::freeDataMemory(){
   printMemoryInfo();
 
   
-  if(dataMom){
-    free(dataMom);
-    dataMom = nullptr;
-  }
-  if(dataMom_gs){
-    free(dataMom_gs);
-    dataMom_gs = nullptr;
+  if(dataMom_bcast){
+    free(dataMom_bcast);
+    dataMom_bcast = nullptr;
   }
   if(dataMom_h){
     free(dataMom_h);
     dataMom_h = nullptr;
+  }
+  if(dataMom){
+    free(dataMom);
+    dataMom = nullptr;
   }
   if(dataPos_h){
     free(dataPos_h);
@@ -229,7 +230,7 @@ void Loop_Mugiq<Float>::printData_ASCII(){
       for(int it=0;it<cPrm->totT;it++){
 	//- FIXME: Check if loop Index is correct
 	int loopIdx = id + cPrm->nData*it + cPrm->nData*cPrm->totT*im;
-	printfQuda("%d %+.8e %+.8e\n", it, dataMom[loopIdx].real(), dataMom[loopIdx].imag());
+	printfQuda("%d %+.8e %+.8e\n", it, dataMom_bcast[loopIdx].real(), dataMom_bcast[loopIdx].imag());
       }
     }
   }
@@ -345,11 +346,14 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
    * (In the case where only the time-direction is partitioned, MPI_Reduce is essentially a memcpy).
    *
    * Then a Gathering is required, in order to put the global result from each of the "time" processes
-   * into the final buffer (dataMom). This gathering must take place only across the "time" processes,
+   * into the final buffer (dataMom_bcast). This gathering must take place only across the "time" processes,
    * therefore another communicator involving only these processes must be created (COMM_TIME).
    * Finally, we need to Broadcast the final result to ALL processes, such that it is accessible to all of them.
    *
-   * The final buffer follows order Mom-inside-Gamma-inside-T: im + Nmom*ig + Nmom*nData*t
+   * The final buffer follows order Mom-inside-Gamma-inside-nLoops-inside-T:
+   *              im + Nmom*ig + Nmom*nGamma*iL + Nmom*nGamma*nLoops*t = im + Nmom*id + Nmom*nData*t, where
+   *    id = ig + nGamma*iL
+   *    nData = nGamma*nLoops
    */
 
   MPI_Datatype dataTypeMPI;
@@ -379,15 +383,15 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   MPI_Comm_size(COMM_TIME,&time_size);
 
   
-  MPI_Reduce(dataMom_h, dataMom_gs, Nmom*nData*locT, dataTypeMPI, MPI_SUM, 0, COMM_SPACE);
+  MPI_Reduce(dataMom_h, dataMom, Nmom*nData*locT, dataTypeMPI, MPI_SUM, 0, COMM_SPACE);
 
   
-  MPI_Gather(dataMom_gs, Nmom*nData*locT, dataTypeMPI,
-             dataMom   , Nmom*nData*locT, dataTypeMPI,
+  MPI_Gather(dataMom      , Nmom*nData*locT, dataTypeMPI,
+             dataMom_bcast, Nmom*nData*locT, dataTypeMPI,
              0, COMM_TIME);
 
   
-  MPI_Bcast(dataMom, Nmom*nData*totT, dataTypeMPI, 0, MPI_COMM_WORLD);
+  MPI_Bcast(dataMom_bcast, Nmom*nData*totT, dataTypeMPI, 0, MPI_COMM_WORLD);
 
   
   //-- cleanup & return
