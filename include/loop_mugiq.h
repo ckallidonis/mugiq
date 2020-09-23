@@ -255,12 +255,12 @@ void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL,
 
 
 
-/** @brief Convert buffer index order from QUDA-Even/Odd (xyzt-inside-Gamma) to full lexicographic as
- * v3 + locV3*Ngamma + locV3*Ngamma*t
+/** @brief Convert buffer index order from QUDA-Even/Odd (xyzt-inside-Gamma-inside-nLoop) to full lexicographic as
+ * v3 + locV3*g + locV3*Ngamma*l+locV3+Ngamma*nLoop*tt
  */
 template <typename Float>
 void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
-			      int Ndata, int nParity, int volumeCB, const int localL[]);
+			      int nData, int nLoop, int nParity, int volumeCB, const int localL[]);
 
 
 

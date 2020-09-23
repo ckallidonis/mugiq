@@ -188,7 +188,8 @@ struct LoopContractArg : public ArgGeom {
 struct ConvertIdxArg{
   
   const int tAxis = T_AXIS_;    // direction of the time-axis
-  const int Ndata;              // Number of fields in correlator to be used in momentum projection (destination)
+  const int nData;              // Number of total data = nLoop * N_GAMMA
+  const int nLoop;              // Number of loops in the input/output buffers
   const int nParity;            // number of parities we're working on
   const int volumeCB;           // checkerboarded volume
   const int localL[4];          // 4-d local lattice dimensions
@@ -196,8 +197,8 @@ struct ConvertIdxArg{
   int stride_3d[4];             // stride in spatial volume
   int locV3;                    // spatial volume
   
-  ConvertIdxArg(int Ndata_, int nParity_, int volumeCB_, const int localL_[])
-    : Ndata(Ndata_), nParity(nParity_), volumeCB(volumeCB_),
+  ConvertIdxArg(int nData_, int nLoop_, int nParity_, int volumeCB_, const int localL_[])
+    : nData(nData_), nLoop(nLoop_), nParity(nParity_), volumeCB(volumeCB_),
       localL{localL_[0], localL_[1], localL_[2], localL_[3]},
       stride_3d{0,0,0,0}, locV3(0)
   {

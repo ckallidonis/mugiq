@@ -284,17 +284,22 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   const int locT  = cPrm->locT;
   const int totT  = cPrm->totT;
   const int Nmom  = cPrm->Nmom;
+  const int nLoop = cPrm->nLoop;
   const int nData = cPrm->nData;
-
+  
+  //-Some checks
+  if(nData != nLoop*N_GAMMA_) errorQuda("%s: This function assumes that nData = nLoop * NGamma\n", __func__);
+  
   //- Convert indices from volume4d-inside-gamma to volumeXYZ-inside-gamma-inside-time
-  //  convertIdxOrderToMomProj<Float>(dataPosMP_d, dataPos_d, cPrm->nData, cPrm->nParity, cPrm->volumeCB, cPrm->localL);
+  convertIdxOrderToMomProj<Float>(dataPosMP_d, dataPos_d,
+				  cPrm->nData, cPrm->nLoop, cPrm->nParity, cPrm->volumeCB, cPrm->localL);
   
   /** Perform momentum projection
    *-----------------------------
    * Matrix Multiplication Out = PH^T * In.
    *  phaseMatrix_dev=(locV3,Nmom) is the phase matrix in column-major format, its transpose is used for multiplication
-   *  dataPosMP_d = (locV3,NGamma*locT) is the device input loop-trace matrix with shuffled(converted) indices
-   *  dataMom_d = (Nmom,NGamma*locT) is the output matrix in column-major format (device)
+   *  dataPosMP_d = (locV3,nData*locT) is the device input loop-trace matrix with shuffled(converted) indices
+   *  dataMom_d = (Nmom,nData*locT) is the output matrix in column-major format (device)
    */  
     
   cublasHandle_t handle;
@@ -461,27 +466,19 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 
     } //- Eigenvectors
 
-    if(cPrm->doMomProj){
-      //      performMomentumProjection();
-      if(cPrm->doNonLocal && (id != -1))
-	printfQuda("%s: Momentum projection for displacement entry %s completed\n", __func__, dispEntry_c);
-      else
-	printfQuda("%s: Momentum projection for Ultra-local completed\n", __func__);
-    }
-    else{
-      cudaMemcpy(dataPos_h, dataPos_d, SizeCplxFloat*nElemPosLoc, cudaMemcpyDeviceToHost);
-      cudaDeviceSynchronize();
-      checkCudaError();
-    }
-
     if(dispEntry_c) free(dispEntry_c);
   }//- Loop over displace entries
 
-
-
-
   
-
+  if(cPrm->doMomProj){
+    performMomentumProjection();
+    printfQuda("\n%s: Momentum projection for all loops completed\n\n", __func__);
+  }
+  else{
+    cudaMemcpy(dataPos_h, dataPos_d, SizeCplxFloat*nElemPosLoc, cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
+    checkCudaError();
+  }
   
   delete fineEvecL;
   delete fineEvecR;
