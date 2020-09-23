@@ -23,7 +23,8 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   
   cPrm = new LoopComputeParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);
   if(cPrm->doNonLocal) displace = new Displace<Float>(loopParams_,
-						      eigsolve->mg_env->mg_solver->B[0], eigsolve->eVecs[0]->Precision());
+						      eigsolve->mg_env->mg_solver->B[0],
+						      eigsolve->eVecs[0]->Precision());
 
   allocateDataMemory();
   copyGammaToConstMem();
@@ -412,7 +413,9 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 
   //- Create a fine field, this will hold the prolongated version of each eigenvector
   ColorSpinorParam csParam(*(eigsolve->mg_env->mg_solver->B[0]));
-  printfQuda("%s: Field location: %s\n", __func__, eigsolve->mg_env->mg_solver->B[0]->Location() == 1 ? "CPU" : "GPU");
+  printfQuda("%s: Field location (field,param): (%s,%s)\n", __func__,
+	     eigsolve->mg_env->mg_solver->B[0]->Location() == 1 ? "CPU" : "GPU",
+	     csParam.location == 1 ? "CPU" : "GPU");
   QudaPrecision coarsePrec = eigsolve->eVecs[0]->Precision();
   csParam.create = QUDA_ZERO_FIELD_CREATE;
   csParam.setPrecision(coarsePrec);
@@ -453,7 +456,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 	displace->resetDisplacedVec(fineEvecL); //- reset consecutively displaced vector to the original eigenvector[n]
 	int dispCount = 0;
 	for(int idisp=1;idisp<=cPrm->dispStop.at(id);idisp++){
-	  displace->doDisplacement(DISPLACE_TYPE_COVARIANT, fineEvecR, idisp);
+	  displace->doVectorDisplacement(DISPLACE_TYPE_COVARIANT, fineEvecR, idisp);
 	  if(idisp >= cPrm->dispStart.at(id) && idisp <= cPrm->dispStop.at(id)){
 	    long long dispOffset = nElemPosLocPerLoop*dispCount;
 	    performLoopContraction<Float>(&dataPos_d[bufOffset+dispOffset], fineEvecL, fineEvecR, sigma);
