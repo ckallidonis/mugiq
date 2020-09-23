@@ -39,13 +39,24 @@ void Displace<T>::resetDisplacedVec(ColorSpinorField *fineEvec){
 
 
 template <typename T>
-void Displace<T>::doDisplacement(DisplaceType dispType, ColorSpinorField *displacedEvec, int idisp){
+void Displace<T>::swapAuxDispVector(ColorSpinorField *displacedEvec){
+  ColorSpinorField *tmp = displacedEvec;
+  *displacedEvec = *auxDispVec;
+  *auxDispVec = *tmp;
+}
+
+
+template <typename T>
+void Displace<T>::doVectorDisplacement(DisplaceType dispType, ColorSpinorField *displacedEvec, int idisp){
 
   if(dispType == DISPLACE_TYPE_COVARIANT){
-    //    performCovariantDisplacement(displacedEvec);
+    performCovariantDisplacementVector<T>(auxDispVec, displacedEvec, gaugeField, dispDir, dispSign);
+    swapAuxDispVector(displacedEvec);
     printfQuda("%s: Step-%02d of a Covariant displacement done\n", __func__, idisp);
   }
-
+  else{
+    errorQuda("Unsupported Displacement type %d", static_cast<int>(dispType));
+  }
 }
 
 
