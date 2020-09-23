@@ -96,15 +96,12 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
     cudaMalloc((void**)&(dataPosMP_d), SizeCplxFloat*nElemPosLoc);
     checkCudaError();
     cudaMemset(dataPosMP_d, 0, SizeCplxFloat*nElemPosLoc);
-    
   }
 
   printfQuda("%s: Memory report after Allocations", __func__);
   printMemoryInfo();
 
   printfQuda("%s: Device buffers allocated\n", __func__);
-  //------------------------------
-  
 }
 
 
@@ -444,15 +441,15 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       else *fineEvecL = *(eigsolve->eVecs[n]);
 
       if( cPrm->doNonLocal && (id != -1) ){
-	//-Perform Displacements
-	displace->resetDisplacedVec(fineEvecL); //- reset consecutively displaced vector to the original vector
-	int dispOffset = 0;
+	displace->resetDisplacedVec(fineEvecL); //- reset consecutively displaced vector to the original eigenvector[n]
+	int dispCount = 0;
 	for(int idisp=1;idisp<=cPrm->dispStop.at(id);idisp++){
 	  displace->doDisplacement(DISPLACE_TYPE_COVARIANT, fineEvecR, idisp);
 	  if(idisp >= cPrm->dispStart.at(id) && idisp <= cPrm->dispStop.at(id)){
+	    long long dispOffset = nElemPosLocPerLoop*dispCount;
 	    performLoopContraction<Float>(&dataPos_d[bufOffset+dispOffset], fineEvecL, fineEvecR, sigma);
 	    printfQuda("%s: EV[%04d] Loop trace for displacement = %02d completed\n", __func__, n, idisp);
-	    dispOffset++;
+	    dispCount++;
 	  }
 	}//-for displacement
       }
@@ -463,9 +460,9 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       }
 
     } //- Eigenvectors
-    /*    
+
     if(cPrm->doMomProj){
-      performMomentumProjection();
+      //      performMomentumProjection();
       if(cPrm->doNonLocal && (id != -1))
 	printfQuda("%s: Momentum projection for displacement entry %s completed\n", __func__, dispEntry_c);
       else
@@ -476,7 +473,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       cudaDeviceSynchronize();
       checkCudaError();
     }
-    */
+
     if(dispEntry_c) free(dispEntry_c);
   }//- Loop over displace entries
 
