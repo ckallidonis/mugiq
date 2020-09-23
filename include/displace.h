@@ -9,41 +9,6 @@
 
 using namespace quda;
 
-#define N_DISPLACE_FLAGS 8
-#define N_DISPLACE_TYPES 1
-#define N_DISPLACE_SIGNS 2
-
-
-//- Some enums about the Displacements
-
-typedef enum DisplaceFlag_s {
-  DispFlagNone = MUGIQ_INVALID_ENUM,
-  DispFlag_X = 0,  // +x
-  DispFlag_x = 1,  // -x
-  DispFlag_Y = 2,  // +y
-  DispFlag_y = 3,  // -y
-  DispFlag_Z = 4,  // +z
-  DispFlag_z = 5,  // -z
-  DispFlag_T = 6,  // +t
-  DispFlag_t = 7,  // -t
-} DisplaceFlag;
-
-
-typedef enum DisplaceDir_s {
-  DispDirNone = MUGIQ_INVALID_ENUM,
-  DispDir_x = 0,
-  DispDir_y = 1,
-  DispDir_z = 2,
-  DispDir_t = 3
-} DisplaceDir;
-
-
-typedef enum DisplaceSign_s {
-  DispSignNone  = MUGIQ_INVALID_ENUM,
-  DispSignMinus =  0,
-  DispSignPlus  =  1
-} DisplaceSign;
-
 
 template <typename T>
 class Displace {
@@ -117,8 +82,12 @@ private:
   
   /** @brief Perform the displacement
    */
-  void doDisplacement(DisplaceType dispType, ColorSpinorField *displacedEvec, int idisp);
-  
+  void doVectorDisplacement(DisplaceType dispType, ColorSpinorField *displacedEvec, int idisp);
+
+  /** @brief Swap the auxilliary displaced vector with the output displaced vector
+   */
+  void swapAuxDispVector(ColorSpinorField *displacedEvec);
+
   
 
   
@@ -131,6 +100,14 @@ public:
 };
 
 
+/****************************************************************/
+//- Forward declarations of functions called within Displace class
 
+
+/** @brief Perform a covariant displacement of the form dst(x) = U_d(x)*src(x+d) - src(x)
+ */
+template <typename Float>
+void performCovariantDisplacementVector(ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
+					DisplaceDir dispDir, DisplaceSign dispSign);
 
 #endif // _DISPLACE_H

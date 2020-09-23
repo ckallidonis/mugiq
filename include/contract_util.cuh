@@ -223,5 +223,24 @@ struct ConvertIdxArg{
 
 
 
+template <typename Float>
+struct CovDispVecArg : public ArgGeom {
+
+  typename FieldMapper<Float>::FermionField dst;
+  typename FieldMapper<Float>::FermionField src;
+  typename FieldMapper<Float>::GaugeField U;
+  
+  MuGiqBool extendedGauge;
+  
+  CovDispVecArg(ColorSpinorField *dst_, ColorSpinorField *src_, cudaGaugeField *U_)
+    : ArgGeom(U_),
+      dst(*dst_), src(*src_), U(*U_),
+      extendedGauge((U_->GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED) ? MUGIQ_BOOL_TRUE : MUGIQ_BOOL_FALSE)
+  { }
+
+  ~CovDispVecArg() {}
+};
+
+
 
 #endif // _CONTRACT_UTIL_CUH
