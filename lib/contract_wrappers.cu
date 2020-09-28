@@ -1,5 +1,6 @@
 #include <mugiq_util_kernels.cuh>
 #include <mugiq_contract_kernels.cuh>
+#include <mugiq_displace_kernels.cuh>
 
 template <typename Float>
 void copyGammaCoeffStructToSymbol(){
@@ -149,7 +150,7 @@ void performCovariantDisplacementVector(ColorSpinorField *dst, ColorSpinorField 
   dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, 1);
   dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);
 
-  //covariantDisplacementVector_kernel<<<gridDim,blockDim>>>(arg_d, shfDir, shfSgn);
+  covariantDisplacementVector_kernel<Float><<<gridDim,blockDim>>>(arg_d, dispDir, dispSign);
   cudaDeviceSynchronize();
   checkCudaError();
 
