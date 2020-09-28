@@ -453,7 +453,8 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       else *fineEvecL = *(eigsolve->eVecs[n]);
 
       if( cPrm->doNonLocal && (id != -1) ){
-	displace->resetDisplacedVec(fineEvecL); //- reset consecutively displaced vector to the original eigenvector[n]
+	//	displace->resetDispVec(fineEvecL); //- reset consecutively displaced vector to the original eigenvector[n]
+	*fineEvecR = *fineEvecL; //- reset right vector to the original, un-displaced eigenvector
 	int dispCount = 0;
 	for(int idisp=1;idisp<=cPrm->dispStop.at(id);idisp++){
 	  displace->doVectorDisplacement(DISPLACE_TYPE_COVARIANT, fineEvecR, idisp);
