@@ -11,13 +11,15 @@
 #include <enum_mugiq.h>
 
 #include <vector>
+#include <string>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-
-#define MAX_PATH_LEN_ 4096
+  //- Allow five entries on average for each of the eight displace directions, +x,-x,+y,-y,+z,-z,+t,-t
+  //- Should be more than enough
+  //#define MAX_DISPLACE_ENTRIES 40
   
   /* Structure that holds parameters related to the calculation of
    * disconnected quark loops.
@@ -32,7 +34,10 @@ extern "C" {
     MuGiqBool printASCII;
     MuGiqBool doMomProj;
     MuGiqBool doNonLocal;
-    char pathString[MAX_PATH_LEN_];
+    std::vector<std::string> disp_entry;
+    std::vector<std::string> disp_str;
+    std::vector<int> disp_start;
+    std::vector<int> disp_stop;
     void *gauge[4];
     QudaGaugeParam *gauge_param;
     

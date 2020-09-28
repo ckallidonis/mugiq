@@ -20,22 +20,37 @@ __constant__ char cGamma[cSize]; // constant buffer for gamma matrices on GPU
 template <typename T> struct FieldMapper {};
 
 template <> struct FieldMapper<double> {
-  typedef typename colorspinor_mapper<double, N_SPIN_, N_COLOR_>::type FermionField;
-  typedef ColorSpinor<double, N_SPIN_, N_COLOR_> Vector;
+  typedef typename colorspinor_mapper<double, N_SPIN_, N_COLOR_>::type F;
+  typedef ColorSpinor<double, N_COLOR_, N_SPIN_> V;
 
-  typedef typename gauge_mapper<double, QUDA_RECONSTRUCT_NO>::type GaugeField;
-  typedef Matrix<complex<double>, N_COLOR_> Link;
+  typedef typename gauge_mapper<double, QUDA_RECONSTRUCT_NO>::type U;
+  typedef Matrix<complex<double>, N_COLOR_> M;
 };
 
 template <> struct FieldMapper<float> {
-  typedef typename colorspinor_mapper<float, N_SPIN_, N_COLOR_>::type FermionField;
-  typedef ColorSpinor<float, N_SPIN_, N_COLOR_> Vector;
+  typedef typename colorspinor_mapper<float, N_SPIN_, N_COLOR_>::type F;
+  typedef ColorSpinor<float, N_COLOR_, N_SPIN_> V;
 
-  typedef typename gauge_mapper<float, QUDA_RECONSTRUCT_NO>::type GaugeField;
-  typedef Matrix<complex<float>, N_COLOR_> Link;
+  typedef typename gauge_mapper<float, QUDA_RECONSTRUCT_NO>::type U;
+  typedef Matrix<complex<float>, N_COLOR_> M;
 };
 
 
+//-alias for the Fermion field type
+template <typename Float>
+using Fermion = typename FieldMapper<Float>::F;
+
+//-alias for the Gauge field type
+template <typename Float>
+using Gauge = typename FieldMapper<Float>::U;
+
+//-alias for the Vector type
+template <typename Float>
+using Vector = typename FieldMapper<Float>::V;
+
+//-alias for the Link type
+template <typename Float>
+using Link = typename FieldMapper<Float>::M;
 
 
 /**
@@ -172,8 +187,8 @@ struct ArgGeom {
 template <typename Float>
 struct LoopContractArg : public ArgGeom {
 
-  typename FieldMapper<Float>::FermionField eVecL; //- Left  eigenvector in trace
-  typename FieldMapper<Float>::FermionField eVecR; //- Right eigenvector in trace
+  Fermion<Float> eVecL; //- Left  eigenvector in trace
+  Fermion<Float> eVecR; //- Right eigenvector in trace
 
   Float inv_sigma; //- The inverse(!) of the eigenvalue corresponding to eVecL and eVecR
   
@@ -188,7 +203,8 @@ struct LoopContractArg : public ArgGeom {
 struct ConvertIdxArg{
   
   const int tAxis = T_AXIS_;    // direction of the time-axis
-  const int Ndata;              // Number of fields in correlator to be used in momentum projection (destination)
+  const int nData;              // Number of total data = nLoop * N_GAMMA
+  const int nLoop;              // Number of loops in the input/output buffers
   const int nParity;            // number of parities we're working on
   const int volumeCB;           // checkerboarded volume
   const int localL[4];          // 4-d local lattice dimensions
@@ -196,8 +212,8 @@ struct ConvertIdxArg{
   int stride_3d[4];             // stride in spatial volume
   int locV3;                    // spatial volume
   
-  ConvertIdxArg(int Ndata_, int nParity_, int volumeCB_, const int localL_[])
-    : Ndata(Ndata_), nParity(nParity_), volumeCB(volumeCB_),
+  ConvertIdxArg(int nData_, int nLoop_, int nParity_, int volumeCB_, const int localL_[])
+    : nData(nData_), nLoop(nLoop_), nParity(nParity_), volumeCB(volumeCB_),
       localL{localL_[0], localL_[1], localL_[2], localL_[3]},
       stride_3d{0,0,0,0}, locV3(0)
   {
@@ -220,6 +236,25 @@ struct ConvertIdxArg{
   
 };//-- Structure definition
 
+
+
+template <typename Float>
+struct CovDispVecArg : public ArgGeom {
+
+  Fermion<Float> dst;
+  Fermion<Float> src;
+  Gauge<Float> U;
+  
+  MuGiqBool extendedGauge;
+  
+  CovDispVecArg(ColorSpinorField *dst_, ColorSpinorField *src_, cudaGaugeField *U_)
+    : ArgGeom(U_),
+      dst(*dst_), src(*src_), U(*U_),
+      extendedGauge((U_->GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED) ? MUGIQ_BOOL_TRUE : MUGIQ_BOOL_FALSE)
+  { }
+
+  ~CovDispVecArg() {}
+};
 
 
 

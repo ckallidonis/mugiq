@@ -1,5 +1,6 @@
 #include <mugiq_util_kernels.cuh>
 #include <mugiq_contract_kernels.cuh>
+#include <mugiq_displace_kernels.cuh>
 
 template <typename Float>
 void copyGammaCoeffStructToSymbol(){
@@ -47,7 +48,7 @@ void createPhaseMatrixGPU(complex<Float> *phaseMatrix_d, const int* momMatrix_h,
 
   cudaFree(momMatrix_d);
   cudaFree(arg_d);
-  
+  arg_d = nullptr;
 }
 
 template void createPhaseMatrixGPU<float>(complex<float> *phaseMatrix_d, const int* momMatrix_h,
@@ -82,9 +83,9 @@ void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL,
   cudaDeviceSynchronize();
   checkCudaError();
   
-  cudaFree(arg_d);  
+  cudaFree(arg_d);
+  arg_d = nullptr;
 }
-
 
 template void performLoopContraction<float> (complex<float>  *loopData_d,
 					     ColorSpinorField *evecL, ColorSpinorField *evecR, float sigma);
@@ -93,19 +94,21 @@ template void performLoopContraction<double>(complex<double> *loopData_d,
 //----------------------------------------------------------------------------
 
 
-
 template <typename Float>
 void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
-                              int Ndata, int nParity, int volumeCB, const int localL[]){
+			      int nData, int nLoop, int nParity, int volumeCB, const int localL[]){
 
-  ConvertIdxArg arg(Ndata, nParity, volumeCB, localL);
+  //-Some checks
+  if(nData != nLoop*N_GAMMA_) errorQuda("%s: This function assumes that nData = nLoop * NGamma\n", __func__);
+
+  ConvertIdxArg arg(nData, nLoop, nParity, volumeCB, localL);
   ConvertIdxArg *arg_d;
   cudaMalloc((void**)&(arg_d), sizeof(arg) );
   checkCudaError();
   cudaMemcpy(arg_d, &arg, sizeof(arg), cudaMemcpyHostToDevice);
   checkCudaError();
   
-  dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, Ndata);
+  dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, N_GAMMA_);
   dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);
   
   convertIdxMomProj_kernel<Float><<<gridDim,blockDim>>>(dataPosMP_d, dataPos_d, arg_d);
@@ -113,13 +116,51 @@ void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> 
   checkCudaError();
 
   cudaFree(arg_d);
-  arg_d = NULL;
+  arg_d = nullptr;
+}
 
+template void convertIdxOrderToMomProj<float> (complex<float> *dataPosMP_d, const complex<float> *dataPos_d,
+					       int nData, int nLoop, int nParity, int volumeCB, const int localL[]);
+template void convertIdxOrderToMomProj<double>(complex<double> *dataPosMP_d, const complex<double> *dataPos_d,
+					       int nData, int nLoop, int nParity, int volumeCB, const int localL[]);
+//----------------------------------------------------------------------------
+
+
+//-Helper function for exchanging ghosts (boundaries)
+void exchangeGhostVec(ColorSpinorField *x){
+  const int nFace  = 1;
+  x->exchangeGhost((QudaParity)(1), nFace, 0); //- first argument is redundant when nParity = 2. nFace MUST be 1 for now.
+}
+
+template <typename Float>
+void performCovariantDisplacementVector(ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
+					DisplaceDir dispDir, DisplaceSign dispSign){
+
+  exchangeGhostVec(src);
+
+  CovDispVecArg<Float> arg(dst, src, gauge);
+  CovDispVecArg<Float> *arg_d;
+  cudaMalloc((void**)&(arg_d), sizeof(arg));
+  checkCudaError();
+  cudaMemcpy(arg_d, &arg, sizeof(arg), cudaMemcpyHostToDevice);
+  checkCudaError();
+
+  if(arg.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
+
+  dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, 1);
+  dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);
+
+  covariantDisplacementVector_kernel<Float><<<gridDim,blockDim>>>(arg_d, dispDir, dispSign);
+  cudaDeviceSynchronize();
+  checkCudaError();
+
+  cudaFree(arg_d);
+  arg_d = nullptr;
 }
 
 
-template void convertIdxOrderToMomProj<float> (complex<float> *dataPosMP_d, const complex<float> *dataPos_d,
-					       int Ndata, int nParity, int volumeCB, const int localL[]);
-template void convertIdxOrderToMomProj<double>(complex<double> *dataPosMP_d, const complex<double> *dataPos_d,
-					       int Ndata, int nParity, int volumeCB, const int localL[]);
+template void performCovariantDisplacementVector<float> (ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
+							 DisplaceDir dispDir, DisplaceSign dispSign);
+template void performCovariantDisplacementVector<double>(ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
+							 DisplaceDir dispDir, DisplaceSign dispSign);
 //----------------------------------------------------------------------------

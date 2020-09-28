@@ -12,6 +12,7 @@
 void add_eigen_option_mugiq(std::shared_ptr<QUDAApp> app);
 void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app);
 
+
 //- External variables used in tests
 extern MuGiqTask mugiq_task;
 extern MuGiqBool mugiq_use_mg;
@@ -23,7 +24,9 @@ extern MuGiqBool loop_print_ascii;
 extern MuGiqBool loop_doMomProj;
 extern MuGiqBool loop_doNonLocal;
 extern char loop_gauge_filename[1024];
-extern char loop_path_string[MAX_PATH_LEN_];
+extern std::string disp_entry_string;
+
+
 
 /*
 class MUGIQApp : public CLI::App

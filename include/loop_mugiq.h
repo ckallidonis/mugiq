@@ -4,7 +4,7 @@
 #include <mugiq.h>
 #include <eigsolve_mugiq.h>
 #include <util_mugiq.h>
-#include <disp_state.h>
+#include <displace.h>
 
 using namespace quda;
 
@@ -17,26 +17,30 @@ private:
   
   LoopComputeParam *cPrm; // Loop computation Parameter structure
 
-  LoopDispState<Float> *dSt;  // structure holding the state of displacements
+  Displace<Float> *displace;  // structure holding the displacements
   
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
 
   //- Data buffers
-  complex<Float> *dataPos_d = nullptr;   // Device Position space correlator (local)
-  complex<Float> *dataPosMP_d = nullptr; // Device Position space correlator (local), with changed index order for Mom. projection 
-  complex<Float> *dataPos_h = nullptr;   // Host Position space correlator (local)
-  complex<Float> *dataMom_d = nullptr;   // Device output buffer of cuBlas (local)
-  complex<Float> *dataMom_h = nullptr;   // Host output of cuBlas momentum projection (local)
-  complex<Float> *dataMom_gs = nullptr;  // Host Globally summed momentum projection buffer (local)
-  complex<Float> *dataMom = nullptr;     // Host Final result (global summed, gathered) of momentum projection
+  complex<Float> *dataPos_d = nullptr;      // Device Position space correlator (local)
+  complex<Float> *dataPosMP_d = nullptr;    // Device Position space correlator (local), with changed index order for Mom. projection 
+  complex<Float> *dataMom_d = nullptr;      // Device output buffer of cuBlas (local)
+  complex<Float> *dataPos_h = nullptr;      // Host Position space correlator (local)
+  complex<Float> *dataMom_h = nullptr;      // Host output of cuBlas momentum projection (local)
+  complex<Float> *dataMom   = nullptr;      // Host Globally summed momentum projection buffer (local)
+  complex<Float> *dataMom_bcast = nullptr;  // Host Final result (global summed, gathered, broadcasted) of momentum projection
 
   complex<Float> *phaseMatrix_d;  // Device buffer of the phase matrix
   
   const size_t SizeCplxFloat = sizeof(complex<Float>);
+
+  long long nElemMomTotPerLoop; // Number of elements in global momentum-space data buffers, per loop
+  long long nElemMomLocPerLoop; // Number of elements in local  momentum-space data buffers, per loop
+  long long nElemPosLocPerLoop; // Number of elements in local  position-space data buffers, per loop
   
-  long long nElemMomTot; // Number of elements in global momentum-space data buffers
-  long long nElemMomLoc; // Number of elements in local  momentum-space data buffers
-  long long nElemPosLoc; // Number of elements in local  position-space data buffers
+  long long nElemMomTot; // Total Number of elements in global momentum-space data buffers
+  long long nElemMomLoc; // Total Number of elements in local  momentum-space data buffers
+  long long nElemPosLoc; // Total Number of elements in local  position-space data buffers
   long long nElemPhMat;  // Number of elements in phase matrix
 
 
@@ -95,7 +99,7 @@ public:
 template <typename Float>
 struct Loop_Mugiq<Float>::LoopComputeParam {
 
-  const int Ndata = N_GAMMA_;   // Number of Gamma matrices (currents, =16)
+  const int nG = N_GAMMA_;   // Number of Gamma matrices (currents, =16)
   const int momDim = MOM_DIM_;  // Momenta dimensions (=3)
 
   int Nmom;                                 // Number of Momenta
@@ -120,10 +124,19 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
   long long totV3 = 1;          // global 3d volume (no time)
 
   LoopCalcType calcType; // Type of computation that will take place
-  
-  char pathString[MAX_PATH_LEN_];
-  int pathLen;
 
+
+  int nDispEntries;                     // Number of displacement entries
+  std::vector<std::string> dispEntry;   // The displacement entry, e.g. +z:1,8
+  std::vector<std::string> dispString;  // The displacement string, e.g. +z,-x, etc
+  std::vector<int> dispStart;           // Displacement start
+  std::vector<int> dispStop;            // Displacement stop
+  std::vector<int> nLoopPerEntry;       // Number of loop traces per displacement entry = dispStop - dispStart +1
+  std::vector<int> nLoopOffset;         // Number of loop traces up to given entry
+
+  int nLoop; // Total number of loop traces
+  int nData; // Total number of loop data (nLoop*Ngamma)
+  
   MuGiqBool init; // Whether the structure has been initialized
 
   
@@ -140,8 +153,8 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     locT(0), totT(0),
     locV4(1), locV3(1), totV3(1),
     calcType(loopParams->calcType),
-    pathString("\0"),
-    pathLen(0),
+    nDispEntries(0),
+    nLoop(0), nData(0),
     init(MUGIQ_BOOL_FALSE)
   {
     for(int i=0;i<N_DIM_;i++){
@@ -164,9 +177,42 @@ struct Loop_Mugiq<Float>::LoopComputeParam {
     }
     
     if(doNonLocal){
-      strcpy(pathString, loopParams->pathString);
-      pathLen = strlen(pathString);
+      nDispEntries = loopParams->disp_str.size();
+      if(nDispEntries != static_cast<int>(loopParams->disp_start.size()) ||
+	 nDispEntries != static_cast<int>(loopParams->disp_stop.size()))
+	errorQuda("Displacement string length not compatible with displacement limits length\n");
+
+      for(int id=0;id<nDispEntries;id++){
+	dispEntry.push_back(loopParams->disp_entry.at(id));
+	dispString.push_back(loopParams->disp_str.at(id));
+	dispStart.push_back(loopParams->disp_start.at(id));
+	dispStop.push_back(loopParams->disp_stop.at(id));
+
+	//-Some sanity checks
+	if(dispStart.at(id) > dispStop.at(id)){
+	  warningQuda("Stop length is smaller than Start length for displacement %d. Will switch lengths!\n", id);
+	  int s = dispStart.at(id);
+	  dispStart.at(id) = dispStop.at(id);
+	  dispStop.at(id) = s;
+	}
+
+	nLoopPerEntry.push_back(dispStop.at(id) - dispStart.at(id) + 1);	
+	nLoop += nLoopPerEntry.at(id);
+
+	int osum = 1; //-start with ultra-local
+	for(int is=0;is<id;is++)
+	  osum += nLoopPerEntry.at(is);
+	nLoopOffset.push_back(osum);
+	
+      } //- for disp entries
+      nLoop += 1; // Don't forget ultra-local case!!
     }
+    else{
+      nDispEntries = 0; //- only ultra-local
+      nLoop = 1;
+    }
+    nData = nLoop*nG;
+    
     printfQuda("%s: Loop compute parameters are set\n", __func__);
 
     init = MUGIQ_BOOL_TRUE;
@@ -209,12 +255,12 @@ void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL,
 
 
 
-/** @brief Convert buffer index order from QUDA-Even/Odd (xyzt-inside-Gamma) to full lexicographic as
- * v3 + locV3*Ngamma + locV3*Ngamma*t
+/** @brief Convert buffer index order from QUDA-Even/Odd (xyzt-inside-Gamma-inside-nLoop) to full lexicographic as
+ * v3 + locV3*g + locV3*Ngamma*l+locV3+Ngamma*nLoop*tt
  */
 template <typename Float>
 void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
-			      int Ndata, int nParity, int volumeCB, const int localL[]);
+			      int nData, int nLoop, int nParity, int volumeCB, const int localL[]);
 
 
 

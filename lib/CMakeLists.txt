@@ -8,7 +8,7 @@
 # CPP objects
 set(MUGIQ_CPP_OBJS
   # cmake-format: sortable
-  interface_mugiq.cpp disp_state.cpp loop_mugiq.cpp eigsolve_mugiq.cpp)
+  interface_mugiq.cpp displace.cpp loop_mugiq.cpp eigsolve_mugiq.cpp util_mugiq.cpp)
 # cmake-format: on
 
 #--------------------------------------------------------------
@@ -23,7 +23,7 @@ if(BUILD_MUGIQ_CUDA_LIB)
   # NVCC/CUDA objects
   set(MUGIQ_CUDA_OBJS 
   # cmake-format: sortable
-  contract_wrappers.cu mugiq_util_kernels.cu mugiq_contract_kernels.cu)
+  contract_wrappers.cu mugiq_util_kernels.cu mugiq_contract_kernels.cu mugiq_displace_kernels.cu)
 #    gamma.cu utility_kernels.cu loop_coarse.cu loop_coarse_ulocal.cu)
   # cmake-format: on
 

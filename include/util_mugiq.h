@@ -3,7 +3,6 @@
 
 #include <util_quda.h>
 #include <enum_mugiq.h>
-#include <complex_quda.h>
 
 #define PI 2.0*asin(1.0)
 
@@ -27,7 +26,21 @@
 #define SHMEM_BLOCK_Z_SIZE (N_GAMMA_)
 #define NELEM_SHMEM_CPLX_BUF (2*SPINOR_SITE_LEN_ + N_GAMMA_)
 
+//- Used in generic GPU kernels
 #define THREADS_PER_BLOCK 32
+
+
+//- Displacement-related macros
+#define N_DISPLACE_FLAGS 8
+#define N_DISPLACE_TYPES 1
+#define N_DISPLACE_SIGNS 2
+
+
+//- Memory info utiliry functions
+void printCPUMemInfo();
+void printGPUMemInfo();
+extern "C" void printMemoryInfo();
+
 
 /*
 #define checkErrorCudaNoSync() do {                      \
