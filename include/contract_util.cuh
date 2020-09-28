@@ -20,22 +20,37 @@ __constant__ char cGamma[cSize]; // constant buffer for gamma matrices on GPU
 template <typename T> struct FieldMapper {};
 
 template <> struct FieldMapper<double> {
-  typedef typename colorspinor_mapper<double, N_SPIN_, N_COLOR_>::type FermionField;
-  typedef ColorSpinor<double, N_SPIN_, N_COLOR_> Vector;
+  typedef typename colorspinor_mapper<double, N_SPIN_, N_COLOR_>::type F;
+  typedef ColorSpinor<double, N_SPIN_, N_COLOR_> V;
 
-  typedef typename gauge_mapper<double, QUDA_RECONSTRUCT_NO>::type GaugeField;
-  typedef Matrix<complex<double>, N_COLOR_> Link;
+  typedef typename gauge_mapper<double, QUDA_RECONSTRUCT_NO>::type U;
+  typedef Matrix<complex<double>, N_COLOR_> M;
 };
 
 template <> struct FieldMapper<float> {
-  typedef typename colorspinor_mapper<float, N_SPIN_, N_COLOR_>::type FermionField;
-  typedef ColorSpinor<float, N_SPIN_, N_COLOR_> Vector;
+  typedef typename colorspinor_mapper<float, N_SPIN_, N_COLOR_>::type F;
+  typedef ColorSpinor<float, N_SPIN_, N_COLOR_> V;
 
-  typedef typename gauge_mapper<float, QUDA_RECONSTRUCT_NO>::type GaugeField;
-  typedef Matrix<complex<float>, N_COLOR_> Link;
+  typedef typename gauge_mapper<float, QUDA_RECONSTRUCT_NO>::type U;
+  typedef Matrix<complex<float>, N_COLOR_> M;
 };
 
 
+//-alias for the Fermion field type
+template <typename Float>
+using Fermion = typename FieldMapper<Float>::F;
+
+//-alias for the Gauge field type
+template <typename Float>
+using Gauge = typename FieldMapper<Float>::U;
+
+//-alias for the Vector type
+template <typename Float>
+using Vector = typename FieldMapper<Float>::V;
+
+//-alias for the Link type
+template <typename Float>
+using Link = typename FieldMapper<Float>::M;
 
 
 /**
@@ -172,8 +187,8 @@ struct ArgGeom {
 template <typename Float>
 struct LoopContractArg : public ArgGeom {
 
-  typename FieldMapper<Float>::FermionField eVecL; //- Left  eigenvector in trace
-  typename FieldMapper<Float>::FermionField eVecR; //- Right eigenvector in trace
+  Fermion<Float> eVecL; //- Left  eigenvector in trace
+  Fermion<Float> eVecR; //- Right eigenvector in trace
 
   Float inv_sigma; //- The inverse(!) of the eigenvalue corresponding to eVecL and eVecR
   
@@ -226,9 +241,9 @@ struct ConvertIdxArg{
 template <typename Float>
 struct CovDispVecArg : public ArgGeom {
 
-  typename FieldMapper<Float>::FermionField dst;
-  typename FieldMapper<Float>::FermionField src;
-  typename FieldMapper<Float>::GaugeField U;
+  Fermion<Float> dst;
+  Fermion<Float> src;
+  Gauge<Float> U;
   
   MuGiqBool extendedGauge;
   

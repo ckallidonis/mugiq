@@ -65,12 +65,11 @@ __global__ void loopContract_kernel(complex<Float> *loopData, LoopContractArg<Fl
 
   //- Get the gamma coefficients from constant memory
   const GammaCoeff<Float> *gamma = gCoeff<Float>();
-
+  
   //- Get spin-color components of vectors for each lattice site
-  typedef typename FieldMapper<Float>::Vector V;
   if(albe == 0) {
-    *(reinterpret_cast<V*>(vL)) = arg->eVecL(x_cb, pty);
-    *(reinterpret_cast<V*>(vR)) = arg->eVecR(x_cb, pty);
+    *(reinterpret_cast<Vector<Float>*>(vL)) = arg->eVecL(x_cb, pty);
+    *(reinterpret_cast<Vector<Float>*>(vR)) = arg->eVecR(x_cb, pty);
   }
   __syncthreads();
   
