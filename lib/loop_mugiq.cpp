@@ -16,7 +16,8 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   dataMom(nullptr),
   dataMom_bcast(nullptr),
   nElemMomTot(0),
-  nElemMomLoc(0)
+  nElemMomLoc(0),
+  MomProjDone(MUGIQ_BOOL_FALSE)
 {
   printfQuda("\n*************************************************\n");
   printfQuda("%s: Creating Loop computation environment\n", __func__);
@@ -282,6 +283,9 @@ void Loop_Mugiq<Float>::prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorFi
 template <typename Float>
 void Loop_Mugiq<Float>::performMomentumProjection(){
 
+  if(MomProjDone)
+    errorQuda("%s: Not supposed to be called more than once!!", __func__);
+
   const long long locV3 = cPrm->locV3;
   const int locT  = cPrm->locT;
   const int totT  = cPrm->totT;
@@ -400,6 +404,8 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   MPI_Comm_free(&COMM_TIME);
 
   cublasDestroy(handle);
+
+  MomProjDone = MUGIQ_BOOL_TRUE;
 
 }
 

@@ -43,7 +43,8 @@ private:
   long long nElemPosLoc; // Total Number of elements in local  position-space data buffers
   long long nElemPhMat;  // Number of elements in phase matrix
 
-
+  MuGiqBool MomProjDone;
+  
   
   /** @brief Prolongate the coarse eigenvectors to fine fields
    */
