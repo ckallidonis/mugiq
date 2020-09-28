@@ -32,17 +32,17 @@ Displace<T>::~Displace(){
 
 
 template <typename T>
-void Displace<T>::resetDisplacedVec(ColorSpinorField *fineEvec){
+void Displace<T>::resetAuxDispVec(ColorSpinorField *fineEvec){
   *auxDispVec = *fineEvec;
   printfQuda("%s: Reset of auxilliary displaced vector done\n", __func__);
 }
 
 
 template <typename T>
-void Displace<T>::swapAuxDispVector(ColorSpinorField *displacedEvec){
+void Displace<T>::swapAuxDispVec(ColorSpinorField *displacedEvec){
   ColorSpinorField *tmp = displacedEvec;
   *displacedEvec = *auxDispVec;
-  *auxDispVec = *tmp;
+  *auxDispVec = *tmp; //- This might as well be neglected
 }
 
 
@@ -51,7 +51,7 @@ void Displace<T>::doVectorDisplacement(DisplaceType dispType, ColorSpinorField *
 
   if(dispType == DISPLACE_TYPE_COVARIANT){
     performCovariantDisplacementVector<T>(auxDispVec, displacedEvec, gaugeField, dispDir, dispSign);
-    swapAuxDispVector(displacedEvec);
+    swapAuxDispVec(displacedEvec);
     printfQuda("%s: Step-%02d of a Covariant displacement done\n", __func__, idisp);
   }
   else{

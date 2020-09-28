@@ -77,7 +77,7 @@ private:
 
   /** @brief Reset the displaced Vector to the original, un-displaced eigenvector
    */
-  void resetDisplacedVec(ColorSpinorField *fineEvec);
+  void resetAuxDispVec(ColorSpinorField *fineEvec);
 
   
   /** @brief Perform the displacement
@@ -86,7 +86,7 @@ private:
 
   /** @brief Swap the auxilliary displaced vector with the output displaced vector
    */
-  void swapAuxDispVector(ColorSpinorField *displacedEvec);
+  void swapAuxDispVec(ColorSpinorField *displacedEvec);
 
   
 
