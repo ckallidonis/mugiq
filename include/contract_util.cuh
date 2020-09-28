@@ -21,7 +21,7 @@ template <typename T> struct FieldMapper {};
 
 template <> struct FieldMapper<double> {
   typedef typename colorspinor_mapper<double, N_SPIN_, N_COLOR_>::type F;
-  typedef ColorSpinor<double, N_SPIN_, N_COLOR_> V;
+  typedef ColorSpinor<double, N_COLOR_, N_SPIN_> V;
 
   typedef typename gauge_mapper<double, QUDA_RECONSTRUCT_NO>::type U;
   typedef Matrix<complex<double>, N_COLOR_> M;
@@ -29,7 +29,7 @@ template <> struct FieldMapper<double> {
 
 template <> struct FieldMapper<float> {
   typedef typename colorspinor_mapper<float, N_SPIN_, N_COLOR_>::type F;
-  typedef ColorSpinor<float, N_SPIN_, N_COLOR_> V;
+  typedef ColorSpinor<float, N_COLOR_, N_SPIN_> V;
 
   typedef typename gauge_mapper<float, QUDA_RECONSTRUCT_NO>::type U;
   typedef Matrix<complex<float>, N_COLOR_> M;
