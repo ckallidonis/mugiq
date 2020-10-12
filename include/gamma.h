@@ -6,6 +6,61 @@
 
 using namespace quda;
 
+
+/**
+ * Hard-coded gamma coefficients for the DeGrand-Rossi basis
+ * Gamma-index notation is: G{x,y,z,t} = G{1,2,3,4}
+ * Gamma matrices are defined as: G(n) = g1^n0 . g2^n1 . g3^n2 . g4^n3, where n = n0*2^0 + n1*2^1 + n2*2^2 + n3*2^3
+ * This parametrization helps in efficient unrolling and usage when performing trace contractions on the GPU,
+ * taking into account only non-zero elements when performing the relevant summations of the Traces.
+ * Any Gamma-matrix element can be obtained as: G(n)_{ij} = RowValue[n][i] * (ColumnIndex[n][i]==j ? 1 : 0)
+ */
+
+//- The value in rows 0,1,2,3, respectively, of each gamma matrix
+inline int GammaRowValue(int m, int n, int r){
+  constexpr int rowValue[N_GAMMA_][N_SPIN_][2] = {{ {1,0}, {1,0}, {1,0}, {1,0} },   // G0 = 1	       
+						  { {0,1}, {0,1},{0,-1},{0,-1} },   // G1 = g1	       
+						  {{-1,0}, {1,0}, {1,0},{-1,0} },   // G2 = g2	       
+						  {{0,-1}, {0,1},{0,-1}, {0,1} },   // G3 = g1g2	       
+						  { {0,1},{0,-1},{0,-1}, {0,1} },   // G4 = g3	       
+						  {{-1,0}, {1,0},{-1,0}, {1,0} },   // G5 = g1g3	       
+						  {{0,-1},{0,-1},{0,-1},{0,-1} },   // G6 = g2g3	       
+						  { {1,0}, {1,0},{-1,0},{-1,0} },   // G7 = g1g2g3   =  g5g4
+						  { {1,0}, {1,0}, {1,0}, {1,0} },   // G8 = g4	       
+						  { {0,1}, {0,1},{0,-1},{0,-1} },   // G9 = g1g4	       
+						  {{-1,0}, {1,0}, {1,0},{-1,0} },   // G10= g2g4	       
+						  {{0,-1}, {0,1},{0,-1}, {0,1} },   // G11= g1g2g4   = -g5g3
+						  { {0,1},{0,-1},{0,-1}, {0,1} },   // G12= g3g4	       
+						  {{-1,0}, {1,0},{-1,0}, {1,0} },   // G13= g1g3g4   =  g5g2
+						  {{0,-1},{0,-1},{0,-1},{0,-1} },   // G14= g2g3g4   = -g5g1
+						  { {1,0}, {1,0},{-1,0},{-1,0} }};  // G15= g1g2g3g4 =  g5
+  return rowValue[m][n][r];
+}
+
+//- The column in which RowValue exists for each gamma matrix
+inline int GammaColumnIndex(int m, int n){  
+  constexpr int columnIdx[N_GAMMA_][N_SPIN_] = {{ 0, 1, 2, 3 },   // G0 = 1	       
+						{ 3, 2, 1, 0 },   // G1 = g1	       
+						{ 3, 2, 1, 0 },   // G2 = g2	       
+						{ 0, 1, 2, 3 },   // G3 = g1g2	       
+						{ 2, 3, 0, 1 },   // G4 = g3	       
+						{ 1, 0, 3, 2 },   // G5 = g1g3	       
+						{ 1, 0, 3, 2 },   // G6 = g2g3	       
+						{ 2, 3, 0, 1 },   // G7 = g1g2g3   =  g5g4
+						{ 2, 3, 0, 1 },   // G8 = g4	       
+						{ 1, 0, 3, 2 },   // G9 = g1g4	       
+						{ 1, 0, 3, 2 },   // G10= g2g4	       
+						{ 2, 3, 0, 1 },   // G11= g1g2g4   = -g5g3
+						{ 0, 1, 2, 3 },   // G12= g3g4	       
+						{ 3, 2, 1, 0 },   // G13= g1g3g4   =  g5g2
+						{ 3, 2, 1, 0 },   // G14= g2g3g4   = -g5g1
+						{ 0, 1, 2, 3 }};  // G15= g1g2g3g4 =  g5  
+  return columnIdx[m][n];
+}
+
+//-------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------
+
 /**
  * The following two functions are used to map the gamma matrix of the loop being calculated
  * to the one of the output loop that is saved. This mapping is needed because the loop required
@@ -39,7 +94,7 @@ std::vector<int> minusGamma(){
 
 //- This takes care of the index
 std::vector<int> indexMapGamma(){
-  std::vector<int> idxG{N_GAMMA_, 0};
+  std::vector<int> idxG(N_GAMMA_, 0);
   for(int i=0;i<N_GAMMA_;i++) idxG.at(i) = N_GAMMA_ -i -1;
   return idxG;
 }
