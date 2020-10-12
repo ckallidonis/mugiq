@@ -10,7 +10,7 @@ extern __shared__ complex<Float> shmemBuf[];
 //- to its structure type, GammaCoeff
 template <typename Float>
 inline __device__ const GammaCoeff<Float>* gCoeff() {
-  return reinterpret_cast<const GammaCoeff<Float>*>(cGamma);
+  return reinterpret_cast<const GammaCoeff<Float>*>(cGammaCoeff);
 }
 
 
