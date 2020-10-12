@@ -11,9 +11,10 @@
 
 using namespace quda;
 
-constexpr int cSize = 4096; // Size of constant memory symbols
+constexpr int cSize = 4096; // Size of constant memory symbols, set it to 4K
 
-__constant__ char cGamma[cSize]; // constant buffer for gamma matrices on GPU
+__constant__ char cGammaCoeff[cSize];  //- constant-memory buffer for gamma matrices on GPU
+__constant__ char cGammaMap[cSize];    //- constant-memory buffer for mapping Gamma to g5*Gamma
 
 
 //- Templates of the Fermion/Gauge mappers on the precision, used for fine fields
@@ -100,12 +101,21 @@ constexpr int GammaColumnIndex[N_GAMMA_][N_SPIN_] = {{ 0, 1, 2, 3 },   /* G0 = 1
 						     { 0, 1, 2, 3 }};  /* G15= g1 g2 g3 g4 */
 
 
+
 //- Structure that will eventually be copied to GPU __constant__ memory
 template <typename Float>
 struct GammaCoeff{
   complex<Float> row_value[N_GAMMA_][N_SPIN_];
   int column_index[N_GAMMA_][N_SPIN_];
 }; // GammaCoeff
+
+
+//- Structure that will eventually be copied to GPU __constant__ memory
+template <typename Float>
+struct GammaMap{
+  Float sign[N_GAMMA_];
+  int index[N_GAMMA_];
+}; // GammaMap
 
 
 
