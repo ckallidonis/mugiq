@@ -260,7 +260,7 @@ void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL,
  * v3 + locV3*g + locV3*Ngamma*l+locV3+Ngamma*nLoop*tt
  */
 template <typename Float>
-void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
+void convertIdxOrder_mapGamma(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
 			      int nData, int nLoop, int nParity, int volumeCB, const int localL[]);
 
 

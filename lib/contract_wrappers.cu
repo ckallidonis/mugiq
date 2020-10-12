@@ -95,7 +95,7 @@ template void performLoopContraction<double>(complex<double> *loopData_d,
 
 
 template <typename Float>
-void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
+void convertIdxOrder_mapGamma(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
 			      int nData, int nLoop, int nParity, int volumeCB, const int localL[]){
 
   //-Some checks
@@ -111,7 +111,7 @@ void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> 
   dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, N_GAMMA_);
   dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);
   
-  convertIdxMomProj_kernel<Float><<<gridDim,blockDim>>>(dataPosMP_d, dataPos_d, arg_d);
+  convertIdxOrder_mapGamma_kernel<Float><<<gridDim,blockDim>>>(dataPosMP_d, dataPos_d, arg_d);
   cudaDeviceSynchronize();
   checkCudaError();
 
@@ -119,9 +119,9 @@ void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> 
   arg_d = nullptr;
 }
 
-template void convertIdxOrderToMomProj<float> (complex<float> *dataPosMP_d, const complex<float> *dataPos_d,
+template void convertIdxOrder_mapGamma<float> (complex<float> *dataPosMP_d, const complex<float> *dataPos_d,
 					       int nData, int nLoop, int nParity, int volumeCB, const int localL[]);
-template void convertIdxOrderToMomProj<double>(complex<double> *dataPosMP_d, const complex<double> *dataPos_d,
+template void convertIdxOrder_mapGamma<double>(complex<double> *dataPosMP_d, const complex<double> *dataPos_d,
 					       int nData, int nLoop, int nParity, int volumeCB, const int localL[]);
 //----------------------------------------------------------------------------
 

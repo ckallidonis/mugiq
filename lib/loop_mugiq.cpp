@@ -296,8 +296,13 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   //-Some checks
   if(nData != nLoop*N_GAMMA_) errorQuda("%s: This function assumes that nData = nLoop * NGamma\n", __func__);
   
-  //- Convert indices from volume4d-inside-gamma to volumeXYZ-inside-gamma-inside-time
-  convertIdxOrderToMomProj<Float>(dataPosMP_d, dataPos_d,
+  /** Convert indices from volume4d-inside-gamma-inside-Ndata to time-inside-Ndata-inside-volumeXYZ
+   *  AND
+   *  Map gamma matrices from G -> g5*G
+   *
+   *  Ndata order is: gamma-inside-nloop in both cases
+   */
+  convertIdxOrder_mapGamma<Float>(dataPosMP_d, dataPos_d,
 				  cPrm->nData, cPrm->nLoop, cPrm->nParity, cPrm->volumeCB, cPrm->localL);
   
   /** Perform momentum projection
