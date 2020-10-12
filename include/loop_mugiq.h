@@ -240,6 +240,12 @@ template <typename Float>
 void copyGammaCoeffStructToSymbol();
 
 
+/** @brief Define the Gamma matrix mapping structure and copy it to GPU __constant__ memory
+ */
+template <typename Float>
+void copyGammaMapStructToSymbol();
+
+
 /** @brief Create the phase matrix on GPU
  */
 template <typename Float>

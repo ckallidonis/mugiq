@@ -112,7 +112,8 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
 template <typename Float>
 void Loop_Mugiq<Float>::copyGammaToConstMem(){
   copyGammaCoeffStructToSymbol<Float>();
-  printfQuda("%s: Gamma coefficient structure copied to constant memory\n", __func__);
+  if(cPrm->doMomProj) copyGammaMapStructToSymbol<Float>();
+  printfQuda("%s: Gamma utility structures copied to constant memory\n", __func__);
 }
 
 

@@ -1,3 +1,4 @@
+#include <gamma.h>
 #include <mugiq_util_kernels.cuh>
 #include <mugiq_contract_kernels.cuh>
 #include <mugiq_displace_kernels.cuh>
@@ -14,11 +15,35 @@ void copyGammaCoeffStructToSymbol(){
     }
   }
   
-  cudaMemcpyToSymbol(cGamma, &gamma_h, sizeof(GammaCoeff<Float>));
+  cudaMemcpyToSymbol(cGammaCoeff, &gamma_h, sizeof(GammaCoeff<Float>));
 }
 
 template void copyGammaCoeffStructToSymbol<float>();
 template void copyGammaCoeffStructToSymbol<double>();
+//----------------------------------------------------------------------------
+
+
+template <typename Float>
+void copyGammaMapStructToSymbol(){
+
+  GammaMap<Float> map_h;
+  
+  std::vector<int> minusG = minusGamma();
+  std::vector<int> idxG   = indexMapGamma();
+
+  std::vector<Float> signGamma(N_GAMMA_,static_cast<Float>(1.0));
+  for(auto g: minusG) signGamma.at(g) = static_cast<Float>(-1.0);
+
+  for(int m=0;m<N_GAMMA_;m++){
+    map_h.sign[m]  = signGamma.at(m);
+    map_h.index[m] = idxG.at(m);
+  }
+  
+  cudaMemcpyToSymbol(cGammaMap, &map_h, sizeof(GammaMap<Float>));
+}
+
+template void copyGammaMapStructToSymbol<float>();
+template void copyGammaMapStructToSymbol<double>();
 //----------------------------------------------------------------------------
 
 
