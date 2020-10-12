@@ -39,6 +39,13 @@ template __global__ void phaseMatrix_kernel<double>(complex<double> *phaseMatrix
 //---------------------------------------------------------------------------
 
 
+//- Function that casts the __constant__ memory variable containing the gamma mapping info
+//- to its structure type, GammaMap
+template <typename Float>
+inline __device__ const GammaMap<Float>* gMap() {
+  return reinterpret_cast<const GammaMap<Float>*>(cGammaMap);
+}
+
 
 template <typename Float>
 __global__ void convertIdxOrder_mapGamma_kernel(complex<Float> *dataOut, const complex<Float> *dataIn, ConvertIdxArg *arg){
@@ -49,6 +56,7 @@ __global__ void convertIdxOrder_mapGamma_kernel(complex<Float> *dataOut, const c
   
   if(x_cb >= arg->volumeCB) return;
   if(pty  >= arg->nParity)  return;
+  if(ig   >= N_GAMMA_) errorQuda("%s: Maximum z-block dimension must be %d", __func__, N_GAMMA_);
 
   int tid = x_cb + arg->volumeCB*pty; // full site index
 
@@ -64,15 +72,19 @@ __global__ void convertIdxOrder_mapGamma_kernel(complex<Float> *dataOut, const c
   int Lx = arg->localL[0];
   int Ly = arg->localL[1];
   int Lt = arg->localL[3];
-
+  
+  //- Get the gamma coefficients from constant memory
+  const GammaMap<Float> *gammaMap = gMap<Float>();
+  
   for(int iL=0;iL<arg->nLoop;iL++){
-    int id = ig + N_GAMMA_*iL;
-    int idxFrom = tid + arg->volumeCB*arg->nParity*id; //- Volume indices here are in even-odd format
+    int idataFrom = ig + N_GAMMA_*iL;
+    int idxFrom = tid + arg->volumeCB*arg->nParity*idataFrom; //- Volume indices here are in even-odd format
 
+    int idataTo = gammaMap->index[ig] + N_GAMMA_*iL; //- Convert gamma index from G -> g5*G
     int v3 = x + Lx*y + Lx*Ly*z; //- Volume indices of the output buffer are in the full-volume format    
-    int idxTo = t + Lt*id + Lt*arg->nData*v3;
+    int idxTo = t + Lt*idataTo + Lt*arg->nData*v3;
 
-    dataOut[idxTo] = dataIn[idxFrom];
+    dataOut[idxTo] = gammaMap->sign[ig] * dataIn[idxFrom];
   }//- for loops
   
 }
