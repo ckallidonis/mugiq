@@ -24,5 +24,5 @@ Below are the steps for installing MuGiq using CMake:
 
 ## Author and Contact
 
-* **Christos Kallidonis** - William & Mary
-* Web: [http://christoskallidonis.com](http://christoskallidonis.com).
+* **Christos Kallidonis** - William & Mary / Jefferson Lab
+* Web: [https://christoskallidonis.com](https://christoskallidonis.com).
