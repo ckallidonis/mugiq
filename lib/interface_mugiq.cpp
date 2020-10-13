@@ -202,7 +202,10 @@ void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, Mug
 
   loop->computeCoarseLoop();
 
-  if(loopParams.printASCII == MUGIQ_BOOL_TRUE) loop->printData_ASCII();
+  if(loopParams.writeMomSpaceHDF5 != MUGIQ_BOOL_FALSE ||
+     loopParams.writePosSpaceHDF5 != MUGIQ_BOOL_FALSE)
+    loop->writeLoopsHDF5();
+  else warningQuda("%s: Will NOT write output data!\n", __func__);
   
   //- Clean-up
 #if 0

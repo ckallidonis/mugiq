@@ -17,7 +17,9 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   dataMom_bcast(nullptr),
   nElemMomTot(0),
   nElemMomLoc(0),
-  MomProjDone(MUGIQ_BOOL_FALSE)
+  MomProjDone(MUGIQ_BOOL_FALSE),
+  writeDataPos(loopParams_->writePosSpaceHDF5),
+  writeDataMom(loopParams_->writeMomSpaceHDF5)
 {
   printfQuda("\n*************************************************\n");
   printfQuda("%s: Creating Loop computation environment\n", __func__);
@@ -217,28 +219,6 @@ void Loop_Mugiq<Float>::printLoopComputeParams(){
   printfQuda("******************************************\n");
   
 }
-
-
-template <typename Float>
-void Loop_Mugiq<Float>::printData_ASCII(){
-  errorQuda("%s: This function unsupported for now!\n");
-
-  for(int im=0;im<cPrm->Nmom;im++){
-    for(int id=0;id<cPrm->nData;id++){
-      printfQuda("Loop for momentum (%+d,%+d,%+d), Gamma[%d]:\n",
-		 cPrm->momMatrix[MOM_MATRIX_IDX(0,im)],
-		 cPrm->momMatrix[MOM_MATRIX_IDX(1,im)],
-		 cPrm->momMatrix[MOM_MATRIX_IDX(2,im)], id);
-      for(int it=0;it<cPrm->totT;it++){
-	//- FIXME: Check if loop Index is correct
-	int loopIdx = id + cPrm->nData*it + cPrm->nData*cPrm->totT*im;
-	printfQuda("%d %+.8e %+.8e\n", it, dataMom_bcast[loopIdx].real(), dataMom_bcast[loopIdx].imag());
-      }
-    }
-  }
-  
-}
-
 
 
 template <typename Float>
@@ -508,6 +488,48 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 }
 
 
+//- Write the momentum-space loop data in HDF5 format
+template <typename Float>
+void Loop_Mugiq<Float>::writeLoopsHDF5_Mom(){
+
+}
+
+
+//- Write the position-space loop data in HDF5 format
+template <typename Float>
+void Loop_Mugiq<Float>::writeLoopsHDF5_Pos(){
+
+}
+
+
+//- Public wrapper for writing the loops in HDF5 format
+//- (called from the interface)
+template <typename Float>
+void Loop_Mugiq<Float>::writeLoopsHDF5(){
+
+  if(cPrm->doMomProj){
+    if(writeDataMom) printfQuda("%s: Will write the momentum-space loop data in HDF5 format\n", __func__);
+    else{
+      warningQuda("%s: Performed momentum projection, but got writeDatMom = FALSE.\n", __func__);
+      warningQuda("%s: Will proceed to write momentum-space loop data\n", __func__);
+      writeDataMom = MUGIQ_BOOL_TRUE;
+    }
+    writeLoopsHDF5_Mom();
+  }
+  else{
+    if(!writeDataPos){
+      warningQuda("%s: Did not perform momentum projection, but got writeDatPos = FALSE.\n", __func__);
+      warningQuda("%s: Will proceed to write position-space loop data\n", __func__);
+      writeDataPos = MUGIQ_BOOL_TRUE;
+    }
+  }
+  
+  if(writeDataPos){
+    printfQuda("%s: Will write the position-space loop data in HDF5 format\n", __func__);
+    writeLoopsHDF5_Pos();
+  }
+  
+}
 
 //- Explicit instantiation of the templates of the Loop_Mugiq class
 //- float and double will be the only typename templates that support is required,

@@ -31,7 +31,8 @@ extern "C" {
     std::vector<std::vector<int>> momMatrix; //- 2d-Array/vector holding the momenta values, dimensions [Nmom][3]
     LoopFTSign FTSign;
     LoopCalcType calcType;
-    MuGiqBool printASCII;
+    MuGiqBool writeMomSpaceHDF5;
+    MuGiqBool writePosSpaceHDF5;
     MuGiqBool doMomProj;
     MuGiqBool doNonLocal;
     std::vector<std::string> disp_entry;

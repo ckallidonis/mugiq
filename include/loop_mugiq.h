@@ -43,7 +43,11 @@ private:
   long long nElemPosLoc; // Total Number of elements in local  position-space data buffers
   long long nElemPhMat;  // Number of elements in phase matrix
 
-  MuGiqBool MomProjDone;
+  MuGiqBool MomProjDone; // Whether momentum projection has been completed
+
+  MuGiqBool writeDataPos; // Whether to write the position-space loop data
+  MuGiqBool writeDataMom; // Whether to write the momentum-space loop data
+  
   
   
   /** @brief Prolongate the coarse eigenvectors to fine fields
@@ -71,11 +75,18 @@ private:
    */
   void createPhaseMatrix();
 
-
   /** @@brief Perform Fourier Transform (Momentum Projection) on the loop trace
    */
   void performMomentumProjection();
-  
+
+  /** @brief Write the momentum-space loop data in HDF5 format
+   */
+  void writeLoopsHDF5_Mom();
+
+  /** @brief Write the position-space loop data in HDF5 format
+   */
+  void writeLoopsHDF5_Pos();
+
   
 public:
 
@@ -83,9 +94,9 @@ public:
   ~Loop_Mugiq();
 
   
-  /** @brief Print the Loop data in ASCII format (in stdout for now)
+  /** @brief Write the Loop data in an HDF5 file (called from the interface)
    */
-  void printData_ASCII();
+  void writeLoopsHDF5();
 
   
   /** @brief Wrapper to create the coarse part of the loop

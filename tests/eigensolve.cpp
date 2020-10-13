@@ -617,7 +617,8 @@ void setLoopParam(MugiqLoopParam &loopParams){
     errorQuda("%s: Loop Calculation Type is undefined/unsupported. Options are --loop-calc-type blas/opt/basic\n", __func__);
   loopParams.calcType = loop_calc_type;
 
-  loopParams.printASCII = loop_print_ascii;
+  loopParams.writeMomSpaceHDF5 = loop_write_mom_space_hdf5;
+  loopParams.writePosSpaceHDF5 = loop_write_pos_space_hdf5;
 
   loopParams.doMomProj = loop_doMomProj;
   
