@@ -131,7 +131,7 @@ set(MUGIQ_PRIMME_HOME "" CACHE PATH "path to PRIMME, if not set, pkg-config will
 set(MUGIQ_QMP_HOME "" CACHE PATH "path to QMP")
 
 # HDF5
-set(MUGIQ_HDF5 OFF CACHE BOOL "Link with HDF5 Library")
+set(MUGIQ_HDF5 ON CACHE BOOL "Link with HDF5 Library")
 set(MUGIQ_HDF5_HOME "" CACHE PATH "path to HDF5, if not set, pkg-config will be attempted")
 set(MUGIQ_HDF5_LIBS "" CACHE STRING "additional linker flags required to link against HDF5")
 
