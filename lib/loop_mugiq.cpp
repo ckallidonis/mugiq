@@ -11,7 +11,7 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   dataPos_d(nullptr),
   dataPosMP_d(nullptr),
   dataMom_d(nullptr),
-  dataPos_h(nullptr),
+  dataPos(nullptr),
   dataMom_h(nullptr),
   dataMom(nullptr),
   dataMom_bcast(nullptr),
@@ -61,6 +61,9 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
 
   printfQuda("%s: Memory report before Allocations", __func__);
   printMemoryInfo();
+
+  dataPos = static_cast<complex<Float>*>(calloc(nElemPosLoc, SizeCplxFloat));
+  if(dataPos  == NULL) errorQuda("%s: Could not allocate buffer: dataPos\n", __func__);
   
   if(cPrm->doMomProj){
     //- Allocate host data buffers
@@ -71,10 +74,6 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
     if(dataMom_bcast == NULL) errorQuda("%s: Could not allocate buffer: dataMom_bcast\n", __func__);
     if(dataMom_h     == NULL) errorQuda("%s: Could not allocate buffer: dataMom_h\n", __func__);
     if(dataMom       == NULL) errorQuda("%s: Could not allocate buffer: dataMom\n", __func__);
-  }
-  else{
-    dataPos_h = static_cast<complex<Float>*>(calloc(nElemPosLoc, SizeCplxFloat));
-    if(dataPos_h  == NULL) errorQuda("%s: Could not allocate buffer: dataPos_h\n", __func__);
   }
   
   printfQuda("%s: Host buffers allocated\n", __func__);
@@ -147,9 +146,9 @@ void Loop_Mugiq<Float>::freeDataMemory(){
     free(dataMom);
     dataMom = nullptr;
   }
-  if(dataPos_h){
-    free(dataPos_h);
-    dataPos_h = nullptr;
+  if(dataPos){
+    free(dataPos);
+    dataPos = nullptr;
   }  
   printfQuda("%s: Host buffers freed\n", __func__);
   //------------------------------
@@ -492,21 +491,22 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
     if(dispEntry_c) free(dispEntry_c);
   }//- Loop over displace entries
 
+  //-Always copy the device position-space buffer to the host
+  cudaMemcpy(dataPos, dataPos_d, SizeCplxFloat*nElemPosLoc, cudaMemcpyDeviceToHost);
+  cudaDeviceSynchronize();
+  checkCudaError();
+  printfQuda("\n%s: Device position-space data copied to host\n", __func__);
   
   if(cPrm->doMomProj){
     performMomentumProjection();
     printfQuda("\n%s: Momentum projection for all loops completed\n\n", __func__);
-  }
-  else{
-    cudaMemcpy(dataPos_h, dataPos_d, SizeCplxFloat*nElemPosLoc, cudaMemcpyDeviceToHost);
-    cudaDeviceSynchronize();
-    checkCudaError();
   }
   
   delete fineEvecL;
   delete fineEvecR;
   
 }
+
 
 
 //- Explicit instantiation of the templates of the Loop_Mugiq class

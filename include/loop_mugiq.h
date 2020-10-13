@@ -25,7 +25,7 @@ private:
   complex<Float> *dataPos_d = nullptr;      // Device Position space correlator (local)
   complex<Float> *dataPosMP_d = nullptr;    // Device Position space correlator (local), with changed index order for Mom. projection 
   complex<Float> *dataMom_d = nullptr;      // Device output buffer of cuBlas (local)
-  complex<Float> *dataPos_h = nullptr;      // Host Position space correlator (local)
+  complex<Float> *dataPos   = nullptr;      // Host Position space correlator (local)
   complex<Float> *dataMom_h = nullptr;      // Host output of cuBlas momentum projection (local)
   complex<Float> *dataMom   = nullptr;      // Host Globally summed momentum projection buffer (local)
   complex<Float> *dataMom_bcast = nullptr;  // Host Final result (global summed, gathered, broadcasted) of momentum projection
