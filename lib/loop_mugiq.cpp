@@ -1,6 +1,7 @@
 #include <loop_mugiq.h>
 #include <cublas_v2.h>
 #include <mpi.h>
+#include <hdf5.h>
 
 template <typename Float>
 Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,

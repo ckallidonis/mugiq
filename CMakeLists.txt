@@ -130,6 +130,11 @@ set(MUGIQ_PRIMME_HOME "" CACHE PATH "path to PRIMME, if not set, pkg-config will
 # QMP
 set(MUGIQ_QMP_HOME "" CACHE PATH "path to QMP")
 
+# HDF5
+set(MUGIQ_HDF5 OFF CACHE BOOL "Link with HDF5 Library")
+set(MUGIQ_HDF5_HOME "" CACHE PATH "path to HDF5, if not set, pkg-config will be attempted")
+set(MUGIQ_HDF5_LIBS "" CACHE STRING "additional linker flags required to link against HDF5")
+
 # Whether to build all tests
 set(MUGIQ_BUILD_ALL_TESTS ON CACHE BOOL "build tests by default")
 #--------------------------------------------------------------
@@ -238,6 +243,31 @@ if(MUGIQ_QUDA)
   include_directories(SYSTEM ${MUGIQ_QUDA_SOURCE}/lib)
 
   set(BUILD_MUGIQ_CUDA_LIB ON CACHE BOOL "Build the MuGiq Library" FORCE)
+endif()
+
+
+# HDF5 options
+if(MUGIQ_HDF5)  
+  if("${MUGIQ_HDF5_HOME}" STREQUAL "")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIB_HDF5 hdf5)
+    include_directories(SYSTEM ${HDF5_INCLUDEDIR})
+    message("${HDF5_INCLUDEDIR}")
+    find_library(LIB_HDF5 ${HDF5_LIBRARIES} PATH ${HDF5_LIBRARY_DIRS})
+  else()
+    find_library(LIB_HDF5 libhdf5.a hdf5 ${MUGIQ_HDF5_HOME}/lib) # Prefer Static library
+  endif()
+  
+  if(NOT LIB_HDF5)
+    message(FATAL_ERROR "HDF5 Library not found")
+  endif()
+  
+  set(MUGIQ_HDF5_LDFLAGS "-L${MUGIQ_HDF5_HOME}/lib" CACHE STRING "LDFLAGS for HDF5 library")
+  set(MUGIQ_HDF5_LIBS "-lhdf5" CACHE STRING "LIBS for HDF5 library")
+  
+  add_definitions(-DHDF5_LIB)
+  
+  include_directories(SYSTEM ${MUGIQ_HDF5_HOME}/include)
 endif()
 
 

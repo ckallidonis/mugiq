@@ -8,6 +8,7 @@ This interface depends on:
 * The QUDA ([https://github.com/lattice/quda](https://github.com/lattice/quda)) library
 * The PRIMME ([https://github.com/primme/primme](https://github.com/primme/primme)) library, which in turn depends on the [MAGMA](https://icl.cs.utk.edu/magma/) library
 * MPI or QMP/QIO
+* The parallel HDF5 library
 * The CUDA toolkit
 
 
