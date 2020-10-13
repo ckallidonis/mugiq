@@ -240,6 +240,12 @@ template <typename Float>
 void copyGammaCoeffStructToSymbol();
 
 
+/** @brief Define the Gamma matrix mapping structure and copy it to GPU __constant__ memory
+ */
+template <typename Float>
+void copyGammaMapStructToSymbol();
+
+
 /** @brief Create the phase matrix on GPU
  */
 template <typename Float>
@@ -260,7 +266,7 @@ void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL,
  * v3 + locV3*g + locV3*Ngamma*l+locV3+Ngamma*nLoop*tt
  */
 template <typename Float>
-void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
+void convertIdxOrder_mapGamma(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
 			      int nData, int nLoop, int nParity, int volumeCB, const int localL[]);
 
 

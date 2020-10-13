@@ -50,6 +50,7 @@ template <typename T>
 void Displace<T>::doVectorDisplacement(DisplaceType dispType, ColorSpinorField *displacedEvec, int idisp){
 
   if(dispType == DISPLACE_TYPE_COVARIANT){
+    blas::zero(*auxDispVec);
     performCovariantDisplacementVector<T>(auxDispVec, displacedEvec, gaugeField, dispDir, dispSign);
     swapAuxDispVec(displacedEvec);
     printfQuda("%s: Step-%02d of a Covariant displacement done\n", __func__, idisp);

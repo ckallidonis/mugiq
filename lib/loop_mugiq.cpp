@@ -112,7 +112,8 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
 template <typename Float>
 void Loop_Mugiq<Float>::copyGammaToConstMem(){
   copyGammaCoeffStructToSymbol<Float>();
-  printfQuda("%s: Gamma coefficient structure copied to constant memory\n", __func__);
+  if(cPrm->doMomProj) copyGammaMapStructToSymbol<Float>();
+  printfQuda("%s: Gamma utility structures copied to constant memory\n", __func__);
 }
 
 
@@ -288,44 +289,53 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
 
   const long long locV3 = cPrm->locV3;
   const int locT  = cPrm->locT;
-  const int totT  = cPrm->totT;
   const int Nmom  = cPrm->Nmom;
   const int nLoop = cPrm->nLoop;
   const int nData = cPrm->nData;
   
   //-Some checks
   if(nData != nLoop*N_GAMMA_) errorQuda("%s: This function assumes that nData = nLoop * NGamma\n", __func__);
+
   
-  //- Convert indices from volume4d-inside-gamma to volumeXYZ-inside-gamma-inside-time
-  convertIdxOrderToMomProj<Float>(dataPosMP_d, dataPos_d,
+  /** 1. Convert indices from volume4d-inside-gamma-inside-Ndata to time-inside-Ndata-inside-volumeXYZ
+   *  2. Map gamma matrices from G -> g5*G
+   *  Ndata order is: gamma-inside-nloop in both cases
+   */
+  convertIdxOrder_mapGamma<Float>(dataPosMP_d, dataPos_d,
 				  cPrm->nData, cPrm->nLoop, cPrm->nParity, cPrm->volumeCB, cPrm->localL);
-  
+
+
   /** Perform momentum projection
    *-----------------------------
-   * Matrix Multiplication Out = PH^T * In.
-   *  phaseMatrix_dev=(locV3,Nmom) is the phase matrix in column-major format, its transpose is used for multiplication
-   *  dataPosMP_d = (locV3,nData*locT) is the device input loop-trace matrix with shuffled(converted) indices
-   *  dataMom_d = (Nmom,nData*locT) is the output matrix in column-major format (device)
+   * All matrices are stored on the device
+   * Matrix dimensions in cuBlas are set such that the matrices are in column-major format as shown below
+   *
+   * Matrix Multiplication is: dataMom = dataPos * PhaseMatrix.
+   *  dataPosMP_d   = (locT*nData,locV3) : input loop-trace matrix with shuffled(converted) indices
+   *  phaseMatrix_d = (locV3,Nmom)       : phase matrix
+   *  dataMom_d     = (locT*nData,Nmom)  : output matrix in column-major format (device)
    */  
-    
+  
   cublasHandle_t handle;
   cublasStatus_t stat = cublasCreate(&handle);
   complex<Float> al = complex<Float>{1.0,0.0};
   complex<Float> be = complex<Float>{0.0,0.0};
 
   if(typeid(Float) == typeid(double)){
-    stat = cublasZgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, Nmom, nData*locT, locV3,
-                       (cuDoubleComplex*)&al, (cuDoubleComplex*)phaseMatrix_d, locV3,
-                       (cuDoubleComplex*)dataPosMP_d, locV3,
+    stat = cublasZgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, locT*nData, Nmom, locV3,
+                       (cuDoubleComplex*)&al,
+		       (cuDoubleComplex*)dataPosMP_d, locT*nData,
+		       (cuDoubleComplex*)phaseMatrix_d, locV3,
 		       (cuDoubleComplex*)&be,
-                       (cuDoubleComplex*)dataMom_d, Nmom);
+                       (cuDoubleComplex*)dataMom_d, locT*nData);
   }
   else if(typeid(Float) == typeid(float)){
-    stat = cublasCgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, Nmom, nData*locT, locV3,
-                       (cuComplex*)&al, (cuComplex*)phaseMatrix_d, locV3,
-                       (cuComplex*)dataPosMP_d, locV3,
+    stat = cublasCgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, locT*nData, Nmom, locV3,
+                       (cuComplex*)&al,
+		       (cuComplex*)dataPosMP_d, locT*nData,
+		       (cuComplex*)phaseMatrix_d, locV3,
 		       (cuComplex*)&be,
-                       (cuComplex*)dataMom_d, Nmom);
+                       (cuComplex*)dataMom_d, locT*nData);
   }
   else errorQuda("%s: Precision not supported!\n", __func__);
 
@@ -333,8 +343,8 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
     errorQuda("%s: Momentum projection failed!\n", __func__);  
 
   
-  //-- extract the result from GPU to CPU
-  stat = cublasGetMatrix(Nmom, nData*locT, sizeof(complex<Float>), dataMom_d, Nmom, dataMom_h, Nmom);
+  //- extract the result from device (GPU) to host (CPU)
+  stat = cublasGetMatrix(locT*nData, Nmom, sizeof(complex<Float>), dataMom_d, locT*nData, dataMom_h, locT*nData);
   if(stat != CUBLAS_STATUS_SUCCESS) errorQuda("%s: cuBlas data copying to CPU failed!\n", __func__);
   // ---------------------------------------------------------------------------------------
 
@@ -355,8 +365,8 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
    * therefore another communicator involving only these processes must be created (COMM_TIME).
    * Finally, we need to Broadcast the final result to ALL processes, such that it is accessible to all of them.
    *
-   * The final buffer follows order Mom-inside-Gamma-inside-nLoops-inside-T:
-   *              im + Nmom*ig + Nmom*nGamma*iL + Nmom*nGamma*nLoops*t = im + Nmom*id + Nmom*nData*t, where
+   * The final buffer follows order time-inside-gamma-inside-nLoops-inside-Mom:
+   *              t + locT*ig + locT*nGamma*iL + locT*nGamma*nLoops*im = t + locT*id + locT*nData*im, where
    *    id = ig + nGamma*iL
    *    nData = nGamma*nLoops
    */
@@ -388,15 +398,15 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   MPI_Comm_size(COMM_TIME,&time_size);
 
   
-  MPI_Reduce(dataMom_h, dataMom, Nmom*nData*locT, dataTypeMPI, MPI_SUM, 0, COMM_SPACE);
+  MPI_Reduce(dataMom_h, dataMom, nElemMomLoc, dataTypeMPI, MPI_SUM, 0, COMM_SPACE);
 
   
-  MPI_Gather(dataMom      , Nmom*nData*locT, dataTypeMPI,
-             dataMom_bcast, Nmom*nData*locT, dataTypeMPI,
+  MPI_Gather(dataMom      , nElemMomLoc, dataTypeMPI,
+             dataMom_bcast, nElemMomLoc, dataTypeMPI,
              0, COMM_TIME);
 
   
-  MPI_Bcast(dataMom_bcast, Nmom*nData*totT, dataTypeMPI, 0, MPI_COMM_WORLD);
+  MPI_Bcast(dataMom_bcast, nElemMomTot, dataTypeMPI, 0, MPI_COMM_WORLD);
 
   
   //-- cleanup & return
@@ -406,7 +416,6 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   cublasDestroy(handle);
 
   MomProjDone = MUGIQ_BOOL_TRUE;
-
 }
 
 

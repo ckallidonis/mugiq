@@ -39,9 +39,16 @@ template __global__ void phaseMatrix_kernel<double>(complex<double> *phaseMatrix
 //---------------------------------------------------------------------------
 
 
+//- Function that casts the __constant__ memory variable containing the gamma mapping info
+//- to its structure type, GammaMap
+template <typename Float>
+inline __device__ const GammaMap<Float>* gMap() {
+  return reinterpret_cast<const GammaMap<Float>*>(cGammaMap);
+}
+
 
 template <typename Float>
-__global__ void convertIdxMomProj_kernel(complex<Float> *dataOut, const complex<Float> *dataIn, ConvertIdxArg *arg){
+__global__ void convertIdxOrder_mapGamma_kernel(complex<Float> *dataOut, const complex<Float> *dataIn, ConvertIdxArg *arg){
 
   int x_cb = blockIdx.x*blockDim.x + threadIdx.x;  // checkerboard site within 4d local volume
   int pty  = blockIdx.y*blockDim.y + threadIdx.y;  // parity (even/odd)
@@ -49,10 +56,12 @@ __global__ void convertIdxMomProj_kernel(complex<Float> *dataOut, const complex<
   
   if(x_cb >= arg->volumeCB) return;
   if(pty  >= arg->nParity)  return;
+  if(ig   >= N_GAMMA_) errorQuda("%s: Maximum z-block dimension must be %d", __func__, N_GAMMA_);
 
   int tid = x_cb + arg->volumeCB*pty; // full site index
 
-  //-Local coordinates
+  //- Local coordinates
+  //- We need these to convert even-odd indexing to full lexicographic format
   int crd[5];
   getCoords(crd, x_cb, arg->localL, pty);
   int x = crd[0];
@@ -60,20 +69,28 @@ __global__ void convertIdxMomProj_kernel(complex<Float> *dataOut, const complex<
   int z = crd[2];
   int t = crd[3];
 
+  int Lx = arg->localL[0];
+  int Ly = arg->localL[1];
+  int Lt = arg->localL[3];
+  
+  //- Get the gamma coefficients from constant memory
+  const GammaMap<Float> *gammaMap = gMap<Float>();
+  
   for(int iL=0;iL<arg->nLoop;iL++){
-    int id = ig + N_GAMMA_*iL;
-    int idxFrom = tid + arg->volumeCB*arg->nParity*id;
+    int idataFrom = ig + N_GAMMA_*iL;
+    int idxFrom = tid + arg->volumeCB*arg->nParity*idataFrom; //- Volume indices here are in even-odd format
 
-    int v3 = x + arg->localL[0]*y + arg->localL[0]*arg->localL[1]*z; // x + Lx*y + Lx*Ly*z
-    int idxTo = v3 + arg->locV3*id +  arg->locV3*arg->nData*t;
+    int idataTo = gammaMap->index[ig] + N_GAMMA_*iL; //- Convert gamma index from G -> g5*G
+    int v3 = x + Lx*y + Lx*Ly*z; //- Volume indices of the output buffer are in the full-volume format    
+    int idxTo = t + Lt*idataTo + Lt*arg->nData*v3;
 
-    dataOut[idxTo] = dataIn[idxFrom];
+    dataOut[idxTo] = gammaMap->sign[ig] * dataIn[idxFrom];
   }//- for loops
   
 }
 
-template __global__ void convertIdxMomProj_kernel<float> (complex<float> *dataOut,  const complex<float> *dataIn,
-							  ConvertIdxArg *arg);
-template __global__ void convertIdxMomProj_kernel<double>(complex<double> *dataOut, const complex<double> *dataIn,
-							  ConvertIdxArg *arg);
+template __global__ void convertIdxOrder_mapGamma_kernel<float> (complex<float> *dataOut,  const complex<float> *dataIn,
+								 ConvertIdxArg *arg);
+template __global__ void convertIdxOrder_mapGamma_kernel<double>(complex<double> *dataOut, const complex<double> *dataIn,
+								 ConvertIdxArg *arg);
 //---------------------------------------------------------------------------

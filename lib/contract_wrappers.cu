@@ -1,3 +1,4 @@
+#include <gamma.h>
 #include <mugiq_util_kernels.cuh>
 #include <mugiq_contract_kernels.cuh>
 #include <mugiq_displace_kernels.cuh>
@@ -9,16 +10,40 @@ void copyGammaCoeffStructToSymbol(){
 
   for(int m=0;m<N_GAMMA_;m++){
     for(int n=0;n<N_SPIN_;n++){
-      gamma_h.column_index[m][n] = GammaColumnIndex[m][n];
-      gamma_h.row_value[m][n] = {static_cast<Float>(GammaRowValue[m][n][0]), static_cast<Float>(GammaRowValue[m][n][1])};
+      gamma_h.column_index[m][n] = GammaColumnIndex(m,n);
+      gamma_h.row_value[m][n] = {static_cast<Float>(GammaRowValue(m,n,0)), static_cast<Float>(GammaRowValue(m,n,1))};
     }
   }
   
-  cudaMemcpyToSymbol(cGamma, &gamma_h, sizeof(GammaCoeff<Float>));
+  cudaMemcpyToSymbol(cGammaCoeff, &gamma_h, sizeof(GammaCoeff<Float>));
 }
 
 template void copyGammaCoeffStructToSymbol<float>();
 template void copyGammaCoeffStructToSymbol<double>();
+//----------------------------------------------------------------------------
+
+
+template <typename Float>
+void copyGammaMapStructToSymbol(){
+
+  GammaMap<Float> map_h;
+  
+  std::vector<int> minusG = minusGamma();
+  std::vector<int> idxG   = indexMapGamma();
+  
+  std::vector<Float> signGamma(N_GAMMA_,static_cast<Float>(1.0));
+  for(auto g: minusG) signGamma.at(g) = static_cast<Float>(-1.0);
+  
+  for(int m=0;m<N_GAMMA_;m++){
+    map_h.sign[m]  = signGamma.at(m);
+    map_h.index[m] = idxG.at(m);
+  }
+  
+  cudaMemcpyToSymbol(cGammaMap, &map_h, sizeof(GammaMap<Float>));
+}
+
+template void copyGammaMapStructToSymbol<float>();
+template void copyGammaMapStructToSymbol<double>();
 //----------------------------------------------------------------------------
 
 
@@ -95,7 +120,7 @@ template void performLoopContraction<double>(complex<double> *loopData_d,
 
 
 template <typename Float>
-void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
+void convertIdxOrder_mapGamma(complex<Float> *dataPosMP_d, const complex<Float> *dataPos_d,
 			      int nData, int nLoop, int nParity, int volumeCB, const int localL[]){
 
   //-Some checks
@@ -111,7 +136,7 @@ void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> 
   dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, N_GAMMA_);
   dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);
   
-  convertIdxMomProj_kernel<Float><<<gridDim,blockDim>>>(dataPosMP_d, dataPos_d, arg_d);
+  convertIdxOrder_mapGamma_kernel<Float><<<gridDim,blockDim>>>(dataPosMP_d, dataPos_d, arg_d);
   cudaDeviceSynchronize();
   checkCudaError();
 
@@ -119,9 +144,9 @@ void convertIdxOrderToMomProj(complex<Float> *dataPosMP_d, const complex<Float> 
   arg_d = nullptr;
 }
 
-template void convertIdxOrderToMomProj<float> (complex<float> *dataPosMP_d, const complex<float> *dataPos_d,
+template void convertIdxOrder_mapGamma<float> (complex<float> *dataPosMP_d, const complex<float> *dataPos_d,
 					       int nData, int nLoop, int nParity, int volumeCB, const int localL[]);
-template void convertIdxOrderToMomProj<double>(complex<double> *dataPosMP_d, const complex<double> *dataPos_d,
+template void convertIdxOrder_mapGamma<double>(complex<double> *dataPosMP_d, const complex<double> *dataPos_d,
 					       int nData, int nLoop, int nParity, int volumeCB, const int localL[]);
 //----------------------------------------------------------------------------
 
