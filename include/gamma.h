@@ -7,6 +7,19 @@
 using namespace quda;
 
 
+//- The names/tags of the Gamma matrices
+std::string GammaName(int m){
+
+  std::vector<std::string> GammaNames {
+    "1"   , "g1"  , "g2"  , "g1g2",
+    "g3"  , "g1g3", "g2g3", "g5g4",
+    "g4"  , "g1g4", "g2g4", "g5g3",
+    "g3g4", "g5g2", "g5g1", "g5"  };
+
+  return GammaNames.at(m);
+}
+
+
 /**
  * Hard-coded gamma coefficients for the DeGrand-Rossi basis
  * Gamma-index notation is: G{x,y,z,t} = G{1,2,3,4}
