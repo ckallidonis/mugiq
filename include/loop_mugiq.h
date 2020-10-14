@@ -5,6 +5,8 @@
 #include <eigsolve_mugiq.h>
 #include <util_mugiq.h>
 #include <displace.h>
+#include <gamma.h>
+#include <mpi.h>
 
 using namespace quda;
 
@@ -21,6 +23,28 @@ private:
   
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
 
+
+  //- MPI/Communication-related parameters for "space" processes
+  //- These are the processes that have the same time-coordinate
+  MPI_Comm COMM_SPACE; //- The Communicator for "space" processes
+  int space_rank;      //- Rank numbering
+  int space_size;      //- Size of the COMM_SPACE space
+  int cRank;           //- parameter determining the rank numbering
+  int tCoord;          //- The time coordinate of each process, will be used as the "color" of the COMM_SPACE space
+
+  
+  //- MPI/Communication-related parameters for "time" processes
+  //- These are the processes that have all but time coordinates equal to 0
+  MPI_Comm COMM_TIME;         //- The Communicator
+  int time_rank;              //- Rank numbering
+  int time_size;              //- Size of the COMM_TIME space
+  const int time_tag = 1000;  //- Tag that will be used to determine the "color" of the COMM_TIME space
+  int time_color;             //- The "color" of the "time" processes
+  MuGiqBool IamTimeProcess;   //- Whether a process belongs to the COMM_TIME space
+
+  
+  MuGiqBool commsAreSet;
+  
   //- Data buffers
   complex<Float> *dataPos_d = nullptr;      // Device Position space correlator (local)
   complex<Float> *dataPosMP_d = nullptr;    // Device Position space correlator (local), with changed index order for Mom. projection 
@@ -48,7 +72,13 @@ private:
   MuGiqBool writeDataPos; // Whether to write the position-space loop data
   MuGiqBool writeDataMom; // Whether to write the momentum-space loop data
   
+  std::string momSpaceFilename; //- HDF5 filename for momentum-space filename
+  std::string posSpaceFilename; //- HDF5 filename for position-space filename
+
   
+  /** @brief Set up communicators required for the momentum projection and the HDF5 writing
+   */
+  void setupComms();
   
   /** @brief Prolongate the coarse eigenvectors to fine fields
    */

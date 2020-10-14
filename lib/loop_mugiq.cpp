@@ -1,6 +1,6 @@
 #include <loop_mugiq.h>
+//#include <gamma.h>
 #include <cublas_v2.h>
-#include <mpi.h>
 #include <hdf5.h>
 
 template <typename Float>
@@ -9,6 +9,17 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   cPrm(nullptr),
   displace(nullptr),
   eigsolve(eigsolve_),
+  COMM_SPACE(MPI_COMM_NULL),
+  space_rank(-1),
+  space_size(-1),
+  cRank(-1),
+  tCoord(-1),
+  COMM_TIME(MPI_COMM_NULL),
+  time_rank(-1),
+  time_size(-1),
+  time_color(-1),
+  IamTimeProcess(MUGIQ_BOOL_INVALID),
+  commsAreSet(MUGIQ_BOOL_FALSE),
   dataPos_d(nullptr),
   dataPosMP_d(nullptr),
   dataMom_d(nullptr),
@@ -20,7 +31,9 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   nElemMomLoc(0),
   MomProjDone(MUGIQ_BOOL_FALSE),
   writeDataPos(loopParams_->writePosSpaceHDF5),
-  writeDataMom(loopParams_->writeMomSpaceHDF5)
+  writeDataMom(loopParams_->writeMomSpaceHDF5),
+  momSpaceFilename(loopParams_->fname_mom_h5),
+  posSpaceFilename(loopParams_->fname_pos_h5)
 {
   printfQuda("\n*************************************************\n");
   printfQuda("%s: Creating Loop computation environment\n", __func__);
@@ -29,6 +42,8 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   if(cPrm->doNonLocal) displace = new Displace<Float>(loopParams_,
 						      eigsolve->mg_env->mg_solver->B[0],
 						      eigsolve->eVecs[0]->Precision());
+
+  setupComms();
 
   allocateDataMemory();
   copyGammaToConstMem();
@@ -39,7 +54,36 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   printLoopComputeParams();
 }
 
+template <typename Float>
+void Loop_Mugiq<Float>::setupComms(){
+
+  //-- Create space-communicator
+  tCoord = comm_coord(3);
+  cRank = comm_rank();
+  MPI_Comm_split(MPI_COMM_WORLD, tCoord, cRank, &COMM_SPACE);
+  MPI_Comm_rank(COMM_SPACE,&space_rank);
+  MPI_Comm_size(COMM_SPACE,&space_size);
   
+  //-- Create time communicator
+  //-- Determine the "color" which distinguishes the "time" processes from the rest  time_color = comm_rank();   
+  IamTimeProcess = MUGIQ_BOOL_FALSE;
+  if( (comm_coord(0) == 0) &&
+      (comm_coord(1) == 0) &&
+      (comm_coord(2) == 0) ){
+    time_color = (time_tag>comm_size()) ? time_tag : time_tag+comm_size();
+    IamTimeProcess = MUGIQ_BOOL_TRUE;
+  }
+    
+  MPI_Comm_split(MPI_COMM_WORLD, time_color, tCoord, &COMM_TIME);
+  MPI_Comm_rank(COMM_TIME,&time_rank);
+  MPI_Comm_size(COMM_TIME,&time_size);
+
+  printfQuda("%s: MPI Communicators are set\n", __func__);
+
+  commsAreSet = MUGIQ_BOOL_TRUE;
+}
+
+
 template <typename Float>
 Loop_Mugiq<Float>::~Loop_Mugiq(){
 
@@ -267,6 +311,8 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
   if(MomProjDone)
     errorQuda("%s: Not supposed to be called more than once!!", __func__);
 
+  if(!commsAreSet) setupComms();
+  
   const long long locV3 = cPrm->locV3;
   const int locT  = cPrm->locT;
   const int Nmom  = cPrm->Nmom;
@@ -339,7 +385,15 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
    * This means that the global result will exist only at the "time" processes, where each will
    * hold the sum for its corresponing time slices.
    * (In the case where only the time-direction is partitioned, MPI_Reduce is essentially a memcpy).
-   *
+   */
+  MPI_Datatype dataTypeMPI;
+  if     ( typeid(Float) == typeid(float) ) dataTypeMPI = MPI_COMPLEX;
+  else if( typeid(Float) == typeid(double)) dataTypeMPI = MPI_DOUBLE_COMPLEX;
+  
+  MPI_Reduce(dataMom_h, dataMom, nElemMomLoc, dataTypeMPI, MPI_SUM, 0, COMM_SPACE);
+  
+  
+  /**
    * Then a Gathering is required, in order to put the global result from each of the "time" processes
    * into the final buffer (dataMom_bcast). This gathering must take place only across the "time" processes,
    * therefore another communicator involving only these processes must be created (COMM_TIME).
@@ -350,41 +404,9 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
    *    id = ig + nGamma*iL
    *    nData = nGamma*nLoops
    */
-
-  MPI_Datatype dataTypeMPI;
-  if     ( typeid(Float) == typeid(float) ) dataTypeMPI = MPI_COMPLEX;
-  else if( typeid(Float) == typeid(double)) dataTypeMPI = MPI_DOUBLE_COMPLEX;
-
-  //-- Create space-communicator
-  int space_rank, space_size;
-  MPI_Comm COMM_SPACE;
-  int tCoord = comm_coord(3);
-  int cRank = comm_rank();
-  MPI_Comm_split(MPI_COMM_WORLD, tCoord, cRank, &COMM_SPACE);
-  MPI_Comm_rank(COMM_SPACE,&space_rank);
-  MPI_Comm_size(COMM_SPACE,&space_size);
-
-  //-- Create time communicator
-  int time_rank, time_size;
-  int time_tag = 1000;
-  MPI_Comm COMM_TIME;
-  int time_color = comm_rank();   //-- Determine the "color" which distinguishes the "time" processes from the rest
-  if( (comm_coord(0) == 0) &&
-      (comm_coord(1) == 0) &&
-      (comm_coord(2) == 0) ) time_color = (time_tag>comm_size()) ? time_tag : time_tag+comm_size();
-
-  MPI_Comm_split(MPI_COMM_WORLD, time_color, tCoord, &COMM_TIME);
-  MPI_Comm_rank(COMM_TIME,&time_rank);
-  MPI_Comm_size(COMM_TIME,&time_size);
-
-  
-  MPI_Reduce(dataMom_h, dataMom, nElemMomLoc, dataTypeMPI, MPI_SUM, 0, COMM_SPACE);
-
-  
   MPI_Gather(dataMom      , nElemMomLoc, dataTypeMPI,
              dataMom_bcast, nElemMomLoc, dataTypeMPI,
              0, COMM_TIME);
-
   
   MPI_Bcast(dataMom_bcast, nElemMomTot, dataTypeMPI, 0, MPI_COMM_WORLD);
 
@@ -493,6 +515,10 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 template <typename Float>
 void Loop_Mugiq<Float>::writeLoopsHDF5_Mom(){
 
+  if(!commsAreSet) setupComms();
+  
+
+  
 }
 
 
