@@ -647,6 +647,18 @@ void setLoopParam(MugiqLoopParam &loopParams, QudaGaugeParam &gParam){
   loopParams.doMomProj  = loop_doMomProj;
   loopParams.doNonLocal = loop_doNonLocal;
 
+  
+  //- HDF5 filenames
+  if(loop_write_mom_space_hdf5 && fname_mom_h5.size()==0)
+    errorQuda("Got --loop-write-mom-space yes but no filename was given. Set option --loop-mom-space-filename\n");
+  if(loop_write_pos_space_hdf5 && fname_pos_h5.size()==0)
+    errorQuda("Got --loop-write-pos-space yes but no filename was given. Set option --loop-pos-space-filename\n");
+
+  loopParams.fname_mom_h5 = fname_mom_h5;
+  loopParams.fname_pos_h5 = fname_pos_h5;
+  //------------------------------
+  
+  
   if(!loopParams.doNonLocal){
     printfQuda("Will NOT perform displacements!!!");
   }
@@ -700,7 +712,6 @@ void setLoopParam(MugiqLoopParam &loopParams, QudaGaugeParam &gParam){
 	  printfQuda("  %d %s: %s with length %d\n", id, disp_entry_c,
 		     disp_str_c, loopParams.disp_start.at(id));
 	}
-
 	
       }//-for displacements   
     }

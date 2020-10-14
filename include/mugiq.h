@@ -37,6 +37,8 @@ extern "C" {
     MuGiqBool doNonLocal;
     std::vector<std::string> disp_entry;
     std::vector<std::string> disp_str;
+    std::string fname_mom_h5;
+    std::string fname_pos_h5;
     std::vector<int> disp_start;
     std::vector<int> disp_stop;
     void *gauge[4];

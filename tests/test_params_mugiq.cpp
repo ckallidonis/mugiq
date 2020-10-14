@@ -19,6 +19,8 @@ MuGiqBool loop_doNonLocal = MUGIQ_BOOL_TRUE;
 char loop_gauge_filename[1024] = "";
 
 std::string disp_entry_string;
+std::string fname_mom_h5;
+std::string fname_pos_h5;
 
 
 namespace {
@@ -94,6 +96,12 @@ void add_loop_option_mugiq(std::shared_ptr<QUDAApp> app)
   opgroup->add_option("--displace-entry-string", disp_entry_string,
 		      "Set displacement entries in the form, e.g: +z:1,8;-x:3;+y:2,5.");
 
+  opgroup->add_option("--loop-mom-space-filename", fname_mom_h5,
+		      "Complete path to the HDF5 filename for the momentum-space loop data");
+
+  opgroup->add_option("--loop-pos-space-filename", fname_pos_h5,
+		      "Complete path to the HDF5 filename for the position-space loop data");
+  
 }
 
 

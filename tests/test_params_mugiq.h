@@ -26,6 +26,8 @@ extern MuGiqBool loop_doMomProj;
 extern MuGiqBool loop_doNonLocal;
 extern char loop_gauge_filename[1024];
 extern std::string disp_entry_string;
+extern std::string fname_mom_h5;
+extern std::string fname_pos_h5;
 
 
 
