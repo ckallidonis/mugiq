@@ -5,7 +5,6 @@
 #include <eigsolve_mugiq.h>
 #include <util_mugiq.h>
 #include <displace.h>
-#include <gamma.h>
 #include <mpi.h>
 
 using namespace quda;
