@@ -8,17 +8,16 @@ using namespace quda;
 
 
 //- The names/tags of the Gamma matrices
-std::string GammaName(int m){
+inline std::string GammaName(int m){
 
-  std::vector<std::string> GammaNames {
+  std::vector<std::string> gNames {
     "1"   , "g1"  , "g2"  , "g1g2",
     "g3"  , "g1g3", "g2g3", "g5g4",
     "g4"  , "g1g4", "g2g4", "g5g3",
     "g3g4", "g5g2", "g5g1", "g5"  };
 
-  return GammaNames.at(m);
+  return gNames.at(m);
 }
-
 
 /**
  * Hard-coded gamma coefficients for the DeGrand-Rossi basis
@@ -31,48 +30,45 @@ std::string GammaName(int m){
 
 //- The value in rows 0,1,2,3, respectively, of each gamma matrix
 inline int GammaRowValue(int m, int n, int r){
-  constexpr int rowValue[N_GAMMA_][N_SPIN_][2] = {{ {1,0}, {1,0}, {1,0}, {1,0} },   // G0 = 1	       
-						  { {0,1}, {0,1},{0,-1},{0,-1} },   // G1 = g1	       
-						  {{-1,0}, {1,0}, {1,0},{-1,0} },   // G2 = g2	       
-						  {{0,-1}, {0,1},{0,-1}, {0,1} },   // G3 = g1g2	       
-						  { {0,1},{0,-1},{0,-1}, {0,1} },   // G4 = g3	       
-						  {{-1,0}, {1,0},{-1,0}, {1,0} },   // G5 = g1g3	       
-						  {{0,-1},{0,-1},{0,-1},{0,-1} },   // G6 = g2g3	       
-						  { {1,0}, {1,0},{-1,0},{-1,0} },   // G7 = g1g2g3   =  g5g4
-						  { {1,0}, {1,0}, {1,0}, {1,0} },   // G8 = g4	       
-						  { {0,1}, {0,1},{0,-1},{0,-1} },   // G9 = g1g4	       
-						  {{-1,0}, {1,0}, {1,0},{-1,0} },   // G10= g2g4	       
-						  {{0,-1}, {0,1},{0,-1}, {0,1} },   // G11= g1g2g4   = -g5g3
-						  { {0,1},{0,-1},{0,-1}, {0,1} },   // G12= g3g4	       
-						  {{-1,0}, {1,0},{-1,0}, {1,0} },   // G13= g1g3g4   =  g5g2
-						  {{0,-1},{0,-1},{0,-1},{0,-1} },   // G14= g2g3g4   = -g5g1
-						  { {1,0}, {1,0},{-1,0},{-1,0} }};  // G15= g1g2g3g4 =  g5
+  constexpr int rowValue[N_GAMMA_][N_SPIN_][2] = {{ {1,0}, {1,0}, {1,0}, {1,0} },   // G0 = 1
+                                                  { {0,1}, {0,1},{0,-1},{0,-1} },   // G1 = g1
+                                                  {{-1,0}, {1,0}, {1,0},{-1,0} },   // G2 = g2
+                                                  {{0,-1}, {0,1},{0,-1}, {0,1} },   // G3 = g1g2
+                                                  { {0,1},{0,-1},{0,-1}, {0,1} },   // G4 = g3
+                                                  {{-1,0}, {1,0},{-1,0}, {1,0} },   // G5 = g1g3
+                                                  {{0,-1},{0,-1},{0,-1},{0,-1} },   // G6 = g2g3
+                                                  { {1,0}, {1,0},{-1,0},{-1,0} },   // G7 = g1g2g3   =  g5g4
+                                                  { {1,0}, {1,0}, {1,0}, {1,0} },   // G8 = g4
+                                                  { {0,1}, {0,1},{0,-1},{0,-1} },   // G9 = g1g4
+                                                  {{-1,0}, {1,0}, {1,0},{-1,0} },   // G10= g2g4
+                                                  {{0,-1}, {0,1},{0,-1}, {0,1} },   // G11= g1g2g4   = -g5g3
+                                                  { {0,1},{0,-1},{0,-1}, {0,1} },   // G12= g3g4
+                                                  {{-1,0}, {1,0},{-1,0}, {1,0} },   // G13= g1g3g4   =  g5g2
+                                                  {{0,-1},{0,-1},{0,-1},{0,-1} },   // G14= g2g3g4   = -g5g1
+                                                  { {1,0}, {1,0},{-1,0},{-1,0} }};  // G15= g1g2g3g4 =  g5
   return rowValue[m][n][r];
 }
 
 //- The column in which RowValue exists for each gamma matrix
-inline int GammaColumnIndex(int m, int n){  
-  constexpr int columnIdx[N_GAMMA_][N_SPIN_] = {{ 0, 1, 2, 3 },   // G0 = 1	       
-						{ 3, 2, 1, 0 },   // G1 = g1	       
-						{ 3, 2, 1, 0 },   // G2 = g2	       
-						{ 0, 1, 2, 3 },   // G3 = g1g2	       
-						{ 2, 3, 0, 1 },   // G4 = g3	       
-						{ 1, 0, 3, 2 },   // G5 = g1g3	       
-						{ 1, 0, 3, 2 },   // G6 = g2g3	       
-						{ 2, 3, 0, 1 },   // G7 = g1g2g3   =  g5g4
-						{ 2, 3, 0, 1 },   // G8 = g4	       
-						{ 1, 0, 3, 2 },   // G9 = g1g4	       
-						{ 1, 0, 3, 2 },   // G10= g2g4	       
-						{ 2, 3, 0, 1 },   // G11= g1g2g4   = -g5g3
-						{ 0, 1, 2, 3 },   // G12= g3g4	       
-						{ 3, 2, 1, 0 },   // G13= g1g3g4   =  g5g2
-						{ 3, 2, 1, 0 },   // G14= g2g3g4   = -g5g1
-						{ 0, 1, 2, 3 }};  // G15= g1g2g3g4 =  g5  
+inline int GammaColumnIndex(int m, int n){
+  constexpr int columnIdx[N_GAMMA_][N_SPIN_] = {{ 0, 1, 2, 3 },   // G0 = 1
+                                                { 3, 2, 1, 0 },   // G1 = g1
+                                                { 3, 2, 1, 0 },   // G2 = g2
+                                                { 0, 1, 2, 3 },   // G3 = g1g2
+                                                { 2, 3, 0, 1 },   // G4 = g3
+                                                { 1, 0, 3, 2 },   // G5 = g1g3
+                                                { 1, 0, 3, 2 },   // G6 = g2g3
+                                                { 2, 3, 0, 1 },   // G7 = g1g2g3   =  g5g4
+                                                { 2, 3, 0, 1 },   // G8 = g4
+                                                { 1, 0, 3, 2 },   // G9 = g1g4
+                                                { 1, 0, 3, 2 },   // G10= g2g4
+                                                { 2, 3, 0, 1 },   // G11= g1g2g4   = -g5g3
+                                                { 0, 1, 2, 3 },   // G12= g3g4
+                                                { 3, 2, 1, 0 },   // G13= g1g3g4   =  g5g2
+                                                { 3, 2, 1, 0 },   // G14= g2g3g4   = -g5g1
+                                                { 0, 1, 2, 3 }};  // G15= g1g2g3g4 =  g5
   return columnIdx[m][n];
 }
-
-//-------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------
 
 /**
  * The following two functions are used to map the gamma matrix of the loop being calculated
@@ -100,13 +96,13 @@ inline int GammaColumnIndex(int m, int n){
 
 //- This takes care of the sign
 //- T(1) and T(4) are not included because the output has a minus sign as well
-std::vector<int> minusGamma(){
+inline std::vector<int> minusGamma(){
   std::vector<int> minusG{3, 6, 9, 11, 12, 14};
   return minusG;
 }
 
 //- This takes care of the index
-std::vector<int> indexMapGamma(){
+inline std::vector<int> indexMapGamma(){
   std::vector<int> idxG(N_GAMMA_, 0);
   for(int i=0;i<N_GAMMA_;i++) idxG.at(i) = N_GAMMA_ -i -1;
   return idxG;
