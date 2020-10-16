@@ -46,6 +46,15 @@ inline __device__ const GammaMap<Float>* gMap() {
   return reinterpret_cast<const GammaMap<Float>*>(cGammaMap);
 }
 
+//- Wrapper to copy Gamma map structure to __constant__ memory
+template <typename Float>
+void copyGammaMaptoSymbol(GammaMap<Float> gmap_struct){
+  cudaMemcpyToSymbol(cGammaMap, &gmap_struct, sizeof(GammaMap<Float>));
+}
+
+template void copyGammaMaptoSymbol(GammaMap<float> gmap_struct);
+template void copyGammaMaptoSymbol(GammaMap<double> gmap_struct);
+
 
 template <typename Float>
 __global__ void convertIdxOrder_mapGamma_kernel(complex<Float> *dataOut, const complex<Float> *dataIn, ConvertIdxArg *arg){
@@ -73,7 +82,7 @@ __global__ void convertIdxOrder_mapGamma_kernel(complex<Float> *dataOut, const c
   int Ly = arg->localL[1];
   int Lt = arg->localL[3];
   
-  //- Get the gamma coefficients from constant memory
+  //- Get the gamma mapping info from constant memory
   const GammaMap<Float> *gammaMap = gMap<Float>();
   
   for(int iL=0;iL<arg->nLoop;iL++){

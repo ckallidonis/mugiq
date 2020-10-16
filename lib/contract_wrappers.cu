@@ -38,8 +38,8 @@ void copyGammaMapStructToSymbol(){
     map_h.sign[m]  = signGamma.at(m);
     map_h.index[m] = idxG.at(m);
   }
-  
-  cudaMemcpyToSymbol(cGammaMap, &map_h, sizeof(GammaMap<Float>));
+
+  copyGammaMaptoSymbol<Float>(map_h);
 }
 
 template void copyGammaMapStructToSymbol<float>();
