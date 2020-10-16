@@ -52,10 +52,10 @@ void createPhaseMatrixGPU(complex<Float> *phaseMatrix_d, const int* momMatrix_h,
 			  long long locV3, int Nmom, int FTSign,
 			  const int localL[], const int totalL[]){
 
-  int* momMatrix_d;
-  cudaMalloc((void**)&momMatrix_d, sizeof(momMatrix_h));
+  int *momMatrix_d;
+  cudaMalloc((void**)&momMatrix_d, sizeof(int)*Nmom*MOM_DIM_);
+  cudaMemcpy(momMatrix_d, momMatrix_h, sizeof(int)*Nmom*MOM_DIM_, cudaMemcpyHostToDevice);
   checkCudaError();
-  cudaMemcpy(momMatrix_d, momMatrix_h, sizeof(momMatrix_h), cudaMemcpyHostToDevice);
 
   MomProjArg arg(locV3, Nmom, FTSign, localL, totalL);
   MomProjArg *arg_d;
