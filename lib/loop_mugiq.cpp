@@ -1,5 +1,5 @@
 #include <loop_mugiq.h>
-//#include <gamma.h>
+#include <gamma.h>
 #include <cublas_v2.h>
 #include <hdf5.h>
 
@@ -337,9 +337,9 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
    * Matrix dimensions in cuBlas are set such that the matrices are in column-major format as shown below
    *
    * Matrix Multiplication is: dataMom = dataPos * PhaseMatrix.
-   *  dataPosMP_d   = (locT*nData,locV3) : input loop-trace matrix with shuffled(converted) indices
-   *  phaseMatrix_d = (locV3,Nmom)       : phase matrix
-   *  dataMom_d     = (locT*nData,Nmom)  : output matrix in column-major format (device)
+   *  dataPosMP_d   = (locT*nData,locV3) : input: loop-trace matrix with shuffled(converted) indices
+   *  phaseMatrix_d = (locV3,Nmom)       : input: phase matrix
+   *  dataMom_d     = (locT*nData,Nmom)  : output: momentum-projected data in column-major format (device)
    */  
   
   cublasHandle_t handle;
@@ -460,7 +460,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       bufByteSize = SizeCplxFloat*nElemPosLocPerLoop;
     }
 
-    cudaMemset(&dataPos_d[bufOffset], 0, bufByteSize);
+    cudaMemset(&(dataPos_d[bufOffset]), 0, bufByteSize);
     
     for(int n=0;n<nEv;n++){
       Float sigma = (Float)(*(eigsolve->eVals_sigma))[n];
@@ -477,7 +477,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 	  displace->doVectorDisplacement(DISPLACE_TYPE_COVARIANT, fineEvecR, idisp);
 	  if(idisp >= cPrm->dispStart.at(id) && idisp <= cPrm->dispStop.at(id)){
 	    long long dispOffset = nElemPosLocPerLoop*dispCount;
-	    performLoopContraction<Float>(&dataPos_d[bufOffset+dispOffset], fineEvecL, fineEvecR, sigma);
+	    performLoopContraction<Float>(&(dataPos_d[bufOffset+dispOffset]), fineEvecL, fineEvecR, sigma);
 	    printfQuda("%s: EV[%04d] Loop trace for displacement = %02d completed\n", __func__, n, idisp);
 	    dispCount++;
 	  }
@@ -517,15 +517,135 @@ void Loop_Mugiq<Float>::writeLoopsHDF5_Mom(){
 
   if(!commsAreSet) setupComms();
   
+  //- Only the "time" processes will write, they are the ones that have the globally reduced data buffer!
+  if(IamTimeProcess){
 
-  
+    const int locT   = cPrm->locT;
+    const int nGamma = cPrm->nG;
+    const int nLoop  = cPrm->nLoop;
+    
+    //- Determine the data type for writing
+    hid_t H5_dataType;
+    if( typeid(Float) == typeid(float) ){
+      H5_dataType = H5T_NATIVE_FLOAT;
+      printfQuda("%s: Will write loop data in single precision\n", __func__);
+    }
+    else if( typeid(Float) == typeid(double)){
+      H5_dataType = H5T_NATIVE_DOUBLE;
+      printfQuda("%s: Will write loop data in double precision\n", __func__);
+    }
+    else errorQuda("%s: Precision not supported!\n", __func__);
+
+    
+    char filename_c[momSpaceFilename.size()+1];
+    strcpy(filename_c, momSpaceFilename.c_str());
+    printfQuda("%s: Momentum-space loop data HDF5 filename: %s\n", __func__, filename_c);
+
+    const int dSetDim = 2; //- Size of each dataset (Time, real-imag)
+    
+    //- Start point (offset) for each process, in each dimension
+    hsize_t start[dSetDim] = {static_cast<hsize_t>(tCoord*cPrm->localL[3]), 0};
+
+    // Dimensions of the dataspace
+    hsize_t tdims[dSetDim] = {static_cast<hsize_t>(cPrm->totalL[3]), 2}; // Global
+    hsize_t ldims[dSetDim] = {static_cast<hsize_t>(cPrm->localL[3]), 2}; // Local
+
+    //- Open the file
+    hid_t fapl_id = H5Pcreate(H5P_FILE_ACCESS);
+
+    //H5Pset_fapl_mpio(fapl_id, COMM_TIME, MPI_INFO_NULL);
+    H5Pset_fapl_mpio(fapl_id, MPI_COMM_WORLD, MPI_INFO_NULL);
+    hid_t file_id = H5Fcreate(filename_c, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id);
+    if(file_id<0) errorQuda("%s: Cannot open filename %s. Check that directory exists!\n", __func__, filename_c);
+    H5Pclose(fapl_id);    
+
+    int dStart = 0, dStop = 0;
+
+    //- Begin creating the groups
+    for(int im=0;im<cPrm->Nmom;im++){
+      //-Momenta group
+      char group1_tag[16];
+      snprintf(group1_tag, sizeof(group1_tag), "mom_%+d_%+d_%+d",
+	       cPrm->momMatrix[MOM_MATRIX_IDX(0,im)],
+	       cPrm->momMatrix[MOM_MATRIX_IDX(1,im)],
+	       cPrm->momMatrix[MOM_MATRIX_IDX(2,im)]);
+      hid_t group1_id = H5Gcreate(file_id, group1_tag, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+      int iL = 0;
+      for(int iDE=-1;iDE<cPrm->nDispEntries;iDE++){
+	if(iDE == -1){
+	  dStart = 0;
+	  dStop  = 0;
+	}
+	else{
+	  dStart = cPrm->dispStart.at(iDE);
+	  dStop  = cPrm->dispStop.at(iDE);
+	}
+	for(int idisp=dStart;idisp<=dStop;idisp++){
+	  //- Displacement group
+	  char group2_tag[10];
+	  if(iDE==-1){
+	    snprintf(group2_tag,sizeof(group2_tag),"disp_0");
+	  }
+	  else{
+	    std::string dStr = cPrm->dispString.at(iDE);
+	    char disp_c[dStr.size()+1];
+	    strcpy(disp_c, dStr.c_str());
+	    snprintf(group2_tag,sizeof(group2_tag),"disp_%s_%d", disp_c, idisp);
+	  }  
+	  hid_t group2_id = H5Gcreate(group1_id, group2_tag, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	  
+	  for(int ig=0;ig<N_GAMMA_;ig++){
+	    //- Gamma matrix group
+	    std::string gStr = GammaName(ig);
+	    char group3_tag[gStr.size()+1];
+	    strcpy(group3_tag, gStr.c_str());
+	    hid_t group3_id = H5Gcreate(group2_id, group3_tag, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+	    //- Create filespaces and hyperslab
+            hid_t h5_filespace = H5Screate_simple(dSetDim, tdims, NULL);
+            hid_t dataset_id   = H5Dcreate(group3_id, "loop", H5_dataType, h5_filespace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            hid_t h5_subspace  = H5Screate_simple(dSetDim, ldims, NULL);
+            h5_filespace = H5Dget_space(dataset_id);
+            H5Sselect_hyperslab(h5_filespace, H5S_SELECT_SET, start, NULL, ldims, NULL);
+            hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+            H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+
+	    const long long loopIdx = locT*ig + locT*nGamma*iL + locT*nGamma*nLoop*im;
+
+	    //	    for(int t=0;t<locT;t++)
+	    //	      printfQuda("%+16.e %16.e\n", dataMom[t+loopIdx].real(), dataMom[t+loopIdx].imag());
+	    
+	    herr_t status = H5Dwrite(dataset_id, H5_dataType, h5_subspace, h5_filespace, plist_id, &(dataMom[loopIdx]));
+	    if(status<0) errorQuda("%s: Could not write data for (mom,disp,gamma) = (%d,%d,%d)\n", __func__,im,iL,ig);
+
+            H5Sclose(h5_subspace);
+            H5Dclose(dataset_id);
+            H5Sclose(h5_filespace);
+            H5Pclose(plist_id);
+
+	    H5Gclose(group3_id);
+	  }//- for gamma
+	  
+	  iL++;
+	  H5Gclose(group2_id);
+	} //- for dispStart-dispStop
+      }//- for displacement entries
+      
+      H5Gclose(group1_id);
+    }//- for momenta
+    
+    H5Fclose(file_id);
+    
+  }//- If time process
+    
 }
 
 
 //- Write the position-space loop data in HDF5 format
 template <typename Float>
-void Loop_Mugiq<Float>::writeLoopsHDF5_Pos(){
-
+void Loop_Mugiq<Float>::writeLoopsHDF5_Pos(){ 
+  errorQuda("%s: Not supported yet!\n", __func__);
 }
 
 
