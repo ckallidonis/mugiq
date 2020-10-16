@@ -11,7 +11,7 @@
 
 using namespace quda;
 
-constexpr int cSize = 4096; // Size of constant memory symbols, set it to 4K
+constexpr int cSize = 8192; // Size of constant memory symbols, set it to 8K
 
 __constant__ char cGammaCoeff[cSize];  //- constant-memory buffer for gamma matrices on GPU
 __constant__ char cGammaMap[cSize];    //- constant-memory buffer for mapping Gamma to g5*Gamma

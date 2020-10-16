@@ -9,9 +9,18 @@ extern __shared__ complex<Float> shmemBuf[];
 //- Function that casts the __constant__ memory variable containing the gamma Coefficients
 //- to its structure type, GammaCoeff
 template <typename Float>
-inline __device__ const GammaCoeff<Float>* gCoeff() {
-  return reinterpret_cast<const GammaCoeff<Float>*>(cGammaCoeff);
+inline __device__ const GammaCoeff<Float> *gCoeff() {
+  return reinterpret_cast<const GammaCoeff<Float> *>(cGammaCoeff);
 }
+
+//- Wrapper to copy Gamma coefficients structure to __constant__ memory
+template <typename Float>
+void copyGammaCoefftoSymbol(GammaCoeff<Float> gcoeff_struct){
+  cudaMemcpyToSymbol(cGammaCoeff, &gcoeff_struct, sizeof(GammaCoeff<Float>));
+}
+
+template void copyGammaCoefftoSymbol(GammaCoeff<float> gcoeff_struct);
+template void copyGammaCoefftoSymbol(GammaCoeff<double> gcoeff_struct);
 
 
 /** Perform contraction/trace:
@@ -72,12 +81,13 @@ __global__ void loopContract_kernel(complex<Float> *loopData, LoopContractArg<Fl
     *(reinterpret_cast<Vector<Float>*>(vR)) = arg->eVecR(x_cb, pty);
   }
   __syncthreads();
+
   
   //- trace color indices of vL^dag * vR, resG(be,al) = vL^\dag(be) * vR(a)
   //- In this notation the indices in GAMMA_MAT_IDX(i1, i2) are as:
   //- the first  index corresponds to the left  vector, i1 <-> be
   //- the second index corresponds to the right vector, i2 <-> al
-  resG[GAMMA_MAT_IDX(be, al)] = 0.;
+  resG[GAMMA_MAT_IDX(be, al)] = 0.0;
   for (int kc=0;kc<N_COLOR_;kc++)
     resG[GAMMA_MAT_IDX(be, al)] += conj(vL[SPINOR_SITE_IDX(be,kc)]) * vR[SPINOR_SITE_IDX(al,kc)];    
 
@@ -89,12 +99,12 @@ __global__ void loopContract_kernel(complex<Float> *loopData, LoopContractArg<Fl
   complex<Float> trace = 0;
 #pragma unroll
   for (int s2=0;s2<N_SPIN_;s2++){
-    int s1 = gamma->column_index[iG][s2];
+    int s1 = gamma->column_index[iG][s2];    
     trace += gamma->row_value[iG][s2] * resG[GAMMA_MAT_IDX(s2, s1)];
   }
 
   //- Sum over the eigenvalues and scale with the inverse eigenvalue
-  loopData[tid + lV*iG] += arg->inv_sigma * trace;    
+  loopData[tid + lV*iG] += arg->inv_sigma * trace;
   
 }//- loopContract_kernel
 

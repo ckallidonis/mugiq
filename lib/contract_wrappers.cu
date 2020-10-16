@@ -14,8 +14,8 @@ void copyGammaCoeffStructToSymbol(){
       gamma_h.row_value[m][n] = {static_cast<Float>(GammaRowValue(m,n,0)), static_cast<Float>(GammaRowValue(m,n,1))};
     }
   }
-  
-  cudaMemcpyToSymbol(cGammaCoeff, &gamma_h, sizeof(GammaCoeff<Float>));
+
+  copyGammaCoefftoSymbol<Float>(gamma_h);
 }
 
 template void copyGammaCoeffStructToSymbol<float>();
