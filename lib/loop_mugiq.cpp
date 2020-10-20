@@ -302,6 +302,7 @@ void Loop_Mugiq<Float>::prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorFi
 
   for(int i=0;i<static_cast<int>(tmpCSF.size());i++) delete tmpCSF[i];
   
+  printfQuda("%s: Vector prolongated\n", __func__);
 }
 
 
