@@ -154,7 +154,7 @@ void computeEvecsMuGiq(QudaEigParam QudaEigParams){
 
 
 //- Compute disconnected loops using Multigrid deflation
-void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, MugiqLoopParam loopParams){
+void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, MugiqLoopParam loopParams, MuGiqBool computeCoarse){
 
   printfQuda("\n%s: Will compute disconnected loops using Multi-grid deflation!\n", __func__);  
 
@@ -173,7 +173,7 @@ void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, Mug
   MugiqEigParam *eigParams = new MugiqEigParam(&QudaEigParams);
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);
-  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(eigParams, mg_env, &profileEigensolveMuGiq);
+  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(eigParams, mg_env, &profileEigensolveMuGiq, computeCoarse);
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
   eigsolve->printInfo();

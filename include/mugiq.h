@@ -69,8 +69,9 @@ extern "C" {
    * @param mgParams  Contains all MG metadata regarding the type of eigensolve.
    * @param eigParams Contains all metadata regarding the type of solve.
    * @param loopParams Contains all metadata regarding the loop calculation
+   * @param computeCoarse Whether to compute eigenvectors of the coarse Dirac operator
    */
-  void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams);
+  void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams, MuGiqBool computeCoarse);
   
 #ifdef __cplusplus
 }
