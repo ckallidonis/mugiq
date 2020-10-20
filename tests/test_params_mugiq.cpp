@@ -16,6 +16,7 @@ MuGiqBool loop_write_mom_space_hdf5 = MUGIQ_BOOL_TRUE;
 MuGiqBool loop_write_pos_space_hdf5 = MUGIQ_BOOL_FALSE;
 MuGiqBool loop_doMomProj = MUGIQ_BOOL_TRUE;
 MuGiqBool loop_doNonLocal = MUGIQ_BOOL_TRUE;
+MuGiqBool compute_coarse = MUGIQ_BOOL_TRUE;
 char loop_gauge_filename[1024] = "";
 
 std::string disp_entry_string;
@@ -30,6 +31,9 @@ namespace {
   
   CLI::TransformPairs<MuGiqBool> mugiq_use_mg_map {{"yes", MUGIQ_BOOL_TRUE},
 						   {"no", MUGIQ_BOOL_FALSE}};
+
+  CLI::TransformPairs<MuGiqBool> mugiq_compute_coarse_map {{"yes", MUGIQ_BOOL_TRUE},
+							   {"no", MUGIQ_BOOL_FALSE}};
 
   CLI::TransformPairs<LoopFTSign> loop_ft_sign_map {{"plus", LOOP_FT_SIGN_PLUS},
 						    {"minus", LOOP_FT_SIGN_MINUS}};
@@ -63,6 +67,9 @@ void add_eigen_option_mugiq(std::shared_ptr<QUDAApp> app)
   
   opgroup->add_option("--mugiq-use-mg", mugiq_use_mg,
 		      "Whether to use MG in Eigenpair calculation, options are yes/no (default NULL)")->transform(CLI::QUDACheckedTransformer(mugiq_use_mg_map));
+
+  opgroup->add_option("--mugiq-compute-coarse", compute_coarse,
+		      "Whether to compute eigenpairs of coarse Dirac operator, options are yes/no (default yes)")->transform(CLI::QUDACheckedTransformer(mugiq_compute_coarse_map));  
 }
 
 

@@ -24,6 +24,7 @@ extern MuGiqBool loop_write_mom_space_hdf5;
 extern MuGiqBool loop_write_pos_space_hdf5;
 extern MuGiqBool loop_doMomProj;
 extern MuGiqBool loop_doNonLocal;
+extern MuGiqBool compute_coarse;
 extern char loop_gauge_filename[1024];
 extern std::string disp_entry_string;
 extern std::string fname_mom_h5;

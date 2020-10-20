@@ -926,7 +926,7 @@ int main(int argc, char **argv)
   // Call the interface function to compute the loop
   double time = -((double)clock());
 
-  if(mugiq_task == MUGIQ_COMPUTE_LOOP) computeLoop_MG(mg_param, eig_param, loopParams);
+  if(mugiq_task == MUGIQ_COMPUTE_LOOP) computeLoop_MG(mg_param, eig_param, loopParams, compute_coarse);
   else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (supported option are computeLoop)\n");
   else errorQuda("Unsupported option for --mugiq-task! (supported option is computeLoopU\n");
     
