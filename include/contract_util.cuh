@@ -17,41 +17,18 @@ __constant__ char cGammaCoeff[cSize];  //- constant-memory buffer for gamma matr
 __constant__ char cGammaMap[cSize];    //- constant-memory buffer for mapping Gamma to g5*Gamma
 
 
-//- Templates of the Fermion/Gauge mappers on the precision, used for fine fields
-template <typename T> struct FieldMapper {};
-
-template <> struct FieldMapper<double> {
-  typedef typename colorspinor_mapper<double, N_SPIN_, N_COLOR_>::type F;
-  typedef ColorSpinor<double, N_COLOR_, N_SPIN_> V;
-
-  typedef typename gauge_mapper<double, QUDA_RECONSTRUCT_NO>::type U;
-  typedef Matrix<complex<double>, N_COLOR_> M;
-};
-
-template <> struct FieldMapper<float> {
-  typedef typename colorspinor_mapper<float, N_SPIN_, N_COLOR_>::type F;
-  typedef ColorSpinor<float, N_COLOR_, N_SPIN_> V;
-
-  typedef typename gauge_mapper<float, QUDA_RECONSTRUCT_NO>::type U;
-  typedef Matrix<complex<float>, N_COLOR_> M;
-};
-
-
-//-alias for the Fermion field type
 template <typename Float>
-using Fermion = typename FieldMapper<Float>::F;
+using Fermion = typename colorspinor_mapper<Float,N_SPIN_,N_COLOR_>::type;
 
-//-alias for the Gauge field type
 template <typename Float>
-using Gauge = typename FieldMapper<Float>::U;
+using Gauge = typename gauge_mapper<Float,QUDA_RECONSTRUCT_NO>::type;
 
-//-alias for the Vector type
 template <typename Float>
-using Vector = typename FieldMapper<Float>::V;
+using Vector = ColorSpinor<Float,N_COLOR_,N_SPIN_>;
 
-//-alias for the Link type
 template <typename Float>
-using Link = typename FieldMapper<Float>::M;
+using Link = Matrix<complex<Float>,N_COLOR_>;
+
 
 
 //- Structure that will eventually be copied to GPU __constant__ memory
@@ -155,8 +132,11 @@ struct LoopContractArg : public ArgGeom {
   Float inv_sigma; //- The inverse(!) of the eigenvalue corresponding to eVecL and eVecR
   
   LoopContractArg(ColorSpinorField *eVecL_, ColorSpinorField *eVecR_, Float sigma)
-    : ArgGeom(eVecL_), eVecL(*eVecL_), eVecR(*eVecR_), inv_sigma(1.0/sigma)
-  { }
+    : ArgGeom(eVecL_), inv_sigma(1.0/sigma)
+  {
+    eVecL.init(*eVecL_);
+    eVecR.init(*eVecR_);
+  }
   
 };//-- LoopContractArg
 
