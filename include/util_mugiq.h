@@ -27,7 +27,7 @@
 #define NELEM_SHMEM_CPLX_BUF (2*SPINOR_SITE_LEN_ + N_GAMMA_)
 
 //- Used in generic GPU kernels
-#define THREADS_PER_BLOCK 32
+#define THREADS_PER_BLOCK 16
 
 
 //- Displacement-related macros
