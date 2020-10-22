@@ -112,7 +112,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   eVals(nullptr),
   eVals_sigma(nullptr),
   evals_res(nullptr),
-  computeCoarse(MUGIQ_BOOL_INVALID)
+  computeCoarse(MUGIQ_BOOL_FALSE)
 {
 
   //- Whether we are running for the "full" or even-odd preconditioned Operator
