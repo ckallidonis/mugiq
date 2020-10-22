@@ -63,19 +63,22 @@ extern "C" {
    * @param eigParams Contains all metadata regarding the type of solve.
    */
   void computeEvecsMuGiq(QudaEigParam eigParams);
-
-  /** MuGiq interface function that computes disconnected quark loops using Multigrid Deflation
-   *  and for ultra-local current insertions
-   * @param mgParams  Contains all MG metadata regarding the type of eigensolve.
-   * @param eigParams Contains all metadata regarding the type of solve.
-   * @param loopParams Contains all metadata regarding the loop calculation
-   * @param computeCoarse Whether to compute eigenvectors of the coarse Dirac operator
-   */
-  void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams, MuGiqBool computeCoarse);
   
 #ifdef __cplusplus
 }
 #endif
+
+/** MuGiq interface function that computes disconnected quark loops using Multigrid Deflation
+ *  and for ultra-local current insertions
+ * @param mgParams  Contains all MG metadata regarding the type of eigensolve.
+ * @param eigParams Contains all metadata regarding the type of solve.
+ * @param loopParams Contains all metadata regarding the loop calculation
+ * @param computeCoarse Whether to compute eigenvectors of the coarse Dirac operator
+ * @param useMG Whether to use Multigrid for computing the loop
+ */
+template <typename Float>
+void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams,
+		    MuGiqBool computeCoarse, MuGiqBool useMG);
 
 
 #endif // _MUGIQ_H

@@ -10,6 +10,9 @@ Displace<T>::Displace(MugiqLoopParam *loopParams_, ColorSpinorField *csf_, QudaP
   gaugeField(nullptr),
   auxDispVec(nullptr)
 {
+
+  printfQuda("%s: Precision is %s\n", __func__, typeid(T) == typeid(float) ? "single" : "double");
+  
   for (int d=0;d<N_DIM_;d++) exRng[d] = 2 * (redundantComms || commDimPartitioned(d));
 
   //-Create the gauge field with extended ghost exchange, will be used for displacements
@@ -77,7 +80,8 @@ cudaGaugeField* Displace<T>::createCudaGaugeField(){
 
   if((qGaugePrm->cuda_prec == QUDA_SINGLE_PRECISION && typeid(T) != typeid(float)) ||
      (qGaugePrm->cuda_prec == QUDA_DOUBLE_PRECISION && typeid(T) != typeid(double)))
-    errorQuda("%s: Incompatible precision settings between Displace template and gauge field parameters\n");
+    errorQuda("%s: Incompatible precision settings between Displace template %zu and gauge field parameters %d\n", __func__,
+	      sizeof(T), static_cast<int>(qGaugePrm->cuda_prec));
   
   gParam.setPrecision(qGaugePrm->cuda_prec, true);  
   
