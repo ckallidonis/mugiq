@@ -5,10 +5,11 @@
 
 template <typename Float>
 Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
-			      Eigsolve_Mugiq *eigsolve_) :
+                              Eigsolve_Mugiq *eigsolve_) :
   cPrm(nullptr),
   displace(nullptr),
   eigsolve(eigsolve_),
+  refVec(nullptr),
   COMM_SPACE(MPI_COMM_NULL),
   space_rank(-1),
   space_size(-1),
@@ -37,21 +38,24 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
 {
   printfQuda("\n*************************************************\n");
   printfQuda("%s: Creating Loop computation environment\n", __func__);
-  
-  cPrm = new LoopComputeParam(loopParams_, eigsolve->mg_env->mg_solver->B[0]);
-  if(cPrm->doNonLocal) displace = new Displace<Float>(loopParams_,
-						      eigsolve->mg_env->mg_solver->B[0],
-						      eigsolve->eVecs[0]->Precision());
 
+  if(eigsolve->useMGenv) refVec = eigsolve->mg_env->mg_solver->B[0];
+  else refVec = eigsolve->eVecs[0];
+  
+  cPrm = new LoopComputeParam(loopParams_, refVec);
   setupComms();
 
   allocateDataMemory();
   copyGammaToConstMem();
   if(cPrm->doMomProj) createPhaseMatrix();
   
-  printfQuda("*************************************************\n\n");
-
   printLoopComputeParams();
+
+  if(cPrm->doNonLocal) displace = new Displace<Float>(loopParams_,
+						      refVec,
+						      eigsolve->eVecs[0]->Precision());
+
+  printfQuda("*************************************************\n\n");
 }
 
 template <typename Float>
@@ -231,6 +235,8 @@ void Loop_Mugiq<Float>::printLoopComputeParams(){
   
   printfQuda("******************************************\n");
   printfQuda("    Parameters of the Loop Computation\n");
+  printfQuda("Precision is %s\n", typeid(Float) == typeid(float) ? "single" : "double");
+  printfQuda("Will%s use Multigrid\n", eigsolve->useMGenv ? "" : " NOT");
   printfQuda("Will%s perform Momentum Projection (Fourier Transform)\n", cPrm->doMomProj ? "" : " NOT");
   if(cPrm->doMomProj){
     printfQuda("Momentum Projection will be performed on GPU using cuBlas\n");
@@ -269,6 +275,8 @@ void Loop_Mugiq<Float>::printLoopComputeParams(){
 template <typename Float>
 void Loop_Mugiq<Float>::prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorField *coarseEvec){
 
+  if(!eigsolve->useMGenv) errorQuda("%s: This function is applicable only when using MG environment\n", __func__);
+  
   MG_Mugiq &mg_env = *(eigsolve->getMGEnv());
   
   //- Create one fine and N_coarse temporary coarse fields
@@ -430,9 +438,9 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
   int nEv = eigsolve->eigParams->nEv; // Number of eigenvectors
 
   //- Create a fine field, this will hold the prolongated version of each eigenvector
-  ColorSpinorParam csParam(*(eigsolve->mg_env->mg_solver->B[0]));
+  ColorSpinorParam csParam(*refVec);
   printfQuda("%s: Field location (field,param): (%s,%s)\n", __func__,
-	     eigsolve->mg_env->mg_solver->B[0]->Location() == 1 ? "CPU" : "GPU",
+	     refVec->Location() == 1 ? "CPU" : "GPU",
 	     csParam.location == 1 ? "CPU" : "GPU");
   QudaPrecision coarsePrec = eigsolve->eVecs[0]->Precision();
   csParam.create = QUDA_ZERO_FIELD_CREATE;
@@ -471,7 +479,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       else *fineEvecL = *(eigsolve->eVecs[n]);
 
       if( cPrm->doNonLocal && (id != -1) ){
-	//	displace->resetDispVec(fineEvecL); //- reset consecutively displaced vector to the original eigenvector[n]
+	//- Perform Displacements
 	*fineEvecR = *fineEvecL; //- reset right vector to the original, un-displaced eigenvector
 	int dispCount = 0;
 	for(int idisp=1;idisp<=cPrm->dispStop.at(id);idisp++){
@@ -485,8 +493,10 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 	}//-for displacement
       }
       else{
+	//- Ultra-local
 	*fineEvecR = *fineEvecL;
 	performLoopContraction<Float>(dataPos_d, fineEvecL, fineEvecR, sigma);
+	//	checkVectors<Float>(fineEvecL, refVec);
 	printfQuda("%s: EV[%04d] - Loop trace for Ultra-local completed\n", __func__, n);
       }
 
