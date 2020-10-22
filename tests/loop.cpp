@@ -918,15 +918,17 @@ int main(int argc, char **argv)
   }
   
 
-  // Make some checks
-  if(mugiq_use_mg == MUGIQ_BOOL_FALSE) errorQuda("Test 'loop' supports calculations oncly with MG environment. Set '--mugiq-use-mg yes'\n");
-  if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (supported option are computeLoop)\n");
-
-  
   // Call the interface function to compute the loop
   double time = -((double)clock());
 
-  if(mugiq_task == MUGIQ_COMPUTE_LOOP) computeLoop_MG(mg_param, eig_param, loopParams, compute_coarse);
+  if(mugiq_task == MUGIQ_COMPUTE_LOOP){
+    if(cuda_prec == QUDA_DOUBLE_PRECISION)
+      computeLoop_MG<double>(mg_param, eig_param, loopParams, compute_coarse, mugiq_use_mg);
+    else if(cuda_prec == QUDA_SINGLE_PRECISION)
+      computeLoop_MG<float>(mg_param, eig_param, loopParams, compute_coarse, mugiq_use_mg);
+    else
+      errorQuda("Unsupported precision %d.\n", static_cast<int>(cuda_prec));
+  }
   else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (supported option are computeLoop)\n");
   else errorQuda("Unsupported option for --mugiq-task! (supported option is computeLoopU\n");
     
