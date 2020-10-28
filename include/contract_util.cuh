@@ -17,8 +17,8 @@ __constant__ char cGammaCoeff[cSize];  //- constant-memory buffer for gamma matr
 __constant__ char cGammaMap[cSize];    //- constant-memory buffer for mapping Gamma to g5*Gamma
 
 
-template <typename Float>
-using Fermion = typename colorspinor_mapper<Float,N_SPIN_,N_COLOR_>::type;
+template <typename Float, QudaFieldOrder fieldOrder>
+using Fermion = colorspinor::FieldOrderCB<Float, N_SPIN_, N_COLOR_, 1, fieldOrder>;
 
 template <typename Float>
 using Gauge = typename gauge_mapper<Float,QUDA_RECONSTRUCT_NO>::type;
@@ -28,8 +28,6 @@ using Vector = ColorSpinor<Float,N_COLOR_,N_SPIN_>;
 
 template <typename Float>
 using Link = Matrix<complex<Float>,N_COLOR_>;
-
-
 
 //- Structure that will eventually be copied to GPU __constant__ memory
 template <typename Float>
@@ -85,12 +83,12 @@ struct ArgGeom {
   
   ArgGeom () {}
   
-  ArgGeom(ColorSpinorField *x)
-    : parity(0), nParity(x->SiteSubset()), nFace(1),
-      dim{ (3-nParity) * x->X(0), x->X(1), x->X(2), x->X(3), 1 },
+  ArgGeom(ColorSpinorField &x)
+    : parity(0), nParity(x.SiteSubset()), nFace(1),
+      dim{ (3-nParity) * x.X(0), x.X(1), x.X(2), x.X(3), 1 },
       commDim{comm_dim_partitioned(0), comm_dim_partitioned(1), comm_dim_partitioned(2), comm_dim_partitioned(3)},
-      lL{x->X(0), x->X(1), x->X(2), x->X(3)},
-      volumeCB(x->VolumeCB()), volume(x->Volume())
+      lL{x.X(0), x.X(1), x.X(2), x.X(3)},
+      volumeCB(x.VolumeCB()), volume(x.Volume())
   { }
   
   ArgGeom(cudaGaugeField *u)
@@ -123,20 +121,17 @@ struct ArgGeom {
 
 
 //- Argument Structure for performing the loop contractions
-template <typename Float>
+template <typename Float, QudaFieldOrder fieldOrder>
 struct LoopContractArg : public ArgGeom {
 
-  Fermion<Float> eVecL; //- Left  eigenvector in trace
-  Fermion<Float> eVecR; //- Right eigenvector in trace
+  Fermion<Float, fieldOrder> eVecL; //- Left  eigenvector in trace
+  Fermion<Float, fieldOrder> eVecR; //- Right eigenvector in trace
 
   Float inv_sigma; //- The inverse(!) of the eigenvalue corresponding to eVecL and eVecR
   
-  LoopContractArg(ColorSpinorField *eVecL_, ColorSpinorField *eVecR_, Float sigma)
-    : ArgGeom(eVecL_), inv_sigma(1.0/sigma)
-  {
-    eVecL.init(*eVecL_);
-    eVecR.init(*eVecR_);
-  }
+  LoopContractArg(ColorSpinorField &eVecL_, ColorSpinorField &eVecR_, Float sigma)
+    : ArgGeom(eVecL_), eVecL(eVecL_), eVecR(eVecR_), inv_sigma(1.0/sigma)
+  {  }
   
 };//-- LoopContractArg
 
@@ -179,7 +174,7 @@ struct ConvertIdxArg{
 };//-- Structure definition
 
 
-
+/*
 template <typename Float>
 struct CovDispVecArg : public ArgGeom {
 
@@ -197,7 +192,7 @@ struct CovDispVecArg : public ArgGeom {
 
   ~CovDispVecArg() {}
 };
-
+*/
 
 
 #endif // _CONTRACT_UTIL_CUH
