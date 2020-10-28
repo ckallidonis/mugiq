@@ -8,7 +8,7 @@ using namespace quda;
 template <typename Float>
 void copyGammaCoefftoSymbol(GammaCoeff<Float> gcoeff_struct);
 
-template <typename Float>
-__global__ void loopContract_kernel(complex<Float> *loopData_d,  LoopContractArg<Float> *arg);
+template <typename Float, typename Arg>
+__global__ void loopContract_kernel(complex<Float> *loopData_d, Arg *arg);
 
 #endif // _MUGIQ_CONTRACT_KERNELS_CUH
