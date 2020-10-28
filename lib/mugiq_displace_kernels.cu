@@ -1,5 +1,5 @@
 #include <mugiq_displace_kernels.cuh>
-
+/*
 //- Whether a site is even (return 0) or odd (return 1)
 inline static __device__ int everORodd(const int x[]){
   return (x[0] + x[1] + x[2] + x[3]) % 2;
@@ -113,11 +113,11 @@ inline static __device__ Vector<Float> getNbrSiteVec(Fermion<Float> &F, const in
 //-------------------------------------------------------------------
 //-------------------------------------------------------------------
 
-
-template <typename Float>
-__global__ void covariantDisplacementVector_kernel(CovDispVecArg<Float> *arg,
+*/
+template <typename Float, typename Arg>
+__global__ void covariantDisplacementVector_kernel(Arg *arg,
 						   DisplaceDir dispDir, DisplaceSign dispSign){
-
+  /*
   int x_cb = blockIdx.x*blockDim.x + threadIdx.x;
   int pty  = blockIdx.y*blockDim.y + threadIdx.y;
   pty = (arg->nParity == 2) ? pty : arg->parity;
@@ -141,10 +141,14 @@ __global__ void covariantDisplacementVector_kernel(CovDispVecArg<Float> *arg,
     nbrU = getNbrLink<Float>(arg->U, coord, pty, dir, dispSign, arg->dim, arg->commDim, arg->nFace);
 
   arg->dst(x_cb, pty) = nbrU * nbrV; // dst(x) = U_d(x) * V(x+d) || U_d^\dag(x-d) * V(x-d)
-  
+  */
 }
 
-template __global__ void covariantDisplacementVector_kernel<float> (CovDispVecArg<float>  *arg,
-								    DisplaceDir dispDir, DisplaceSign dispSign);
-template __global__ void covariantDisplacementVector_kernel<double>(CovDispVecArg<double> *arg,
-								    DisplaceDir dispDir, DisplaceSign dispSign);
+template __global__ void covariantDisplacementVector_kernel<float, CovDispVecArg<float,QUDA_FLOAT2_FIELD_ORDER>>
+(CovDispVecArg<float, QUDA_FLOAT2_FIELD_ORDER> *arg, DisplaceDir dispDir, DisplaceSign dispSign);
+template __global__ void covariantDisplacementVector_kernel<float, CovDispVecArg<float,QUDA_FLOAT4_FIELD_ORDER>>
+(CovDispVecArg<float, QUDA_FLOAT4_FIELD_ORDER> *arg, DisplaceDir dispDir, DisplaceSign dispSign);
+template __global__ void covariantDisplacementVector_kernel<double, CovDispVecArg<double,QUDA_FLOAT2_FIELD_ORDER>>
+(CovDispVecArg<double, QUDA_FLOAT2_FIELD_ORDER> *arg, DisplaceDir dispDir, DisplaceSign dispSign);
+template __global__ void covariantDisplacementVector_kernel<double, CovDispVecArg<double,QUDA_FLOAT4_FIELD_ORDER>>
+(CovDispVecArg<double, QUDA_FLOAT4_FIELD_ORDER> *arg, DisplaceDir dispDir, DisplaceSign dispSign);

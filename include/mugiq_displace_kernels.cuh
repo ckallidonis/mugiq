@@ -5,8 +5,8 @@
 
 using namespace quda;
 
-template <typename Float>
-__global__ void covariantDisplacementVector_kernel(CovDispVecArg<Float> *arg, DisplaceDir dispDir, DisplaceSign dispSign);
+template <typename Float, typename Arg>
+__global__ void covariantDisplacementVector_kernel(Arg *arg, DisplaceDir dispDir, DisplaceSign dispSign);
 
 
 #endif // _MUGIQ_DISPLACE_KERNELS_CUH
