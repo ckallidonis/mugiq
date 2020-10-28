@@ -51,9 +51,9 @@ Loop_Mugiq<Float, fieldOrder>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   
   printLoopComputeParams();
 
-  if(cPrm->doNonLocal) displace = new Displace<Float>(loopParams_,
-						      refVec,
-						      eigsolve->eVecs[0]->Precision());
+  if(cPrm->doNonLocal) displace = new Displace<Float,fieldOrder>(loopParams_,
+								 refVec,
+								 eigsolve->eVecs[0]->Precision());
 
   printfQuda("*************************************************\n\n");
 }

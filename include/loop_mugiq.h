@@ -18,7 +18,7 @@ private:
   
   LoopComputeParam *cPrm; // Loop computation Parameter structure
 
-  Displace<Float> *displace;  // structure holding the displacements
+  Displace<Float,fieldOrder> *displace;  // structure holding the displacements
   
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
 

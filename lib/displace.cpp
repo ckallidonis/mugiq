@@ -1,8 +1,8 @@
 #include <displace.h>
 
 
-template <typename T>
-Displace<T>::Displace(MugiqLoopParam *loopParams_, ColorSpinorField *csf_, QudaPrecision coarsePrec_) :
+template <typename F, QudaFieldOrder order>
+Displace<F,order>::Displace(MugiqLoopParam *loopParams_, ColorSpinorField *csf_, QudaPrecision coarsePrec_) :
   dispString("\0"), dispString_c("\0"),
   dispFlag(DispFlagNone), dispDir(DispDirNone), dispSign(DispSignNone),
   gaugePtr{loopParams_->gauge[0],loopParams_->gauge[1],loopParams_->gauge[2],loopParams_->gauge[3]},
@@ -11,7 +11,7 @@ Displace<T>::Displace(MugiqLoopParam *loopParams_, ColorSpinorField *csf_, QudaP
   auxDispVec(nullptr)
 {
 
-  printfQuda("%s: Precision is %s\n", __func__, typeid(T) == typeid(float) ? "single" : "double");
+  printfQuda("%s: Precision is %s\n", __func__, typeid(F) == typeid(float) ? "single" : "double");
   
   for (int d=0;d<N_DIM_;d++) exRng[d] = 2 * (redundantComms || commDimPartitioned(d));
 
@@ -26,35 +26,35 @@ Displace<T>::Displace(MugiqLoopParam *loopParams_, ColorSpinorField *csf_, QudaP
 }
 
 
-template <typename T>
-Displace<T>::~Displace(){
+template <typename F, QudaFieldOrder order>
+Displace<F,order>::~Displace(){
   for(int i=0;i<N_DIM_;i++) gaugePtr[i] = nullptr;
   if(gaugeField) delete gaugeField;
   if(auxDispVec) delete auxDispVec;
 }
 
 
-template <typename T>
-void Displace<T>::resetAuxDispVec(ColorSpinorField *fineEvec){
+template <typename F, QudaFieldOrder order>
+void Displace<F,order>::resetAuxDispVec(ColorSpinorField *fineEvec){
   *auxDispVec = *fineEvec;
   printfQuda("%s: Reset of auxilliary displaced vector done\n", __func__);
 }
 
 
-template <typename T>
-void Displace<T>::swapAuxDispVec(ColorSpinorField *displacedEvec){
+template <typename F, QudaFieldOrder order>
+void Displace<F,order>::swapAuxDispVec(ColorSpinorField *displacedEvec){
   ColorSpinorField *tmp = displacedEvec;
   *displacedEvec = *auxDispVec;
   *auxDispVec = *tmp; //- This might as well be neglected
 }
 
 
-template <typename T>
-void Displace<T>::doVectorDisplacement(DisplaceType dispType, ColorSpinorField *displacedEvec, int idisp){
+template <typename F, QudaFieldOrder order>
+void Displace<F,order>::doVectorDisplacement(DisplaceType dispType, ColorSpinorField *displacedEvec, int idisp){
 
   if(dispType == DISPLACE_TYPE_COVARIANT){
     blas::zero(*auxDispVec);
-    performCovariantDisplacementVector<T>(auxDispVec, displacedEvec, gaugeField, dispDir, dispSign);
+    performCovariantDisplacementVector<F>(auxDispVec, displacedEvec, gaugeField, dispDir, dispSign);
     swapAuxDispVec(displacedEvec);
     printfQuda("%s: Step-%02d of a Covariant displacement done\n", __func__, idisp);
   }
@@ -64,8 +64,8 @@ void Displace<T>::doVectorDisplacement(DisplaceType dispType, ColorSpinorField *
 }
 
 
-template <typename T>
-cudaGaugeField* Displace<T>::createCudaGaugeField(){
+template <typename F, QudaFieldOrder order>
+cudaGaugeField* Displace<F,order>::createCudaGaugeField(){
 
   cudaGaugeField *cudaGaugeField = NULL;
   
@@ -78,10 +78,10 @@ cudaGaugeField* Displace<T>::createCudaGaugeField(){
   gParam.pad            = qGaugePrm->ga_pad * 2;  // It's originally defined with half-volume
   gParam.order          = QUDA_QDP_GAUGE_ORDER;//QUDA_FLOAT2_GAUGE_ORDER;
 
-  if((qGaugePrm->cuda_prec == QUDA_SINGLE_PRECISION && typeid(T) != typeid(float)) ||
-     (qGaugePrm->cuda_prec == QUDA_DOUBLE_PRECISION && typeid(T) != typeid(double)))
+  if((qGaugePrm->cuda_prec == QUDA_SINGLE_PRECISION && typeid(F) != typeid(float)) ||
+     (qGaugePrm->cuda_prec == QUDA_DOUBLE_PRECISION && typeid(F) != typeid(double)))
     errorQuda("%s: Incompatible precision settings between Displace template %zu and gauge field parameters %d\n", __func__,
-	      sizeof(T), static_cast<int>(qGaugePrm->cuda_prec));
+	      sizeof(F), static_cast<int>(qGaugePrm->cuda_prec));
   
   gParam.setPrecision(qGaugePrm->cuda_prec, true);  
   
@@ -98,8 +98,8 @@ cudaGaugeField* Displace<T>::createCudaGaugeField(){
 
 
 
-template <typename T>
-void Displace<T>::createExtendedCudaGaugeField(bool copyGauge, bool redundant_comms, QudaReconstructType recon){
+template <typename F, QudaFieldOrder order>
+void Displace<F,order>::createExtendedCudaGaugeField(bool copyGauge, bool redundant_comms, QudaReconstructType recon){
 
   cudaGaugeField *tmpGauge = createCudaGaugeField();
  
@@ -131,8 +131,8 @@ void Displace<T>::createExtendedCudaGaugeField(bool copyGauge, bool redundant_co
 }
 
 
-template <typename T>
-DisplaceFlag Displace<T>::WhichDisplaceFlag(){
+template <typename F, QudaFieldOrder order>
+DisplaceFlag Displace<F,order>::WhichDisplaceFlag(){
   
   DisplaceFlag dFlag = DispFlagNone;
   for(int i=0;i<N_DISPLACE_FLAGS;i++){
@@ -146,8 +146,8 @@ DisplaceFlag Displace<T>::WhichDisplaceFlag(){
 }
 
 
-template <typename T>
-DisplaceDir Displace<T>::WhichDisplaceDir(){
+template <typename F, QudaFieldOrder order>
+DisplaceDir Displace<F,order>::WhichDisplaceDir(){
 
   DisplaceDir dDir = DispDirNone;
   switch(dispFlag){
@@ -174,8 +174,8 @@ DisplaceDir Displace<T>::WhichDisplaceDir(){
   return dDir;
 }
 
-template <typename T>
-DisplaceSign Displace<T>::WhichDisplaceSign(){
+template <typename F, QudaFieldOrder order>
+DisplaceSign Displace<F,order>::WhichDisplaceSign(){
   
   DisplaceSign dSign = DispSignNone;
   switch(dispFlag){
@@ -200,8 +200,8 @@ DisplaceSign Displace<T>::WhichDisplaceSign(){
 
 
 
-template <typename T>
-void Displace<T>::setupDisplacement(std::string dStr){
+template <typename F, QudaFieldOrder order>
+void Displace<F,order>::setupDisplacement(std::string dStr){
 
   dispString = dStr;
   strcpy(dispString_c, dispString.c_str());  
@@ -221,5 +221,7 @@ void Displace<T>::setupDisplacement(std::string dStr){
 
 
 
-template class Displace<float>;
-template class Displace<double>;
+template class Displace<float, QUDA_FLOAT2_FIELD_ORDER>;
+template class Displace<float, QUDA_FLOAT4_FIELD_ORDER>;
+template class Displace<double, QUDA_FLOAT2_FIELD_ORDER>;
+template class Displace<double, QUDA_FLOAT4_FIELD_ORDER>;

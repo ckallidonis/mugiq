@@ -10,12 +10,12 @@
 using namespace quda;
 
 
-template <typename T>
+template <typename F, QudaFieldOrder order>
 class Displace {
 
 private:
 
-  template <typename Float>
+  template <typename Float, QudaFieldOrder fieldOrder>
   friend class Loop_Mugiq;
   
   const std::vector<std::string> DisplaceFlagArray {"+x","-x","+y","-y","+z","-z","+t","-t"} ;
