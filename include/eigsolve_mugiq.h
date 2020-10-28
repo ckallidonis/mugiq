@@ -17,7 +17,7 @@ struct MugiqEigParam {
   
   QudaEigParam *QudaEigParams;     // The Quda Eigensolver parameter structure
   
-  MuGiqEigOperator diracType; // Type of Dirac operator for eigenpair calculation, M, Mdag, MdagM, MMdag
+  MuGiqEigOperator diracType = MUGIQ_EIG_OPERATOR_INVALID; // Type of Dirac operator for eigenpair calculation, M, Mdag, MdagM, MMdag
   
   int nEv;    // Number of eigenvectors we want
   int nKr;    // Size of Krylov Space
@@ -36,12 +36,11 @@ struct MugiqEigParam {
     nEv(QudaEigParams_->nEv),
     nKr(QudaEigParams_->nKr),
     tol(QudaEigParams_->tol),
-    use_poly_acc(MUGIQ_BOOL_INVALID),
+    use_poly_acc(QudaEigParams->use_poly_acc == QUDA_BOOLEAN_YES ? MUGIQ_BOOL_TRUE : MUGIQ_BOOL_FALSE),
     poly_acc_deg(0),
     a_min(0),
     a_max(0)
   {
-    use_poly_acc = QudaEigParams->use_poly_acc == QUDA_BOOLEAN_YES ? MUGIQ_BOOL_TRUE : MUGIQ_BOOL_FALSE;
     if(use_poly_acc){
       poly_acc_deg = QudaEigParams->poly_deg;
       a_min = QudaEigParams->a_min;
@@ -59,7 +58,7 @@ private:
 
   //- Loop_Mugiq will substantially use members of Eigsolve_Mugiq
   //- therefore it deserves to be a friend of this class
-  template <typename Float>
+  template <typename Float, QudaFieldOrder fieldOrder>
   friend class Loop_Mugiq;
   
   MugiqEigParam *eigParams;
@@ -77,6 +76,11 @@ private:
   const Dirac *dirac;
   DiracMatrix *mat; // The Dirac operator whose eigenpairs we are computing
 
+  //- This switch is required so that the dirac object is NOT
+  //- deleted when NOT created within Eigsolve.
+  //- In this case, it will be deleted from the Multi-grid environment
+  MuGiqBool diracCreated;
+  
   
   std::vector<ColorSpinorField *> eVecs; // Eigenvectors
   std::vector<Complex> *eVals_quda; // Eigenvalues from the Quda eigensolver
@@ -105,10 +109,31 @@ public:
   Eigsolve_Mugiq(MugiqEigParam *eigParams_, TimeProfile *profile_);
   ~Eigsolve_Mugiq();
 
+  
+  /** @brief Allocate memory for the fine-grid eigenvectors
+  */
+  void allocateFineEvecs();
+  
+  /** @brief Allocate memory for the coarse-grid eigenvectors
+  */
+  void allocateCoarseEvecs();
+  
+  /** @brief Allocate memory for the eigenvalues
+  */
+  void allocateEvals();
+  
+  /** @brief Create the Dirac operator
+  */
+  void createDiracOperator();
+
   /** @brief Determine the type of Dirac operator for eigenpair calculation
       @param[in] eigParams_: The eigen-solver parameter structure
    */
-  MuGiqEigOperator determineEigOperator(QudaEigParam *eigParams_);
+  MuGiqEigOperator determineEigOperator(QudaEigParam *QudaeigParams_);
+
+  /** @brief Create a New Dirac Matrix, whose eigenpairs will be computed
+  */
+  void createNewDiracMatrix();
   
   /** @brief Perform basic checks based on parameter structure input values
    */

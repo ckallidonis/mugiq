@@ -15,6 +15,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   eigProfile(eigProfile_),
   dirac(nullptr),
   mat(nullptr),
+  diracCreated(MUGIQ_BOOL_FALSE),
   eVals_quda(nullptr),
   eVals(nullptr),
   eVals_sigma(nullptr),
@@ -23,80 +24,34 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
 {
   if(!mg_env->mgInit) errorQuda("%s: Multigrid environment must be initialized before Eigensolver.\n", __func__);
   
-  cudaGaugeField *gauge = checkGauge(invParams);
-  const int *X = gauge->X(); //- The Lattice Size
-
   if(computeCoarse){
-    int nInterLevels = mg_env->nInterLevels;
-    
-    // Create the Coarse Dirac operator
-    dirac = mg_env->diracCoarse; // This is diracCoarseResidual of the QUDA MG class
+    allocateCoarseEvecs();
+
+    //- The Coarse Dirac operator
+    //- This is diracCoarseResidual of the QUDA MG class
+    dirac = mg_env->diracCoarse;
     if(typeid(*dirac) != typeid(DiracCoarse)) errorQuda("The Coarse Dirac operator must not be preconditioned!\n");
-
-    ColorSpinorParam csParam(*(mg_env->mg_solver->B[0]));
-    QudaPrecision coarsePrec = invParams->cuda_prec;
-    csParam.create = QUDA_ZERO_FIELD_CREATE;
-    csParam.setPrecision(coarsePrec);
-    
-    //-Create coarse fields and allocate coarse eigenvectors recursively
-    tmpCSF.push_back(ColorSpinorField::Create(csParam)); //- tmpCSF[0] is a fine field
-    for(int lev=0;lev<nInterLevels;lev++){
-      tmpCSF.push_back(tmpCSF[lev]->CreateCoarse(mgParams->geo_block_size[lev],
-						 mgParams->spin_block_size[lev],
-						 mgParams->n_vec[lev],
-						 coarsePrec,
-						 mgParams->setup_location[lev+1]));
-    }//-lev
-
-    for(int i=0;i<eigParams->nEv;i++){
-      eVecs.push_back(tmpCSF[nInterLevels]->CreateCoarse(mgParams->geo_block_size[nInterLevels],
-						       mgParams->spin_block_size[nInterLevels],
-						       mgParams->n_vec[nInterLevels],
-						       coarsePrec,
-						       mgParams->setup_location[nInterLevels+1]));
-    }    
   }
   else{
-    //-The fine Dirac operator
-    // This is diracResidual of the QUDA MG class.
-    // Equivalently: dirac = mg_env->mg_solver->mgParam->matResidual.Expose() = mg_env->mg_solver->d
-    dirac = mg_env->mg_solver->d; 
+    allocateFineEvecs();
 
-    //- Allocate fine eigenvectors
-    ColorSpinorParam cpuParam(NULL, *invParams, X, invParams->solution_type, invParams->input_location);
-    ColorSpinorParam cudaParam(cpuParam);
-    cudaParam.location = QUDA_CUDA_FIELD_LOCATION;
-    cudaParam.create = QUDA_ZERO_FIELD_CREATE;
-    cudaParam.setPrecision(eigParams->QudaEigParams->cuda_prec_ritz, eigParams->QudaEigParams->cuda_prec_ritz, true);
-
-    for(int i=0;i<eigParams->nEv;i++)
-      eVecs.push_back(ColorSpinorField::Create(cudaParam));
+    //- The fine Dirac operator
+    //- This is diracResidual of the QUDA MG class.
+    //- Equivalently: dirac = mg_env->mg_solver->mgParam->matResidual.Expose() = mg_env->mg_solver->d
+    dirac = mg_env->mg_solver->d;    
   }
-
   
   //- Determine and create the Dirac matrix whose eigenvalues will be computed
   eigParams->diracType = determineEigOperator(eigParams->QudaEigParams);
+  createNewDiracMatrix();
 
-  if      (eigParams->diracType == MUGIQ_EIG_OPERATOR_M)      mat = new DiracM(*dirac);	  
-  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_Mdag)   mat = new DiracMdag(*dirac); 
-  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM)  mat = new DiracMdagM(*dirac);
-  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
-  else errorQuda("%s: Unsupported Dirac operator type\n", __func__);
-
+  allocateEvals();
   
-  //- Allocate the eigenvalues
-  eVals_quda  = new std::vector<Complex>(eigParams->nEv, 0.0); // These come from the QUDA eigensolver
-  eVals       = new std::vector<Complex>(eigParams->nEv, 0.0); // These are computed from the Eigsolve_Mugiq class
-  evals_res   = new std::vector<double>(eigParams->nEv, 0.0);  // The eigenvalues residual
-  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM || eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)
-    eVals_sigma = new std::vector<double>(eigParams->nEv, 0.0); // Singular values of M, eigenvalues of Hermitian g5*M
-  
-  makeChecks();
-  
+  makeChecks();  
   eigInit = MUGIQ_BOOL_TRUE;
 }
 
-
+//- This constructor is used when NO Multi-grid is involved
 Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
 			       TimeProfile *eigProfile_) :
   eigParams(eigParams_),
@@ -108,55 +63,24 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   eigProfile(eigProfile_),
   dirac(nullptr),
   mat(nullptr),
+  diracCreated(MUGIQ_BOOL_FALSE),
   eVals_quda(nullptr),
   eVals(nullptr),
   eVals_sigma(nullptr),
   evals_res(nullptr),
   computeCoarse(MUGIQ_BOOL_FALSE)
-{
+{  
+  allocateFineEvecs();
 
-  //- Whether we are running for the "full" or even-odd preconditioned Operator
-  bool pc_solve = (invParams->solve_type == QUDA_DIRECT_PC_SOLVE) ||
-    (invParams->solve_type == QUDA_NORMOP_PC_SOLVE) ||
-    (invParams->solve_type == QUDA_NORMERR_PC_SOLVE);
+  createDiracOperator();
   
-  //- Create the Dirac operator
-  DiracParam diracParam;
-  setDiracParam(diracParam, invParams, pc_solve);
-  dirac = Dirac::create(diracParam);
-
   //- Determine and create the Dirac matrix whose eigenvalues will be computed
   eigParams->diracType = determineEigOperator(eigParams->QudaEigParams);
+  createNewDiracMatrix();
 
-  if      (eigParams->diracType == MUGIQ_EIG_OPERATOR_M)      mat = new DiracM(*dirac);	  
-  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_Mdag)   mat = new DiracMdag(*dirac); 
-  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM)  mat = new DiracMdagM(*dirac);
-  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
-  else errorQuda("%s: Unsupported Dirac operator type\n", __func__);
-
-  
-  cudaGaugeField *gauge = checkGauge(invParams);
-  const int *X = gauge->X(); //- The Lattice Size
-
-  ColorSpinorParam cpuParam(NULL, *invParams, X, invParams->solution_type, invParams->input_location);
-  ColorSpinorParam cudaParam(cpuParam);
-  cudaParam.location = QUDA_CUDA_FIELD_LOCATION;
-  cudaParam.create = QUDA_ZERO_FIELD_CREATE;
-  cudaParam.setPrecision(eigParams->QudaEigParams->cuda_prec_ritz, eigParams->QudaEigParams->cuda_prec_ritz, true);
-
-  //- Allocate the eigenvectors
-  for(int i=0;i<eigParams->nEv;i++)
-    eVecs.push_back(ColorSpinorField::Create(cudaParam));
-
-  //- Allocate the eigenvalues
-  eVals_quda = new std::vector<Complex>(eigParams->nEv, 0.0); // These come from the QUDA eigensolver
-  eVals      = new std::vector<Complex>(eigParams->nEv, 0.0); // These are computed from the Eigsolve_Mugiq class
-  evals_res  = new std::vector<double>(eigParams->nEv, 0.0);  // The eigenvalues residual
-  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM || eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)
-    eVals_sigma = new std::vector<double>(eigParams->nEv, 0.0); // Singular values of M, eigenvalues of Hermitian g5*M
+  allocateEvals();
 
   makeChecks();
-
   eigInit = MUGIQ_BOOL_TRUE;
 }
 
@@ -177,30 +101,112 @@ Eigsolve_Mugiq::~Eigsolve_Mugiq(){
     int nTmp = static_cast<int>(tmpCSF.size());
     for(int i=0;i<nTmp;i++) if(tmpCSF[i]) delete tmpCSF[i];    
   }
-  else{
-    if(dirac) delete dirac;
+  
+  if(dirac && diracCreated){
+    delete dirac;
     dirac = nullptr;
-  } 
+  }
   
   eigInit = MUGIQ_BOOL_FALSE;
 }
 
 
+void Eigsolve_Mugiq::allocateFineEvecs(){
+  cudaGaugeField *gauge = checkGauge(invParams);
+  const int *X = gauge->X(); //- The Lattice Size
+  
+  ColorSpinorParam csParam(nullptr, *invParams, X, false, QUDA_CUDA_FIELD_LOCATION); // false is for pc_solution
+  csParam.print();
+  csParam.create = QUDA_ZERO_FIELD_CREATE;
+  csParam.setPrecision(eigParams->QudaEigParams->cuda_prec_ritz, eigParams->QudaEigParams->cuda_prec_ritz, true);
+  
+  for(int i=0;i<eigParams->nEv;i++) eVecs.push_back(ColorSpinorField::Create(csParam));
+}
 
-MuGiqEigOperator Eigsolve_Mugiq::determineEigOperator(QudaEigParam *eigParams_){
 
+void Eigsolve_Mugiq::allocateCoarseEvecs(){
+  //- Use Quda's Null vectors as reference for the fine color-spinor
+  ColorSpinorParam csParam(*(mg_env->mg_solver->B[0]));
+  QudaPrecision coarsePrec = invParams->cuda_prec;
+  csParam.location = QUDA_CUDA_FIELD_LOCATION;
+  csParam.create = QUDA_ZERO_FIELD_CREATE;
+  csParam.setPrecision(coarsePrec);
+  
+  int nInterLevels = mg_env->nInterLevels;
+  
+  //-Create coarse fields and allocate coarse eigenvectors recursively
+  tmpCSF.push_back(ColorSpinorField::Create(csParam)); //- tmpCSF[0] is a fine field
+  for(int lev=0;lev<nInterLevels;lev++){
+    tmpCSF.push_back(tmpCSF[lev]->CreateCoarse(mgParams->geo_block_size[lev],
+					       mgParams->spin_block_size[lev],
+					       mgParams->n_vec[lev],
+					       coarsePrec,
+					       mgParams->setup_location[lev+1]));
+  }//-lev
+  
+  for(int i=0;i<eigParams->nEv;i++){
+    eVecs.push_back(tmpCSF[nInterLevels]->CreateCoarse(mgParams->geo_block_size[nInterLevels],
+						       mgParams->spin_block_size[nInterLevels],
+						       mgParams->n_vec[nInterLevels],
+						       coarsePrec,
+						       mgParams->setup_location[nInterLevels+1]));
+  }
+}
+
+
+void Eigsolve_Mugiq::allocateEvals(){  
+  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_INVALID)
+    errorQuda("%s: Dirac Matrix type must be defined first!", __func__);
+
+  eVals_quda  = new std::vector<Complex>(eigParams->nEv, 0.0); // These come from the QUDA eigensolver
+  eVals       = new std::vector<Complex>(eigParams->nEv, 0.0); // These are computed from the Eigsolve_Mugiq class
+  evals_res   = new std::vector<double>(eigParams->nEv, 0.0);  // The eigenvalues residual
+  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM || eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)
+    eVals_sigma = new std::vector<double>(eigParams->nEv, 0.0); // Singular values of M, eigenvalues of Hermitian g5*M
+}
+
+
+void Eigsolve_Mugiq::createDiracOperator(){
+  //- Whether we are running for the "full" or even-odd preconditioned Operator
+  bool pc_solve = (invParams->solve_type == QUDA_DIRECT_PC_SOLVE) ||
+    (invParams->solve_type == QUDA_NORMOP_PC_SOLVE) ||
+    (invParams->solve_type == QUDA_NORMERR_PC_SOLVE);
+  
+  //- Create the Dirac operator
+  DiracParam diracParam;
+  setDiracParam(diracParam, invParams, pc_solve);
+  dirac = Dirac::create(diracParam);
+
+  diracCreated = MUGIQ_BOOL_TRUE;
+}
+
+
+MuGiqEigOperator Eigsolve_Mugiq::determineEigOperator(QudaEigParam *QudaEigParams_){
   MuGiqEigOperator dType = MUGIQ_EIG_OPERATOR_INVALID;
   
-  if (!eigParams_->use_norm_op && !eigParams_->use_dagger)     dType = MUGIQ_EIG_OPERATOR_M;
-  else if (!eigParams_->use_norm_op && eigParams_->use_dagger) dType = MUGIQ_EIG_OPERATOR_Mdag;
-  else if (eigParams_->use_norm_op && !eigParams_->use_dagger) dType = MUGIQ_EIG_OPERATOR_MdagM;
-  else if (eigParams_->use_norm_op && eigParams_->use_dagger)  dType = MUGIQ_EIG_OPERATOR_MMdag;
-  else errorQuda("%s: Cannot determine Dirac Operator type from eigParams\n", __func__);
+  if (!QudaEigParams_->use_norm_op && !QudaEigParams_->use_dagger)     dType = MUGIQ_EIG_OPERATOR_M;
+  else if (!QudaEigParams_->use_norm_op && QudaEigParams_->use_dagger) dType = MUGIQ_EIG_OPERATOR_Mdag;
+  else if (QudaEigParams_->use_norm_op && !QudaEigParams_->use_dagger) dType = MUGIQ_EIG_OPERATOR_MdagM;
+  else if (QudaEigParams_->use_norm_op && QudaEigParams_->use_dagger)  dType = MUGIQ_EIG_OPERATOR_MMdag;
+  else errorQuda("%s: Cannot determine Dirac Operator type from QudaEigParams\n", __func__);
 
   return dType;
 }
 
+
+void Eigsolve_Mugiq::createNewDiracMatrix(){
+  if(!dirac) errorQuda("%s: Dirac operator must be defined first!", __func__);
+  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_INVALID)
+    errorQuda("%s: Dirac Matrix type must be defined first!", __func__);
   
+  if      (eigParams->diracType == MUGIQ_EIG_OPERATOR_M)      mat = new DiracM(*dirac);	  
+  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_Mdag)   mat = new DiracMdag(*dirac); 
+  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM)  mat = new DiracMdagM(*dirac);
+  else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
+  else errorQuda("%s: Unsupported Dirac operator type\n", __func__);
+}
+
+
 void Eigsolve_Mugiq::makeChecks(){
 
   if(!mat) errorQuda("%s: Dirac operator is not defined.\n", __func__);
