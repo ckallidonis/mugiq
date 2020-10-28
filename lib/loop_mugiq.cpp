@@ -3,8 +3,8 @@
 #include <cublas_v2.h>
 #include <hdf5.h>
 
-template <typename Float>
-Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
+template <typename Float, QudaFieldOrder fieldOrder>
+Loop_Mugiq<Float, fieldOrder>::Loop_Mugiq(MugiqLoopParam *loopParams_,
                               Eigsolve_Mugiq *eigsolve_) :
   cPrm(nullptr),
   displace(nullptr),
@@ -39,7 +39,7 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   printfQuda("\n*************************************************\n");
   printfQuda("%s: Creating Loop computation environment\n", __func__);
 
-  if(eigsolve->useMGenv) refVec = eigsolve->mg_env->mg_solver->B[0];
+  if(eigsolve->useMGenv && eigsolve->computeCoarse) refVec = eigsolve->tmpCSF[0]; //mg_env->mg_solver->B[0];
   else refVec = eigsolve->eVecs[0];
   
   cPrm = new LoopComputeParam(loopParams_, refVec);
@@ -58,8 +58,8 @@ Loop_Mugiq<Float>::Loop_Mugiq(MugiqLoopParam *loopParams_,
   printfQuda("*************************************************\n\n");
 }
 
-template <typename Float>
-void Loop_Mugiq<Float>::setupComms(){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::setupComms(){
 
   //-- Create space-communicator
   tCoord = comm_coord(3);
@@ -88,8 +88,8 @@ void Loop_Mugiq<Float>::setupComms(){
 }
 
 
-template <typename Float>
-Loop_Mugiq<Float>::~Loop_Mugiq(){
+template <typename Float, QudaFieldOrder fieldOrder>
+Loop_Mugiq<Float, fieldOrder>::~Loop_Mugiq(){
 
   freeDataMemory();
 
@@ -98,8 +98,8 @@ Loop_Mugiq<Float>::~Loop_Mugiq(){
 }
 
 
-template <typename Float>
-void Loop_Mugiq<Float>::allocateDataMemory(){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::allocateDataMemory(){
 
   nElemMomTotPerLoop = cPrm->nG * cPrm->Nmom * cPrm->totT;
   nElemMomLocPerLoop = cPrm->nG * cPrm->Nmom * cPrm->locT;
@@ -159,8 +159,8 @@ void Loop_Mugiq<Float>::allocateDataMemory(){
 
 
 // That's just a wrapper to copy the Gamma-matrix coefficient structure to constant memory
-template <typename Float>
-void Loop_Mugiq<Float>::copyGammaToConstMem(){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::copyGammaToConstMem(){
   copyGammaCoeffStructToSymbol<Float>();
   if(cPrm->doMomProj) copyGammaMapStructToSymbol<Float>();
   printfQuda("%s: Gamma utility structures copied to constant memory\n", __func__);
@@ -168,8 +168,8 @@ void Loop_Mugiq<Float>::copyGammaToConstMem(){
 
 
 // Wrapper to create the Phase Matrix on GPU
-template <typename Float>
-void Loop_Mugiq<Float>::createPhaseMatrix(){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::createPhaseMatrix(){
   createPhaseMatrixGPU<Float>(phaseMatrix_d, cPrm->momMatrix,
   			      cPrm->locV3, cPrm->Nmom, (int)cPrm->FTSign,
 			      cPrm->localL, cPrm->totalL);
@@ -178,8 +178,8 @@ void Loop_Mugiq<Float>::createPhaseMatrix(){
 }
 
 
-template <typename Float>
-void Loop_Mugiq<Float>::freeDataMemory(){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::freeDataMemory(){
 
   printfQuda("%s: Memory report before freeing", __func__);
   printMemoryInfo();
@@ -229,14 +229,15 @@ void Loop_Mugiq<Float>::freeDataMemory(){
 }
 
 
-template <typename Float>
-void Loop_Mugiq<Float>::printLoopComputeParams(){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::printLoopComputeParams(){
 
   
   printfQuda("******************************************\n");
   printfQuda("    Parameters of the Loop Computation\n");
   printfQuda("Precision is %s\n", typeid(Float) == typeid(float) ? "single" : "double");
   printfQuda("Will%s use Multigrid\n", eigsolve->useMGenv ? "" : " NOT");
+  printfQuda("Working with %s operators/fields\n", eigsolve->computeCoarse ? "coarse" : "fine");  
   printfQuda("Will%s perform Momentum Projection (Fourier Transform)\n", cPrm->doMomProj ? "" : " NOT");
   if(cPrm->doMomProj){
     printfQuda("Momentum Projection will be performed on GPU using cuBlas\n");
@@ -272,21 +273,25 @@ void Loop_Mugiq<Float>::printLoopComputeParams(){
 }
 
 
-template <typename Float>
-void Loop_Mugiq<Float>::prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorField *coarseEvec){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorField *coarseEvec){
 
+  //- Multiple check layers
   if(!eigsolve->useMGenv) errorQuda("%s: This function is applicable only when using MG environment\n", __func__);
+  if(!eigsolve->computeCoarse) errorQuda("%s: Not supposed to be called when computeCoarse is False\n", __func__);
+  if(fieldOrder != QUDA_FLOAT2_FIELD_ORDER) errorQuda("%s: Vector prolongation requires fieldOrder = FLOAT2\n", __func__);
   
   MG_Mugiq &mg_env = *(eigsolve->getMGEnv());
   
   //- Create one fine and N_coarse temporary coarse fields
-  //- Will be used for prolongating the coarse eigenvectors back to the fine lattice
+  //- Will be used for prolongating the coarse eigenvectors back to the fine lattice  
   std::vector<ColorSpinorField *> tmpCSF;
-  ColorSpinorParam csParam(*(mg_env.mg_solver->B[0]));
+  ColorSpinorParam csParam(*refVec);
   QudaPrecision coarsePrec = coarseEvec->Precision();
+  csParam.location = QUDA_CUDA_FIELD_LOCATION;
   csParam.create = QUDA_ZERO_FIELD_CREATE;
   csParam.setPrecision(coarsePrec);
-  
+
   tmpCSF.push_back(ColorSpinorField::Create(csParam)); //- tmpCSF[0] is a fine field
   for(int lev=0;lev<mg_env.nCoarseLevels;lev++){
     tmpCSF.push_back(tmpCSF[lev]->CreateCoarse(mg_env.mgParams->geo_block_size[lev],
@@ -295,9 +300,9 @@ void Loop_Mugiq<Float>::prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorFi
                                                coarsePrec,
                                                mg_env.mgParams->setup_location[lev+1]));
   }//-lev
-  
-  //- Prolongate the coarse eigenvectors recursively to get
-  //- to the finest level  
+    
+  //- Prolongate the coarse eigenvectors recursively
+  //- to get to the finest level
   *(tmpCSF[mg_env.nCoarseLevels]) = *coarseEvec;
   for(int lev=mg_env.nCoarseLevels;lev>1;lev--){
     blas::zero(*tmpCSF[lev-1]);
@@ -309,16 +314,15 @@ void Loop_Mugiq<Float>::prolongateEvec(ColorSpinorField *fineEvec, ColorSpinorFi
   mg_env.transfer[0]->P(*fineEvec, *(tmpCSF[1]));
 
   for(int i=0;i<static_cast<int>(tmpCSF.size());i++) delete tmpCSF[i];
-  
+
   printfQuda("%s: Vector prolongated\n", __func__);
 }
 
 
-template <typename Float>
-void Loop_Mugiq<Float>::performMomentumProjection(){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::performMomentumProjection(){
 
-  if(MomProjDone)
-    errorQuda("%s: Not supposed to be called more than once!!", __func__);
+  if(MomProjDone) errorQuda("%s: Not supposed to be called more than once!!", __func__);
 
   if(!commsAreSet) setupComms();
   
@@ -432,8 +436,8 @@ void Loop_Mugiq<Float>::performMomentumProjection(){
 
 //- This is the function that actually performs the trace
 //- It's a public function, and it's called from the interface
-template <typename Float>
-void Loop_Mugiq<Float>::computeCoarseLoop(){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::computeCoarseLoop(){
 
   int nEv = eigsolve->eigParams->nEv; // Number of eigenvectors
 
@@ -442,9 +446,9 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
   printfQuda("%s: Field location (field,param): (%s,%s)\n", __func__,
 	     refVec->Location() == 1 ? "CPU" : "GPU",
 	     csParam.location == 1 ? "CPU" : "GPU");
-  QudaPrecision coarsePrec = eigsolve->eVecs[0]->Precision();
+  QudaPrecision evecPrec = eigsolve->eVecs[0]->Precision();
   csParam.create = QUDA_ZERO_FIELD_CREATE;
-  csParam.setPrecision(coarsePrec);
+  csParam.setPrecision(evecPrec);
   ColorSpinorField *fineEvecL = ColorSpinorField::Create(csParam);
   ColorSpinorField *fineEvecR = ColorSpinorField::Create(csParam);
   
@@ -486,7 +490,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 	  displace->doVectorDisplacement(DISPLACE_TYPE_COVARIANT, fineEvecR, idisp);
 	  if(idisp >= cPrm->dispStart.at(id) && idisp <= cPrm->dispStop.at(id)){
 	    long long dispOffset = nElemPosLocPerLoop*dispCount;
-	    performLoopContraction<Float>(&(dataPos_d[bufOffset+dispOffset]), fineEvecL, fineEvecR, sigma);
+	    performLoopContraction<Float, fieldOrder>(&(dataPos_d[bufOffset+dispOffset]), fineEvecL, fineEvecR, sigma);
 	    printfQuda("%s: EV[%04d] Loop trace for displacement = %02d completed\n", __func__, n, idisp);
 	    dispCount++;
 	  }
@@ -495,8 +499,7 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
       else{
 	//- Ultra-local
 	*fineEvecR = *fineEvecL;
-	performLoopContraction<Float>(dataPos_d, fineEvecL, fineEvecR, sigma);
-	//	checkVectors<Float>(fineEvecL, refVec);
+	performLoopContraction<Float, fieldOrder>(dataPos_d, fineEvecL, fineEvecR, sigma);
 	printfQuda("%s: EV[%04d] - Loop trace for Ultra-local completed\n", __func__, n);
       }
 
@@ -523,8 +526,8 @@ void Loop_Mugiq<Float>::computeCoarseLoop(){
 
 
 //- Write the momentum-space loop data in HDF5 format
-template <typename Float>
-void Loop_Mugiq<Float>::writeLoopsHDF5_Mom(){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::writeLoopsHDF5_Mom(){
 
   if(!commsAreSet) setupComms();
   
@@ -551,9 +554,9 @@ void Loop_Mugiq<Float>::writeLoopsHDF5_Mom(){
     char filename_c[momSpaceFilename.size()+1];
     strcpy(filename_c, momSpaceFilename.c_str());
     printfQuda("%s: Momentum-space loop data HDF5 filename: %s\n", __func__, filename_c);
-
-    const int dSetDim = 2; //- Size of each dataset (Time, real-imag)
     
+    const int dSetDim = 2; //- Size of each dataset (Time, real-imag)
+
     //- Start point (offset) for each process, in each dimension
     hsize_t start[dSetDim] = {static_cast<hsize_t>(tCoord*cPrm->localL[3]), 0};
 
@@ -645,7 +648,7 @@ void Loop_Mugiq<Float>::writeLoopsHDF5_Mom(){
       
       H5Gclose(group1_id);
     }//- for momenta
-    
+
     H5Fclose(file_id);
     
   }//- If time process
@@ -654,16 +657,16 @@ void Loop_Mugiq<Float>::writeLoopsHDF5_Mom(){
 
 
 //- Write the position-space loop data in HDF5 format
-template <typename Float>
-void Loop_Mugiq<Float>::writeLoopsHDF5_Pos(){ 
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::writeLoopsHDF5_Pos(){ 
   errorQuda("%s: Not supported yet!\n", __func__);
 }
 
 
 //- Public wrapper for writing the loops in HDF5 format
 //- (called from the interface)
-template <typename Float>
-void Loop_Mugiq<Float>::writeLoopsHDF5(){
+template <typename Float, QudaFieldOrder fieldOrder>
+void Loop_Mugiq<Float, fieldOrder>::writeLoopsHDF5(){
 
   if(cPrm->doMomProj){
     if(writeDataMom) printfQuda("%s: Will write the momentum-space loop data in HDF5 format\n", __func__);
@@ -692,5 +695,7 @@ void Loop_Mugiq<Float>::writeLoopsHDF5(){
 //- Explicit instantiation of the templates of the Loop_Mugiq class
 //- float and double will be the only typename templates that support is required,
 //- so this is a 'feature' rather than a 'bug'
-template class Loop_Mugiq<float>;
-template class Loop_Mugiq<double>;
+template class Loop_Mugiq<float, QUDA_FLOAT2_FIELD_ORDER>;
+template class Loop_Mugiq<float, QUDA_FLOAT4_FIELD_ORDER>;
+template class Loop_Mugiq<double, QUDA_FLOAT2_FIELD_ORDER>;
+template class Loop_Mugiq<double, QUDA_FLOAT4_FIELD_ORDER>;

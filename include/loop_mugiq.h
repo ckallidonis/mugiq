@@ -9,7 +9,7 @@
 
 using namespace quda;
 
-template <typename Float>
+template <typename Float, QudaFieldOrder fieldOrder>
 class Loop_Mugiq {
 
 private:
@@ -22,6 +22,7 @@ private:
   
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
 
+  ColorSpinorField *refVec; // Reference vector, whose parameters will be used throughout the class
 
   //- MPI/Communication-related parameters for "space" processes
   //- These are the processes that have the same time-coordinate
@@ -137,8 +138,8 @@ public:
 
 
 
-template <typename Float>
-struct Loop_Mugiq<Float>::LoopComputeParam {
+template <typename Float, QudaFieldOrder fieldOrder>
+struct Loop_Mugiq<Float, fieldOrder>::LoopComputeParam {
 
   const int nG = N_GAMMA_;   // Number of Gamma matrices (currents, =16)
   const int momDim = MOM_DIM_;  // Momenta dimensions (=3)
@@ -297,8 +298,8 @@ void createPhaseMatrixGPU(complex<Float> *phaseMatrix_d, const int* momMatrix_h,
 
 /** @brief Perform the loop contractions
  */
-template <typename Float>
-void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR, Float sigma);
+template <typename Float, QudaFieldOrder fieldOrder>
+void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL, ColorSpinorField *eVecR, Float sigma);
 
 
 
