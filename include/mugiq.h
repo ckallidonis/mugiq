@@ -77,8 +77,8 @@ extern "C" {
  * @param useMG Whether to use Multigrid for computing the loop
  */
 template <typename Float>
-void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams,
-		    MuGiqBool computeCoarse, MuGiqBool useMG);
+void computeLoop(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams,
+		 MuGiqBool computeCoarse, MuGiqBool useMG);
 
 
 #endif // _MUGIQ_H

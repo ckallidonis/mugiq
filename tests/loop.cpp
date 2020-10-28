@@ -923,9 +923,9 @@ int main(int argc, char **argv)
 
   if(mugiq_task == MUGIQ_COMPUTE_LOOP){
     if(cuda_prec == QUDA_DOUBLE_PRECISION)
-      computeLoop_MG<double>(mg_param, eig_param, loopParams, compute_coarse, mugiq_use_mg);
+      computeLoop<double>(mg_param, eig_param, loopParams, compute_coarse, mugiq_use_mg);
     else if(cuda_prec == QUDA_SINGLE_PRECISION)
-      computeLoop_MG<float>(mg_param, eig_param, loopParams, compute_coarse, mugiq_use_mg);
+      computeLoop<float>(mg_param, eig_param, loopParams, compute_coarse, mugiq_use_mg);
     else
       errorQuda("Unsupported precision %d.\n", static_cast<int>(cuda_prec));
   }
