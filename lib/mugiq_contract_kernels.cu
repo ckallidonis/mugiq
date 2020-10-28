@@ -24,7 +24,7 @@ template void copyGammaCoefftoSymbol(GammaCoeff<double> gcoeff_struct);
 
 
 /** Perform contraction/trace:
- * loopData(x) = 1/(sigma) * Tr[ vL(x)^\dag Gamma vR(x) ] 
+ * loopData(x) = 1/(sigma) * Tr[ vL(x)^\dag Gamma vR(x) ]
  *             = 1/(sigma) * \sum_{be,al}{c} conj[vL(x)]_be^c Gamma_{be,al} vR(x)_al^c, where:
  * al, be are spin indices
  * c is a color index
@@ -42,8 +42,8 @@ template void copyGammaCoefftoSymbol(GammaCoeff<double> gcoeff_struct);
  * __shared__ memory buffer, and we define pointers for each object within this buffer.
  *
  */
-template <typename Float>
-__global__ void loopContract_kernel(complex<Float> *loopData, LoopContractArg<Float> *arg){
+template <typename Float, typename Arg>
+__global__ void loopContract_kernel(complex<Float> *loopData, Arg *arg){
   
   //- x-dimension of block working on checkerboard (even/odd) volume
   //- y-dimension of block working on parity (even or odd)
@@ -74,19 +74,32 @@ __global__ void loopContract_kernel(complex<Float> *loopData, LoopContractArg<Fl
 
   //- Get the gamma coefficients from constant memory
   const GammaCoeff<Float> *gamma = gCoeff<Float>();
-  
+
   //- Get spin-color components of vectors for each lattice site
   if(albe == 0) {
-    *(reinterpret_cast<Vector<Float>*>(vL)) = arg->eVecL(x_cb, pty);
-    *(reinterpret_cast<Vector<Float>*>(vR)) = arg->eVecR(x_cb, pty);
+    for(int is=0;is<N_SPIN_;is++){
+      for(int ic=0;ic<N_COLOR_;ic++){
+	vL[SPINOR_SITE_IDX(is,ic)] = arg->eVecL(pty, x_cb, is, ic);
+	vR[SPINOR_SITE_IDX(is,ic)] = arg->eVecR(pty, x_cb, is, ic);
+      }
+    }
   }
   __syncthreads();
 
-  
-  //- trace color indices of vL^dag * vR, resG(be,al) = vL^\dag(be) * vR(a)
-  //- In this notation the indices in GAMMA_MAT_IDX(i1, i2) are as:
-  //- the first  index corresponds to the left  vector, i1 <-> be
-  //- the second index corresponds to the right vector, i2 <-> al
+
+  if(x_cb <= 10 && albe==0)
+    for(int is=0;is<N_SPIN_;is++)
+      for(int kc=0;kc<N_COLOR_;kc++)
+	printf("KERNEL - (x_cb=%d,pty=%d,albe=%d,s=%d,c=%d): vL = %+e %+e , vR = %+e %+e\n", x_cb,pty,albe,is,kc,
+	       vL[SPINOR_SITE_IDX(is,kc)].real(), vL[SPINOR_SITE_IDX(is,kc)].imag(),
+	       vR[SPINOR_SITE_IDX(is,kc)].real(), vR[SPINOR_SITE_IDX(is,kc)].imag());
+
+
+  /** trace color indices of vL^dag * vR, resG(be,al) = vL^\dag(be) * vR(a)
+   * In this notation the indices in GAMMA_MAT_IDX(i1, i2) are as:
+   * the first  index corresponds to the left  vector, i1 <-> be
+   * the second index corresponds to the right vector, i2 <-> al
+   */
   resG[GAMMA_MAT_IDX(be, al)] = 0.0;
   for (int kc=0;kc<N_COLOR_;kc++)
     resG[GAMMA_MAT_IDX(be, al)] += conj(vL[SPINOR_SITE_IDX(be,kc)]) * vR[SPINOR_SITE_IDX(al,kc)];    
@@ -109,5 +122,13 @@ __global__ void loopContract_kernel(complex<Float> *loopData, LoopContractArg<Fl
 }//- loopContract_kernel
 
 
-template __global__ void loopContract_kernel<float> (complex<float>  *loopData, LoopContractArg<float>  *arg);
-template __global__ void loopContract_kernel<double>(complex<double> *loopData, LoopContractArg<double> *arg);
+template __global__ void loopContract_kernel<float, LoopContractArg<float,QUDA_FLOAT2_FIELD_ORDER>>
+(complex<float>  *loopData, LoopContractArg<float,QUDA_FLOAT2_FIELD_ORDER>  *arg);
+template __global__ void loopContract_kernel<float, LoopContractArg<float,QUDA_FLOAT4_FIELD_ORDER>>
+(complex<float>  *loopData, LoopContractArg<float,QUDA_FLOAT4_FIELD_ORDER>  *arg);
+
+template __global__ void loopContract_kernel<double, LoopContractArg<double,QUDA_FLOAT2_FIELD_ORDER>>
+(complex<double> *loopData, LoopContractArg<double,QUDA_FLOAT2_FIELD_ORDER> *arg);
+template __global__ void loopContract_kernel<double, LoopContractArg<double,QUDA_FLOAT4_FIELD_ORDER>>
+(complex<double> *loopData, LoopContractArg<double,QUDA_FLOAT4_FIELD_ORDER> *arg);
+//------------------------------------------------------------------------------------------
