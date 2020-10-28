@@ -91,17 +91,17 @@ struct ArgGeom {
       volumeCB(x.VolumeCB()), volume(x.Volume())
   { }
   
-  ArgGeom(cudaGaugeField *u)
-    : parity(0), nParity(u->SiteSubset()), nFace(1),
+  ArgGeom(cudaGaugeField &u)
+    : parity(0), nParity(u.SiteSubset()), nFace(1),
       commDim{comm_dim_partitioned(0), comm_dim_partitioned(1), comm_dim_partitioned(2), comm_dim_partitioned(3)},
-      lL{u->X()[0], u->X()[1], u->X()[2], u->X()[3]}
+      lL{u.X()[0], u.X()[1], u.X()[2], u.X()[3]}
   {
-    if(u->GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED){
+    if(u.GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED){
       volume = 1;
       for(int dir=0;dir<4;dir++){
-	dim[dir] = u->X()[dir] - 2*u->R()[dir];   //-- Actual lattice dimensions (NOT extended)
-	dimEx[dir] = dim[dir] + 2*u->R()[dir];    //-- Extended lattice dimensions
-	brd[dir] = u->R()[dir];
+	dim[dir] = u.X()[dir] - 2*u.R()[dir];   //-- Actual lattice dimensions (NOT extended)
+	dimEx[dir] = dim[dir] + 2*u.R()[dir];    //-- Extended lattice dimensions
+	brd[dir] = u.R()[dir];
 	volume *= dim[dir];
       }
       volumeCB = volume/2;
@@ -109,7 +109,7 @@ struct ArgGeom {
     else{
       volume = 1;
       for(int dir=0;dir<4;dir++){
-	dim[dir] = u->X()[dir];
+	dim[dir] = u.X()[dir];
 	volume *= dim[dir];
       }
       volumeCB = volume/2;
@@ -174,25 +174,25 @@ struct ConvertIdxArg{
 };//-- Structure definition
 
 
-/*
-template <typename Float>
+
+template <typename Float, QudaFieldOrder order>
 struct CovDispVecArg : public ArgGeom {
 
-  Fermion<Float> dst;
-  Fermion<Float> src;
+  Fermion<Float, order> dst;
+  Fermion<Float, order> src;
   Gauge<Float> U;
   
   MuGiqBool extendedGauge;
   
-  CovDispVecArg(ColorSpinorField *dst_, ColorSpinorField *src_, cudaGaugeField *U_)
+  CovDispVecArg(ColorSpinorField &dst_, ColorSpinorField &src_, cudaGaugeField &U_)
     : ArgGeom(U_),
-      dst(*dst_), src(*src_), U(*U_),
-      extendedGauge((U_->GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED) ? MUGIQ_BOOL_TRUE : MUGIQ_BOOL_FALSE)
+      dst(dst_), src(src_), U(U_),
+      extendedGauge((U_.GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED) ? MUGIQ_BOOL_TRUE : MUGIQ_BOOL_FALSE)
   { }
 
   ~CovDispVecArg() {}
 };
-*/
+
 
 
 #endif // _CONTRACT_UTIL_CUH

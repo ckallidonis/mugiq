@@ -54,7 +54,7 @@ void Displace<F,order>::doVectorDisplacement(DisplaceType dispType, ColorSpinorF
 
   if(dispType == DISPLACE_TYPE_COVARIANT){
     blas::zero(*auxDispVec);
-    performCovariantDisplacementVector<F>(auxDispVec, displacedEvec, gaugeField, dispDir, dispSign);
+    performCovariantDisplacementVector<F, order>(auxDispVec, displacedEvec, gaugeField, dispDir, dispSign);
     swapAuxDispVec(displacedEvec);
     printfQuda("%s: Step-%02d of a Covariant displacement done\n", __func__, idisp);
   }

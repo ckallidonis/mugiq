@@ -168,14 +168,15 @@ void exchangeGhostVec(ColorSpinorField *x){
   x->exchangeGhost((QudaParity)(1), nFace, 0); //- first argument is redundant when nParity = 2. nFace MUST be 1 for now.
 }
 
-template <typename Float>
+template <typename Float, QudaFieldOrder order>
 void performCovariantDisplacementVector(ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
 					DisplaceDir dispDir, DisplaceSign dispSign){
-  /*
   exchangeGhostVec(src);
 
-  CovDispVecArg<Float> arg(dst, src, gauge);
-  CovDispVecArg<Float> *arg_d;
+  typedef CovDispVecArg<Float,order> DispArg;
+
+  DispArg arg(*dst, *src, *gauge);
+  DispArg *arg_d;
   cudaMalloc((void**)&(arg_d), sizeof(arg));
   checkCudaError();
   cudaMemcpy(arg_d, &arg, sizeof(arg), cudaMemcpyHostToDevice);
@@ -183,6 +184,7 @@ void performCovariantDisplacementVector(ColorSpinorField *dst, ColorSpinorField 
 
   if(arg.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
 
+  /*
   dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, 1);
   dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);
 
@@ -196,8 +198,20 @@ void performCovariantDisplacementVector(ColorSpinorField *dst, ColorSpinorField 
 }
 
 
-template void performCovariantDisplacementVector<float> (ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
-							 DisplaceDir dispDir, DisplaceSign dispSign);
-template void performCovariantDisplacementVector<double>(ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
-							 DisplaceDir dispDir, DisplaceSign dispSign);
+template void performCovariantDisplacementVector<float,QUDA_FLOAT2_FIELD_ORDER> (ColorSpinorField *dst,
+										 ColorSpinorField *src,
+										 cudaGaugeField *gauge,
+										 DisplaceDir dispDir, DisplaceSign dispSign);
+template void performCovariantDisplacementVector<float,QUDA_FLOAT4_FIELD_ORDER> (ColorSpinorField *dst,
+										 ColorSpinorField *src,
+										 cudaGaugeField *gauge,
+										 DisplaceDir dispDir, DisplaceSign dispSign);
+template void performCovariantDisplacementVector<double,QUDA_FLOAT2_FIELD_ORDER>(ColorSpinorField *dst,
+										 ColorSpinorField *src,
+										 cudaGaugeField *gauge,
+										 DisplaceDir dispDir, DisplaceSign dispSign);
+template void performCovariantDisplacementVector<double,QUDA_FLOAT4_FIELD_ORDER>(ColorSpinorField *dst,
+										 ColorSpinorField *src,
+										 cudaGaugeField *gauge,
+										 DisplaceDir dispDir, DisplaceSign dispSign);
 //----------------------------------------------------------------------------
