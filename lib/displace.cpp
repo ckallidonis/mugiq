@@ -18,6 +18,9 @@ Displace<F,order>::Displace(MugiqLoopParam *loopParams_, ColorSpinorField *csf_,
   //-Create the gauge field with extended ghost exchange, will be used for displacements
   createExtendedCudaGaugeField();
 
+  printfQuda("%s: Gauge field has%s extended Halo exchange\n", __func__,
+	     gaugeField->GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED ? "" : " NOT");
+  
   //- Create a color spinor field to hold the displaced vector
   ColorSpinorParam csParam(*csf_);
   csParam.create = QUDA_ZERO_FIELD_CREATE;
