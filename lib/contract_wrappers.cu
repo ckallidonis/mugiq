@@ -188,7 +188,7 @@ void performCovariantDisplacementVector(ColorSpinorField *dst, ColorSpinorField 
   dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, 1);
   dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);
 
-  covariantDisplacementVector_kernel<Float, DispArg><<<gridDim,blockDim>>>(arg_d, dispDir, dispSign);
+  covariantDisplacementVector_kernel<Float, DispArg, order><<<gridDim,blockDim>>>(arg_d, dispDir, dispSign);
   cudaDeviceSynchronize();
   checkCudaError();
 

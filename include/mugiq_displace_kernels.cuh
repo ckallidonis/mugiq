@@ -5,7 +5,7 @@
 
 using namespace quda;
 
-template <typename Float, typename Arg>
+template <typename Float, typename Arg, QudaFieldOrder order>
 __global__ void covariantDisplacementVector_kernel(Arg *arg, DisplaceDir dispDir, DisplaceSign dispSign);
 
 
