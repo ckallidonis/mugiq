@@ -83,6 +83,13 @@ extern "C" {
     DispSignMinus =  0,
     DispSignPlus  =  1
   } DisplaceSign;  
+
+
+  typedef enum MuGiqBoundaryDirection_s
+    { MUGIQ_BOUNDARY_BACKWARD = 0,
+      MUGIQ_BOUNDARY_FORWARD  = 1,
+      MUGIQ_BOUNDARY_INVALID  = MUGIQ_INVALID_ENUM
+    } MuGiqBoundaryDirection;
   
   
 #ifdef __cplusplus

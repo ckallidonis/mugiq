@@ -5,10 +5,11 @@
 #include <eigsolve_mugiq.h>
 #include <util_mugiq.h>
 #include <displace.h>
+#include <mpi.h>
 
 using namespace quda;
 
-template <typename Float>
+template <typename Float, QudaFieldOrder fieldOrder>
 class Loop_Mugiq {
 
 private:
@@ -17,15 +18,38 @@ private:
   
   LoopComputeParam *cPrm; // Loop computation Parameter structure
 
-  Displace<Float> *displace;  // structure holding the displacements
+  Displace<Float,fieldOrder> *displace;  // structure holding the displacements
   
   Eigsolve_Mugiq *eigsolve; // The eigsolve object (This class is a friend of Eigsolve_Mugiq)
 
+  ColorSpinorField *refVec; // Reference vector, whose parameters will be used throughout the class
+
+  //- MPI/Communication-related parameters for "space" processes
+  //- These are the processes that have the same time-coordinate
+  MPI_Comm COMM_SPACE; //- The Communicator for "space" processes
+  int space_rank;      //- Rank numbering
+  int space_size;      //- Size of the COMM_SPACE space
+  int cRank;           //- parameter determining the rank numbering
+  int tCoord;          //- The time coordinate of each process, will be used as the "color" of the COMM_SPACE space
+
+  
+  //- MPI/Communication-related parameters for "time" processes
+  //- These are the processes that have all but time coordinates equal to 0
+  MPI_Comm COMM_TIME;         //- The Communicator
+  int time_rank;              //- Rank numbering
+  int time_size;              //- Size of the COMM_TIME space
+  const int time_tag = 1000;  //- Tag that will be used to determine the "color" of the COMM_TIME space
+  int time_color;             //- The "color" of the "time" processes
+  MuGiqBool IamTimeProcess;   //- Whether a process belongs to the COMM_TIME space
+
+  
+  MuGiqBool commsAreSet;
+  
   //- Data buffers
   complex<Float> *dataPos_d = nullptr;      // Device Position space correlator (local)
   complex<Float> *dataPosMP_d = nullptr;    // Device Position space correlator (local), with changed index order for Mom. projection 
   complex<Float> *dataMom_d = nullptr;      // Device output buffer of cuBlas (local)
-  complex<Float> *dataPos_h = nullptr;      // Host Position space correlator (local)
+  complex<Float> *dataPos   = nullptr;      // Host Position space correlator (local)
   complex<Float> *dataMom_h = nullptr;      // Host output of cuBlas momentum projection (local)
   complex<Float> *dataMom   = nullptr;      // Host Globally summed momentum projection buffer (local)
   complex<Float> *dataMom_bcast = nullptr;  // Host Final result (global summed, gathered, broadcasted) of momentum projection
@@ -43,8 +67,18 @@ private:
   long long nElemPosLoc; // Total Number of elements in local  position-space data buffers
   long long nElemPhMat;  // Number of elements in phase matrix
 
-  MuGiqBool MomProjDone;
+  MuGiqBool MomProjDone; // Whether momentum projection has been completed
+
+  MuGiqBool writeDataPos; // Whether to write the position-space loop data
+  MuGiqBool writeDataMom; // Whether to write the momentum-space loop data
   
+  std::string momSpaceFilename; //- HDF5 filename for momentum-space filename
+  std::string posSpaceFilename; //- HDF5 filename for position-space filename
+
+  
+  /** @brief Set up communicators required for the momentum projection and the HDF5 writing
+   */
+  void setupComms();
   
   /** @brief Prolongate the coarse eigenvectors to fine fields
    */
@@ -71,11 +105,18 @@ private:
    */
   void createPhaseMatrix();
 
-
   /** @@brief Perform Fourier Transform (Momentum Projection) on the loop trace
    */
   void performMomentumProjection();
-  
+
+  /** @brief Write the momentum-space loop data in HDF5 format
+   */
+  void writeLoopsHDF5_Mom();
+
+  /** @brief Write the position-space loop data in HDF5 format
+   */
+  void writeLoopsHDF5_Pos();
+
   
 public:
 
@@ -83,9 +124,9 @@ public:
   ~Loop_Mugiq();
 
   
-  /** @brief Print the Loop data in ASCII format (in stdout for now)
+  /** @brief Write the Loop data in an HDF5 file (called from the interface)
    */
-  void printData_ASCII();
+  void writeLoopsHDF5();
 
   
   /** @brief Wrapper to create the coarse part of the loop
@@ -97,8 +138,8 @@ public:
 
 
 
-template <typename Float>
-struct Loop_Mugiq<Float>::LoopComputeParam {
+template <typename Float, QudaFieldOrder fieldOrder>
+struct Loop_Mugiq<Float, fieldOrder>::LoopComputeParam {
 
   const int nG = N_GAMMA_;   // Number of Gamma matrices (currents, =16)
   const int momDim = MOM_DIM_;  // Momenta dimensions (=3)
@@ -257,8 +298,8 @@ void createPhaseMatrixGPU(complex<Float> *phaseMatrix_d, const int* momMatrix_h,
 
 /** @brief Perform the loop contractions
  */
-template <typename Float>
-void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *evecL, ColorSpinorField *evecR, Float sigma);
+template <typename Float, QudaFieldOrder fieldOrder>
+void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL, ColorSpinorField *eVecR, Float sigma);
 
 
 

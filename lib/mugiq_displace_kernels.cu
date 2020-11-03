@@ -1,7 +1,7 @@
 #include <mugiq_displace_kernels.cuh>
 
 //- Whether a site is even (return 0) or odd (return 1)
-inline static __device__ int everORodd(const int x[]){
+inline static __device__ int evenORodd(const int x[]){
   return (x[0] + x[1] + x[2] + x[3]) % 2;
 }
 
@@ -52,7 +52,7 @@ inline static __device__ Link<Float> getNbrLinkDispExtG(Gauge<Float> &U, const i
   //- For negative displacements, move one site backwards in the "dir" direction  
   if(dispSign == DispSignMinus) dx1[dir] -= 1;
   
-  int nbrPty = (everORodd(dx1) == 0) ? pty : 1 - pty; //- Parity of neighboring site (even or odd)
+  int nbrPty = (evenORodd(dx1) == 0) ? pty : 1 - pty; //- Parity of neighboring site (even or odd)
   
   Link<Float> dispU;
   if (dispSign == DispSignPlus)
@@ -76,36 +76,75 @@ inline static __device__ Link<Float> getNbrLinkExtG(Gauge<Float> &U, const int c
 //-------------------------------------------------------------------
 
 
-template <typename Float>
-inline static __device__ Vector<Float> getNbrSiteVec(Fermion<Float> &F, const int coord[], int pty,
-						     int dir, DisplaceSign dispSign,
+template <typename Float, QudaFieldOrder order>
+inline static __device__ void FillFermionSite(Fermion<Float,order> &F, Vector<Float> v,
+					      const int siteIdx, const int pty){
+#pragma unroll
+  for(int s=0;s<N_SPIN_;s++)
+#pragma unroll
+    for(int c=0;c<N_COLOR_;c++) F(pty, siteIdx, s, c) = v.data[SPINOR_SITE_IDX(s,c)];
+}
+//-------------------------------------------------------------------
+
+template <typename Float, QudaFieldOrder order>
+inline static __device__ Vector<Float> getVectorGhostSite(Fermion<Float,order> &F,
+							  const int dir, const int bnd,
+							  const int ghostIdx, const int nbrPty){
+  Vector<Float> v;
+#pragma unroll
+  for(int s=0;s<N_SPIN_;s++)
+#pragma unroll
+    for(int c=0;c<N_COLOR_;c++) v.data[SPINOR_SITE_IDX(s,c)] = F.Ghost(dir, bnd, nbrPty, ghostIdx, s, c);
+
+  return v;
+}
+//-------------------------------------------------------------------
+
+template <typename Float, QudaFieldOrder order>
+inline static __device__ Vector<Float> getVectorSite(Fermion<Float,order> &F,
+						     const int siteIdx, const int nbrPty){
+  Vector<Float> v;
+#pragma unroll
+  for(int s=0;s<N_SPIN_;s++)
+#pragma unroll
+    for(int c=0;c<N_COLOR_;c++) v.data[SPINOR_SITE_IDX(s,c)] = F(nbrPty, siteIdx, s, c);
+
+  return v;
+}
+//-------------------------------------------------------------------
+
+template <typename Float, QudaFieldOrder order>
+inline static __device__ Vector<Float> getNbrSiteVec(Fermion<Float,order> &F, const int coord[], const int pty,
+						     const int dir, DisplaceSign dispSign,
 						     const int dim[], const int commDim[], const int nFace){
 
-  int nbrPty = 1 - pty; //- Parity of neighboring site
+  const int nbrPty = 1 - pty; //- Parity of neighboring site
   
   Vector<Float> dispV;
   if (dispSign == DispSignPlus){ //- dispV <- F(x+d)
     //- We are at the right boundary, get forward neighbouring site from the halos
-    if (commDim[dir] && (coord[dir] + nFace >= dim[dir]) ) { 
-      const int ghostIdx = ghostFaceIndex<1>(coord, dim, dir, nFace);
-      dispV = F.Ghost(dir, 1, ghostIdx, nbrPty);
+    if (commDim[dir] && (coord[dir] + nFace >= dim[dir]) ) {
+      const int bnd = static_cast<int>(MUGIQ_BOUNDARY_FORWARD);
+      const int ghostIdx = ghostFaceIndex<bnd>(coord, dim, dir, nFace);
+      dispV = getVectorGhostSite(F, dir, bnd, ghostIdx, nbrPty); //F.Ghost(dir, 1, ghostIdx, nbrPty);
     }
     //- Not at the boundary
     else{ 
       const int fwdIdx = linkIndexP1(coord, dim, dir);
-      dispV = F(fwdIdx, nbrPty);
+      dispV = getVectorSite(F, fwdIdx, nbrPty); //F(fwdIdx, nbrPty);
     }
   }
   else if(dispSign == DispSignMinus){ //- dispV <- F(x-d)
     //- We are at the left boundary, get backward neighbouring site from the halos
-    if (commDim[dir] && (coord[dir] - nFace < 0)) {  
-      const int ghostIdx = ghostFaceIndex<0>(coord, dim, dir, nFace);
-      dispV = F.Ghost(dir, 0, ghostIdx, nbrPty);
+    if (commDim[dir] && (coord[dir] - nFace < 0)) {
+      const int bnd =	static_cast<int>(MUGIQ_BOUNDARY_BACKWARD);
+      const int ghostIdx = ghostFaceIndex<bnd>(coord, dim, dir, nFace);
+      dispV = getVectorGhostSite(F, dir, bnd, ghostIdx, nbrPty); //F.Ghost(dir, 0, ghostIdx, nbrPty);
     }
     //- Not at the boundary
     else{
       const int bwdIdx = linkIndexM1(coord, dim, dir);
-      dispV = F(bwdIdx, nbrPty);
+      dispV = getVectorSite(F, bwdIdx, nbrPty); //F(bwdIdx, nbrPty);
     }
   }
   return dispV;
@@ -114,8 +153,8 @@ inline static __device__ Vector<Float> getNbrSiteVec(Fermion<Float> &F, const in
 //-------------------------------------------------------------------
 
 
-template <typename Float>
-__global__ void covariantDisplacementVector_kernel(CovDispVecArg<Float> *arg,
+template <typename Float, typename Arg, QudaFieldOrder order>
+__global__ void covariantDisplacementVector_kernel(Arg *arg,
 						   DisplaceDir dispDir, DisplaceSign dispSign){
 
   int x_cb = blockIdx.x*blockDim.x + threadIdx.x;
@@ -129,10 +168,10 @@ __global__ void covariantDisplacementVector_kernel(CovDispVecArg<Float> *arg,
   getCoords(coord, x_cb, arg->dim, pty);
   coord[4] = 0;
 
-  int dir = (int)dispDir; //- Direction of the displacement (0:x, 1:y, 2:z, 3:t)
+  const int dir = (int)dispDir; //- Direction of the displacement (0:x, 1:y, 2:z, 3:t)
 
   //- The neighbouring vector of site x, V(x+d) or V(x-d)
-  Vector<Float> nbrV = getNbrSiteVec<Float>(arg->src, coord, pty, dir, dispSign, arg->dim, arg->commDim, arg->nFace);
+  Vector<Float> nbrV = getNbrSiteVec<Float,order>(arg->src, coord, pty, dir, dispSign, arg->dim, arg->commDim, arg->nFace);
 
   Link<Float> nbrU; //- Neighbouring Link, U_d(x) or U_d^\dag(x-d)
   if(arg->extendedGauge)
@@ -140,11 +179,20 @@ __global__ void covariantDisplacementVector_kernel(CovDispVecArg<Float> *arg,
   else
     nbrU = getNbrLink<Float>(arg->U, coord, pty, dir, dispSign, arg->dim, arg->commDim, arg->nFace);
 
-  arg->dst(x_cb, pty) = nbrU * nbrV; // dst(x) = U_d(x) * V(x+d) || U_d^\dag(x-d) * V(x-d)
-  
+  Vector<Float> R = nbrU * nbrV; // R(x) = U_d(x) * V(x+d) || U_d^\dag(x-d) * V(x-d)
+
+  FillFermionSite(arg->dst, R, x_cb, pty);
 }
 
-template __global__ void covariantDisplacementVector_kernel<float> (CovDispVecArg<float>  *arg,
-								    DisplaceDir dispDir, DisplaceSign dispSign);
-template __global__ void covariantDisplacementVector_kernel<double>(CovDispVecArg<double> *arg,
-								    DisplaceDir dispDir, DisplaceSign dispSign);
+template __global__ void covariantDisplacementVector_kernel<float,CovDispVecArg<float,QUDA_FLOAT2_FIELD_ORDER>,
+							    QUDA_FLOAT2_FIELD_ORDER>
+(CovDispVecArg<float, QUDA_FLOAT2_FIELD_ORDER> *arg, DisplaceDir dispDir, DisplaceSign dispSign);
+template __global__ void covariantDisplacementVector_kernel<float, CovDispVecArg<float,QUDA_FLOAT4_FIELD_ORDER>,
+							    QUDA_FLOAT4_FIELD_ORDER>
+(CovDispVecArg<float, QUDA_FLOAT4_FIELD_ORDER> *arg, DisplaceDir dispDir, DisplaceSign dispSign);
+template __global__ void covariantDisplacementVector_kernel<double, CovDispVecArg<double,QUDA_FLOAT2_FIELD_ORDER>,
+							    QUDA_FLOAT2_FIELD_ORDER>
+(CovDispVecArg<double, QUDA_FLOAT2_FIELD_ORDER> *arg, DisplaceDir dispDir, DisplaceSign dispSign);
+template __global__ void covariantDisplacementVector_kernel<double, CovDispVecArg<double,QUDA_FLOAT4_FIELD_ORDER>,
+							    QUDA_FLOAT4_FIELD_ORDER>
+(CovDispVecArg<double, QUDA_FLOAT4_FIELD_ORDER> *arg, DisplaceDir dispDir, DisplaceSign dispSign);

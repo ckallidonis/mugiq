@@ -31,11 +31,14 @@ extern "C" {
     std::vector<std::vector<int>> momMatrix; //- 2d-Array/vector holding the momenta values, dimensions [Nmom][3]
     LoopFTSign FTSign;
     LoopCalcType calcType;
-    MuGiqBool printASCII;
+    MuGiqBool writeMomSpaceHDF5;
+    MuGiqBool writePosSpaceHDF5;
     MuGiqBool doMomProj;
     MuGiqBool doNonLocal;
     std::vector<std::string> disp_entry;
     std::vector<std::string> disp_str;
+    std::string fname_mom_h5;
+    std::string fname_pos_h5;
     std::vector<int> disp_start;
     std::vector<int> disp_stop;
     void *gauge[4];
@@ -60,18 +63,22 @@ extern "C" {
    * @param eigParams Contains all metadata regarding the type of solve.
    */
   void computeEvecsMuGiq(QudaEigParam eigParams);
-
-  /** MuGiq interface function that computes disconnected quark loops using Multigrid Deflation
-   *  and for ultra-local current insertions
-   * @param mgParams  Contains all MG metadata regarding the type of eigensolve.
-   * @param eigParams Contains all metadata regarding the type of solve.
-   * @param loopParams Contains all metadata regarding the loop calculation
-   */
-  void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams);
   
 #ifdef __cplusplus
 }
 #endif
+
+/** MuGiq interface function that computes disconnected quark loops using Multigrid Deflation
+ *  and for ultra-local current insertions
+ * @param mgParams  Contains all MG metadata regarding the type of eigensolve.
+ * @param eigParams Contains all metadata regarding the type of solve.
+ * @param loopParams Contains all metadata regarding the loop calculation
+ * @param computeCoarse Whether to compute eigenvectors of the coarse Dirac operator
+ * @param useMG Whether to use Multigrid for computing the loop
+ */
+template <typename Float>
+void computeLoop(QudaMultigridParam mgParams, QudaEigParam eigParams, MugiqLoopParam loopParams,
+		 MuGiqBool computeCoarse, MuGiqBool useMG);
 
 
 #endif // _MUGIQ_H

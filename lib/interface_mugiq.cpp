@@ -30,11 +30,14 @@
 #include <util_mugiq.h>
 #include <interface_mugiq.h>
 
+#include <type_traits>
+
 //- Profiling
 static quda::TimeProfile profileEigensolveMuGiq("computeEvecsMuGiq");
 static quda::TimeProfile profileMuGiqMG("MugiqMG-Init");
 
 using namespace quda;
+
 
 static void printProfileInfo(TimeProfile profile){
   if (getVerbosity() >= QUDA_SUMMARIZE){
@@ -152,11 +155,26 @@ void computeEvecsMuGiq(QudaEigParam QudaEigParams){
   saveTuneCache();
 }
 
+template <typename Float, QudaFieldOrder fieldOrder>
+void computeLoop(MugiqLoopParam loopParams, Eigsolve_Mugiq *eigsolve){
 
-//- Compute disconnected loops using Multigrid deflation
-void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, MugiqLoopParam loopParams){
+  Loop_Mugiq<Float,fieldOrder> *loop = new Loop_Mugiq<Float,fieldOrder>(&loopParams, eigsolve);
+  
+  loop->computeCoarseLoop();
+  
+  if(loopParams.writeMomSpaceHDF5 != MUGIQ_BOOL_FALSE ||
+     loopParams.writePosSpaceHDF5 != MUGIQ_BOOL_FALSE)
+    loop->writeLoopsHDF5();
+  else warningQuda("%s: Will NOT write output data!\n", __func__);
 
-  printfQuda("\n%s: Will compute disconnected loops using Multi-grid deflation!\n", __func__);  
+  //- Clean-up
+  delete loop;
+}
+
+//- Compute disconnected loops, top level function
+template <typename Float>
+void computeLoop(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, MugiqLoopParam loopParams,
+		 MuGiqBool computeCoarse, MuGiqBool useMG){
 
   QudaInvertParam *invParams = QudaEigParams.invert_param;
   
@@ -167,13 +185,22 @@ void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, Mug
   }
 
   //- Create the Multigrid environment
-  MG_Mugiq *mg_env = newMG_Mugiq(&mgParams, &QudaEigParams);
-
+  MG_Mugiq *mg_env = nullptr;  
+  Eigsolve_Mugiq *eigsolve = nullptr;
+  
   //- Create the eigensolver environment
   MugiqEigParam *eigParams = new MugiqEigParam(&QudaEigParams);
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_TOTAL);
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_INIT);
-  Eigsolve_Mugiq *eigsolve = new Eigsolve_Mugiq(eigParams, mg_env, &profileEigensolveMuGiq);
+  if(useMG){
+    printfQuda("\n%s: Will compute disconnected loops using Multi-grid deflation!\n", __func__);  
+    mg_env = newMG_Mugiq(&mgParams, &QudaEigParams);
+    eigsolve = new Eigsolve_Mugiq(eigParams, mg_env, &profileEigensolveMuGiq, computeCoarse);
+  }
+  else{
+    printfQuda("\n%s: Will NOT use Multi-grid deflation to compute disconnected loops!\n", __func__);  
+    eigsolve = new Eigsolve_Mugiq(eigParams, &profileEigensolveMuGiq);
+  }
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_INIT);
 
   eigsolve->printInfo();
@@ -182,40 +209,36 @@ void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, Mug
   eigsolve->computeEvecs();
   eigsolve->computeEvals();
   eigsolve->printEvals();
-
-  QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
-  if(ePrec == QUDA_SINGLE_PRECISION)
-    printfQuda("\n%s: Running in single precision\n", __func__);
-  else if(ePrec == QUDA_DOUBLE_PRECISION)
-    printfQuda("\n%s: Running in double precision\n", __func__);
-
   
-  //- Determine precision of the calculation
-#if (ePrec == QUDA_SINGLE_PRECISION)
-  typedef float F;
-#elif (ePrec == QUDA_DOUBLE_PRECISION)
-  typedef double F;
-#endif
-
-  //- Create a new loop object
-  Loop_Mugiq<F> *loop = new Loop_Mugiq<F>(&loopParams, eigsolve);
-
-  loop->computeCoarseLoop();
-
-  if(loopParams.printASCII == MUGIQ_BOOL_TRUE) loop->printData_ASCII();
+  const QudaPrecision ePrec = eigsolve->getEvecs()[0]->Precision();
+  const int ePrecInt = static_cast<int>(ePrec);
+  if(ePrec == QUDA_SINGLE_PRECISION && typeid(Float) == typeid(float))
+    printfQuda("\n%s: Running in single precision!\n", __func__);
+  else if(ePrec == QUDA_DOUBLE_PRECISION && typeid(Float) == typeid(double))
+    printfQuda("\n%s: Running in double precision!\n", __func__);
+  else errorQuda("Missmatch between eigenvector precision %d and templated precision %zu\n", ePrecInt, sizeof(Float));
   
+  /** Compute loop, template on Field Order
+   *  Currently supported field orders are:
+   *  QUDA_FLOAT2_FIELD_ORDER: This is set when running with MG AND using the coarse operator/eigenvectors
+   *  QUDA_FLOAT4_FIELD_ORDER: This is set when running with no MG, or with MG and the FINE operator/eigenvectors
+   */
+  if(eigsolve->getEvecs()[0]->FieldOrder() == QUDA_FLOAT2_FIELD_ORDER){
+    if(!(useMG && computeCoarse))
+      errorQuda("%s: Got FieldOrder = FLOAT2, but useMGenv = FALSE and computeCoarse = FALSE\n", __func__);
+    computeLoop<Float, QUDA_FLOAT2_FIELD_ORDER>(loopParams, eigsolve);
+  }
+  else if(eigsolve->getEvecs()[0]->FieldOrder() == QUDA_FLOAT4_FIELD_ORDER){
+    if(useMG && computeCoarse)
+      errorQuda("%s: Got FieldOrder = FLOAT4, but useMGenv = TRUE and computeCoarse = TRUE\n", __func__);
+    computeLoop<Float, QUDA_FLOAT4_FIELD_ORDER>(loopParams, eigsolve);
+  }
+
   //- Clean-up
-#if 0
-  free(loop_h);
-  loop_h = nullptr;
-#endif
-  
   profileEigensolveMuGiq.TPSTART(QUDA_PROFILE_FREE);
   delete eigsolve;
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_FREE);
-  delete mg_env;
-
-  delete loop;
+  if(useMG) delete mg_env;
   
   profileEigensolveMuGiq.TPSTOP(QUDA_PROFILE_TOTAL);
   printProfileInfo(profileEigensolveMuGiq);
@@ -223,3 +246,8 @@ void computeLoop_MG(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, Mug
   popVerbosity();
   saveTuneCache();
 }
+
+template void computeLoop<double>(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, MugiqLoopParam loopParams,
+				  MuGiqBool computeCoarse, MuGiqBool useMG);
+template void computeLoop<float>(QudaMultigridParam mgParams, QudaEigParam QudaEigParams, MugiqLoopParam loopParams,
+				 MuGiqBool computeCoarse, MuGiqBool useMG);

@@ -14,8 +14,8 @@ void copyGammaCoeffStructToSymbol(){
       gamma_h.row_value[m][n] = {static_cast<Float>(GammaRowValue(m,n,0)), static_cast<Float>(GammaRowValue(m,n,1))};
     }
   }
-  
-  cudaMemcpyToSymbol(cGammaCoeff, &gamma_h, sizeof(GammaCoeff<Float>));
+
+  copyGammaCoefftoSymbol<Float>(gamma_h);
 }
 
 template void copyGammaCoeffStructToSymbol<float>();
@@ -38,8 +38,8 @@ void copyGammaMapStructToSymbol(){
     map_h.sign[m]  = signGamma.at(m);
     map_h.index[m] = idxG.at(m);
   }
-  
-  cudaMemcpyToSymbol(cGammaMap, &map_h, sizeof(GammaMap<Float>));
+
+  copyGammaMaptoSymbol<Float>(map_h);
 }
 
 template void copyGammaMapStructToSymbol<float>();
@@ -52,10 +52,10 @@ void createPhaseMatrixGPU(complex<Float> *phaseMatrix_d, const int* momMatrix_h,
 			  long long locV3, int Nmom, int FTSign,
 			  const int localL[], const int totalL[]){
 
-  int* momMatrix_d;
-  cudaMalloc((void**)&momMatrix_d, sizeof(momMatrix_h));
+  int *momMatrix_d;
+  cudaMalloc((void**)&momMatrix_d, sizeof(int)*Nmom*MOM_DIM_);
+  cudaMemcpy(momMatrix_d, momMatrix_h, sizeof(int)*Nmom*MOM_DIM_, cudaMemcpyHostToDevice);
   checkCudaError();
-  cudaMemcpy(momMatrix_d, momMatrix_h, sizeof(momMatrix_h), cudaMemcpyHostToDevice);
 
   MomProjArg arg(locV3, Nmom, FTSign, localL, totalL);
   MomProjArg *arg_d;
@@ -85,11 +85,13 @@ template void createPhaseMatrixGPU<double>(complex<double> *phaseMatrix_d, const
 //----------------------------------------------------------------------------
 
 
-template <typename Float>
+template <typename Float, QudaFieldOrder fieldOrder>
 void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL, ColorSpinorField *eVecR, Float sigma){
 
-  LoopContractArg<Float> arg(eVecL, eVecR, sigma);
-  LoopContractArg<Float> *arg_d;
+  typedef LoopContractArg<Float,fieldOrder> Arg;
+  
+  Arg arg(*eVecL, *eVecR, sigma);
+  Arg *arg_d;
   cudaMalloc((void**)&(arg_d), sizeof(arg) );
   checkCudaError();
   cudaMemcpy(arg_d, &arg, sizeof(arg), cudaMemcpyHostToDevice);
@@ -104,7 +106,7 @@ void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL,
   size_t shmemByteSize = sizeof(complex<Float>) * NELEM_SHMEM_CPLX_BUF * blockDim.x * blockDim.y;
   
   //-Call the kernel
-  loopContract_kernel<Float><<<gridDim,blockDim,shmemByteSize>>>(loopData_d, arg_d);
+  loopContract_kernel<Float, Arg><<<gridDim,blockDim,shmemByteSize>>>(loopData_d, arg_d);
   cudaDeviceSynchronize();
   checkCudaError();
   
@@ -112,10 +114,19 @@ void performLoopContraction(complex<Float> *loopData_d, ColorSpinorField *eVecL,
   arg_d = nullptr;
 }
 
-template void performLoopContraction<float> (complex<float>  *loopData_d,
-					     ColorSpinorField *evecL, ColorSpinorField *evecR, float sigma);
-template void performLoopContraction<double>(complex<double> *loopData_d,
-					     ColorSpinorField *evecL, ColorSpinorField *evecR, double sigma);
+//- This start to become overwhelming, hopefully no other template parameters will be needed
+template void performLoopContraction<float,QUDA_FLOAT2_FIELD_ORDER> (complex<float>  *loopData_d,
+								     ColorSpinorField *eVecL, ColorSpinorField *eVecR,
+								     float sigma);
+template void performLoopContraction<float,QUDA_FLOAT4_FIELD_ORDER> (complex<float>  *loopData_d,
+								     ColorSpinorField *eVecL, ColorSpinorField *eVecR,
+								     float sigma);
+template void performLoopContraction<double,QUDA_FLOAT2_FIELD_ORDER>(complex<double> *loopData_d,
+								     ColorSpinorField *eVecL, ColorSpinorField *eVecR,
+								     double sigma);
+template void performLoopContraction<double,QUDA_FLOAT4_FIELD_ORDER>(complex<double> *loopData_d,
+								     ColorSpinorField *eVecL, ColorSpinorField *eVecR,
+								     double sigma);
 //----------------------------------------------------------------------------
 
 
@@ -157,14 +168,15 @@ void exchangeGhostVec(ColorSpinorField *x){
   x->exchangeGhost((QudaParity)(1), nFace, 0); //- first argument is redundant when nParity = 2. nFace MUST be 1 for now.
 }
 
-template <typename Float>
+template <typename Float, QudaFieldOrder order>
 void performCovariantDisplacementVector(ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
 					DisplaceDir dispDir, DisplaceSign dispSign){
-
   exchangeGhostVec(src);
 
-  CovDispVecArg<Float> arg(dst, src, gauge);
-  CovDispVecArg<Float> *arg_d;
+  typedef CovDispVecArg<Float,order> DispArg;
+
+  DispArg arg(*dst, *src, *gauge);
+  DispArg *arg_d;
   cudaMalloc((void**)&(arg_d), sizeof(arg));
   checkCudaError();
   cudaMemcpy(arg_d, &arg, sizeof(arg), cudaMemcpyHostToDevice);
@@ -172,20 +184,34 @@ void performCovariantDisplacementVector(ColorSpinorField *dst, ColorSpinorField 
 
   if(arg.nParity != 2) errorQuda("%s: This function supports only Full Site Subset fields!\n", __func__);
 
+
   dim3 blockDim(THREADS_PER_BLOCK, arg.nParity, 1);
   dim3 gridDim((arg.volumeCB + blockDim.x -1)/blockDim.x, 1, 1);
 
-  covariantDisplacementVector_kernel<Float><<<gridDim,blockDim>>>(arg_d, dispDir, dispSign);
+  covariantDisplacementVector_kernel<Float, DispArg, order><<<gridDim,blockDim>>>(arg_d, dispDir, dispSign);
   cudaDeviceSynchronize();
   checkCudaError();
 
   cudaFree(arg_d);
   arg_d = nullptr;
+
 }
 
 
-template void performCovariantDisplacementVector<float> (ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
-							 DisplaceDir dispDir, DisplaceSign dispSign);
-template void performCovariantDisplacementVector<double>(ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
-							 DisplaceDir dispDir, DisplaceSign dispSign);
+template void performCovariantDisplacementVector<float,QUDA_FLOAT2_FIELD_ORDER> (ColorSpinorField *dst,
+										 ColorSpinorField *src,
+										 cudaGaugeField *gauge,
+										 DisplaceDir dispDir, DisplaceSign dispSign);
+template void performCovariantDisplacementVector<float,QUDA_FLOAT4_FIELD_ORDER> (ColorSpinorField *dst,
+										 ColorSpinorField *src,
+										 cudaGaugeField *gauge,
+										 DisplaceDir dispDir, DisplaceSign dispSign);
+template void performCovariantDisplacementVector<double,QUDA_FLOAT2_FIELD_ORDER>(ColorSpinorField *dst,
+										 ColorSpinorField *src,
+										 cudaGaugeField *gauge,
+										 DisplaceDir dispDir, DisplaceSign dispSign);
+template void performCovariantDisplacementVector<double,QUDA_FLOAT4_FIELD_ORDER>(ColorSpinorField *dst,
+										 ColorSpinorField *src,
+										 cudaGaugeField *gauge,
+										 DisplaceDir dispDir, DisplaceSign dispSign);
 //----------------------------------------------------------------------------

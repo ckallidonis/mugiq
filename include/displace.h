@@ -10,12 +10,12 @@
 using namespace quda;
 
 
-template <typename T>
+template <typename F, QudaFieldOrder order>
 class Displace {
 
 private:
 
-  template <typename Float>
+  template <typename Float, QudaFieldOrder fieldOrder>
   friend class Loop_Mugiq;
   
   const std::vector<std::string> DisplaceFlagArray {"+x","-x","+y","-y","+z","-z","+t","-t"} ;
@@ -106,7 +106,7 @@ public:
 
 /** @brief Perform a covariant displacement of the form dst(x) = U_d(x)*src(x+d) - src(x)
  */
-template <typename Float>
+template <typename Float, QudaFieldOrder order>
 void performCovariantDisplacementVector(ColorSpinorField *dst, ColorSpinorField *src, cudaGaugeField *gauge,
 					DisplaceDir dispDir, DisplaceSign dispSign);
 

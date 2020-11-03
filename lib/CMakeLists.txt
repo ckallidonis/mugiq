@@ -67,6 +67,10 @@ if(BUILD_MUGIQ_CUDA_LIB)
     endif()
     target_link_libraries(mugiq PRIVATE ${LIB_MAGMA})
   endif()
+
+  if(MUGIQ_HDF5)
+    target_link_libraries(mugiq INTERFACE ${MUGIQ_HDF5_LDFLAGS} ${MUGIQ_HDF5_LIBS})
+  endif()  
   #--------------------------------------------------------------
 
   # Find the CUDA_cuda_library

@@ -11,48 +11,23 @@
 
 using namespace quda;
 
-constexpr int cSize = 4096; // Size of constant memory symbols, set it to 4K
+constexpr int cSize = 8192; // Size of constant memory symbols, set it to 8K
 
 __constant__ char cGammaCoeff[cSize];  //- constant-memory buffer for gamma matrices on GPU
 __constant__ char cGammaMap[cSize];    //- constant-memory buffer for mapping Gamma to g5*Gamma
 
 
-//- Templates of the Fermion/Gauge mappers on the precision, used for fine fields
-template <typename T> struct FieldMapper {};
+template <typename Float, QudaFieldOrder fieldOrder>
+using Fermion = colorspinor::FieldOrderCB<Float, N_SPIN_, N_COLOR_, 1, fieldOrder>;
 
-template <> struct FieldMapper<double> {
-  typedef typename colorspinor_mapper<double, N_SPIN_, N_COLOR_>::type F;
-  typedef ColorSpinor<double, N_COLOR_, N_SPIN_> V;
-
-  typedef typename gauge_mapper<double, QUDA_RECONSTRUCT_NO>::type U;
-  typedef Matrix<complex<double>, N_COLOR_> M;
-};
-
-template <> struct FieldMapper<float> {
-  typedef typename colorspinor_mapper<float, N_SPIN_, N_COLOR_>::type F;
-  typedef ColorSpinor<float, N_COLOR_, N_SPIN_> V;
-
-  typedef typename gauge_mapper<float, QUDA_RECONSTRUCT_NO>::type U;
-  typedef Matrix<complex<float>, N_COLOR_> M;
-};
-
-
-//-alias for the Fermion field type
 template <typename Float>
-using Fermion = typename FieldMapper<Float>::F;
+using Gauge = typename gauge_mapper<Float,QUDA_RECONSTRUCT_NO>::type;
 
-//-alias for the Gauge field type
 template <typename Float>
-using Gauge = typename FieldMapper<Float>::U;
+using Vector = ColorSpinor<Float,N_COLOR_,N_SPIN_>;
 
-//-alias for the Vector type
 template <typename Float>
-using Vector = typename FieldMapper<Float>::V;
-
-//-alias for the Link type
-template <typename Float>
-using Link = typename FieldMapper<Float>::M;
-
+using Link = Matrix<complex<Float>,N_COLOR_>;
 
 //- Structure that will eventually be copied to GPU __constant__ memory
 template <typename Float>
@@ -108,25 +83,25 @@ struct ArgGeom {
   
   ArgGeom () {}
   
-  ArgGeom(ColorSpinorField *x)
-    : parity(0), nParity(x->SiteSubset()), nFace(1),
-      dim{ (3-nParity) * x->X(0), x->X(1), x->X(2), x->X(3), 1 },
+  ArgGeom(ColorSpinorField &x)
+    : parity(0), nParity(x.SiteSubset()), nFace(1),
+      dim{ (3-nParity) * x.X(0), x.X(1), x.X(2), x.X(3), 1 },
       commDim{comm_dim_partitioned(0), comm_dim_partitioned(1), comm_dim_partitioned(2), comm_dim_partitioned(3)},
-      lL{x->X(0), x->X(1), x->X(2), x->X(3)},
-      volumeCB(x->VolumeCB()), volume(x->Volume())
+      lL{x.X(0), x.X(1), x.X(2), x.X(3)},
+      volumeCB(x.VolumeCB()), volume(x.Volume())
   { }
   
-  ArgGeom(cudaGaugeField *u)
-    : parity(0), nParity(u->SiteSubset()), nFace(1),
+  ArgGeom(cudaGaugeField &u)
+    : parity(0), nParity(u.SiteSubset()), nFace(1),
       commDim{comm_dim_partitioned(0), comm_dim_partitioned(1), comm_dim_partitioned(2), comm_dim_partitioned(3)},
-      lL{u->X()[0], u->X()[1], u->X()[2], u->X()[3]}
+      lL{u.X()[0], u.X()[1], u.X()[2], u.X()[3]}
   {
-    if(u->GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED){
+    if(u.GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED){
       volume = 1;
       for(int dir=0;dir<4;dir++){
-	dim[dir] = u->X()[dir] - 2*u->R()[dir];   //-- Actual lattice dimensions (NOT extended)
-	dimEx[dir] = dim[dir] + 2*u->R()[dir];    //-- Extended lattice dimensions
-	brd[dir] = u->R()[dir];
+	dim[dir] = u.X()[dir] - 2*u.R()[dir];   //-- Actual lattice dimensions (NOT extended)
+	dimEx[dir] = dim[dir] + 2*u.R()[dir];    //-- Extended lattice dimensions
+	brd[dir] = u.R()[dir];
 	volume *= dim[dir];
       }
       volumeCB = volume/2;
@@ -134,7 +109,7 @@ struct ArgGeom {
     else{
       volume = 1;
       for(int dir=0;dir<4;dir++){
-	dim[dir] = u->X()[dir];
+	dim[dir] = u.X()[dir];
 	volume *= dim[dir];
       }
       volumeCB = volume/2;
@@ -146,17 +121,17 @@ struct ArgGeom {
 
 
 //- Argument Structure for performing the loop contractions
-template <typename Float>
+template <typename Float, QudaFieldOrder fieldOrder>
 struct LoopContractArg : public ArgGeom {
 
-  Fermion<Float> eVecL; //- Left  eigenvector in trace
-  Fermion<Float> eVecR; //- Right eigenvector in trace
+  Fermion<Float, fieldOrder> eVecL; //- Left  eigenvector in trace
+  Fermion<Float, fieldOrder> eVecR; //- Right eigenvector in trace
 
   Float inv_sigma; //- The inverse(!) of the eigenvalue corresponding to eVecL and eVecR
   
-  LoopContractArg(ColorSpinorField *eVecL_, ColorSpinorField *eVecR_, Float sigma)
-    : ArgGeom(eVecL_), eVecL(*eVecL_), eVecR(*eVecR_), inv_sigma(1.0/sigma)
-  { }
+  LoopContractArg(ColorSpinorField &eVecL_, ColorSpinorField &eVecR_, Float sigma)
+    : ArgGeom(eVecL_), eVecL(eVecL_), eVecR(eVecR_), inv_sigma(1.0/sigma)
+  {  }
   
 };//-- LoopContractArg
 
@@ -200,19 +175,19 @@ struct ConvertIdxArg{
 
 
 
-template <typename Float>
+template <typename Float, QudaFieldOrder order>
 struct CovDispVecArg : public ArgGeom {
 
-  Fermion<Float> dst;
-  Fermion<Float> src;
+  Fermion<Float, order> dst;
+  Fermion<Float, order> src;
   Gauge<Float> U;
   
   MuGiqBool extendedGauge;
   
-  CovDispVecArg(ColorSpinorField *dst_, ColorSpinorField *src_, cudaGaugeField *U_)
+  CovDispVecArg(ColorSpinorField &dst_, ColorSpinorField &src_, cudaGaugeField &U_)
     : ArgGeom(U_),
-      dst(*dst_), src(*src_), U(*U_),
-      extendedGauge((U_->GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED) ? MUGIQ_BOOL_TRUE : MUGIQ_BOOL_FALSE)
+      dst(dst_), src(src_), U(U_),
+      extendedGauge((U_.GhostExchange() == QUDA_GHOST_EXCHANGE_EXTENDED) ? MUGIQ_BOOL_TRUE : MUGIQ_BOOL_FALSE)
   { }
 
   ~CovDispVecArg() {}

@@ -20,11 +20,15 @@ extern MuGiqBool mugiq_use_mg;
 extern char mugiq_mom_filename[1024];
 extern LoopFTSign loop_ft_sign;
 extern LoopCalcType loop_calc_type;
-extern MuGiqBool loop_print_ascii;
+extern MuGiqBool loop_write_mom_space_hdf5;
+extern MuGiqBool loop_write_pos_space_hdf5;
 extern MuGiqBool loop_doMomProj;
 extern MuGiqBool loop_doNonLocal;
+extern MuGiqBool compute_coarse;
 extern char loop_gauge_filename[1024];
 extern std::string disp_entry_string;
+extern std::string fname_mom_h5;
+extern std::string fname_pos_h5;
 
 
 

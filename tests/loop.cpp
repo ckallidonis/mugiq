@@ -104,7 +104,7 @@ void setGaugeParam(QudaGaugeParam &gauge_param)
   gauge_param.anisotropy = anisotropy;
   gauge_param.type = QUDA_WILSON_LINKS;
   gauge_param.gauge_order = QUDA_QDP_GAUGE_ORDER;
-  gauge_param.t_boundary = QUDA_ANTI_PERIODIC_T;
+  gauge_param.t_boundary = QUDA_PERIODIC_T;
 
   gauge_param.cpu_prec = cpu_prec;
 
@@ -642,10 +642,23 @@ void setLoopParam(MugiqLoopParam &loopParams, QudaGaugeParam &gParam){
     errorQuda("%s: Loop Calculation Type is undefined/unsupported. Options are --loop-calc-type blas/opt/basic\n", __func__);
   loopParams.calcType = loop_calc_type;
 
-  loopParams.printASCII = loop_print_ascii;
+  loopParams.writeMomSpaceHDF5 = loop_write_mom_space_hdf5;
+  loopParams.writePosSpaceHDF5 = loop_write_pos_space_hdf5;
   loopParams.doMomProj  = loop_doMomProj;
   loopParams.doNonLocal = loop_doNonLocal;
 
+  
+  //- HDF5 filenames
+  if(loop_write_mom_space_hdf5 && fname_mom_h5.size()==0)
+    errorQuda("Got --loop-write-mom-space yes but no filename was given. Set option --loop-mom-space-filename\n");
+  if(loop_write_pos_space_hdf5 && fname_pos_h5.size()==0)
+    errorQuda("Got --loop-write-pos-space yes but no filename was given. Set option --loop-pos-space-filename\n");
+
+  loopParams.fname_mom_h5 = fname_mom_h5;
+  loopParams.fname_pos_h5 = fname_pos_h5;
+  //------------------------------
+  
+  
   if(!loopParams.doNonLocal){
     printfQuda("Will NOT perform displacements!!!");
   }
@@ -699,7 +712,6 @@ void setLoopParam(MugiqLoopParam &loopParams, QudaGaugeParam &gParam){
 	  printfQuda("  %d %s: %s with length %d\n", id, disp_entry_c,
 		     disp_str_c, loopParams.disp_start.at(id));
 	}
-
 	
       }//-for displacements   
     }
@@ -906,15 +918,17 @@ int main(int argc, char **argv)
   }
   
 
-  // Make some checks
-  if(mugiq_use_mg == MUGIQ_BOOL_FALSE) errorQuda("Test 'loop' supports calculations oncly with MG environment. Set '--mugiq-use-mg yes'\n");
-  if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (supported option are computeLoop)\n");
-
-  
   // Call the interface function to compute the loop
   double time = -((double)clock());
 
-  if(mugiq_task == MUGIQ_COMPUTE_LOOP) computeLoop_MG(mg_param, eig_param, loopParams);
+  if(mugiq_task == MUGIQ_COMPUTE_LOOP){
+    if(cuda_prec == QUDA_DOUBLE_PRECISION)
+      computeLoop<double>(mg_param, eig_param, loopParams, compute_coarse, mugiq_use_mg);
+    else if(cuda_prec == QUDA_SINGLE_PRECISION)
+      computeLoop<float>(mg_param, eig_param, loopParams, compute_coarse, mugiq_use_mg);
+    else
+      errorQuda("Unsupported precision %d.\n", static_cast<int>(cuda_prec));
+  }
   else if(mugiq_task == MUGIQ_TASK_INVALID) errorQuda("Option --mugiq-task not set! (supported option are computeLoop)\n");
   else errorQuda("Unsupported option for --mugiq-task! (supported option is computeLoopU\n");
     
