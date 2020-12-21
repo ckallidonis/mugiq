@@ -150,6 +150,10 @@ public:
   /** @brief Compute eigenvalues
    */
   void computeEvals();
+  
+  /** @brief Perform the projection: out = \sum_i v_i dot(v*_i,in)
+   */
+  void projectVector(ColorSpinorField &out, ColorSpinorField &in);
 
   /** @brief Compute eigenvalues
    */

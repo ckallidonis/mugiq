@@ -333,3 +333,16 @@ void Eigsolve_Mugiq::printEvals(){
   }
   
 }
+
+/**
+ * Perform the projection: out = \sum_i v_i dot(v*_i,in)
+ */
+void Eigsolve_Mugiq::projectVector(ColorSpinorField &out, ColorSpinorField &in){
+  
+  blas::zero(out);
+  for(int i=0; i<eigParams->nEv; i++){
+    Complex dp = blas::cDotProduct(*eVecs[i], in); // dp = dot(v_i*,in)
+    blas::caxpy(dp,*eVecs[i],out);  // out = dp*v_i + out
+  }
+  
+}
