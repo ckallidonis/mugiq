@@ -46,35 +46,41 @@ if(BUILD_MUGIQ_CUDA_LIB)
   # Package options
 
   if(MUGIQ_QUDA)
-    target_link_libraries(mugiq INTERFACE ${MUGIQ_QUDA_LDFLAGS} ${MUGIQ_QUDA_LIBS})
+    target_link_libraries(mugiq PUBLIC ${LIB_QUDA})
+  endif()
+
+  if(MUGIQ_QDP)
+    target_link_libraries(mugiq PUBLIC ${MUGIQ_QDP_LDFLAGS} ${MUGIQ_QDP_LIBS})
   endif()
 
   if(MUGIQ_QIO)
-    target_link_libraries(mugiq INTERFACE ${MUGIQ_QIO_LDFLAGS} ${MUGIQ_QIO_LIBS})
+    target_link_libraries(mugiq PUBLIC ${MUGIQ_QIO_LDFLAGS} ${MUGIQ_QIO_LIBS})
   endif()
 
   if("${CMAKE_COMMS_TYPE}" STREQUAL "QMP")
-    target_link_libraries(mugiq INTERFACE ${MUGIQ_QMP_LDFLAGS} ${MUGIQ_QMP_LIBS} ${MPI_CXX_LIBRARIES})
+    target_link_libraries(mugiq PUBLIC ${MUGIQ_QMP_LDFLAGS} ${MUGIQ_QMP_LIBS} ${MPI_CXX_LIBRARIES})
+    target_include_directories(mugiq PRIVATE ${MUGIQ_QMP_CFLAGS})
   endif()
 
   if("${CMAKE_COMMS_TYPE}" STREQUAL "MPI")
-    target_link_libraries(mugiq INTERFACE ${MPI_CXX_LIBRARIES})
+    target_link_libraries(mugiq PUBLIC ${MPI_CXX_LIBRARIES})
   endif()
 
   if(MUGIQ_MAGMA)
     if(MUGIQ_PRIMME)
-      target_link_libraries(mugiq PRIVATE ${LIB_PRIMME})
+      target_link_libraries(mugiq PUBLIC ${LIB_PRIMME})
     endif()
-    target_link_libraries(mugiq PRIVATE ${LIB_MAGMA})
+    target_link_libraries(mugiq PUBLIC ${LIB_MAGMA})
   endif()
 
   if(MUGIQ_HDF5)
-    target_link_libraries(mugiq INTERFACE ${MUGIQ_HDF5_LDFLAGS} ${MUGIQ_HDF5_LIBS})
+    target_link_libraries(mugiq PUBLIC ${MUGIQ_HDF5_LDFLAGS})
   endif()  
   #--------------------------------------------------------------
 
   # Find the CUDA_cuda_library
   target_link_libraries(mugiq PUBLIC ${CUDA_cuda_LIBRARY})
+  target_link_libraries(mugiq PUBLIC ${CUDA_cublas_LIBRARY})
 
   # Copy the include directory to the build directory
   add_custom_command(TARGET mugiq POST_BUILD
