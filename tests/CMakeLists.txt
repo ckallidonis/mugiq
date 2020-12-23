@@ -9,7 +9,7 @@ set(MUGIQ_TEST_DEPS test_params_mugiq.cpp)
 cuda_add_library(mugiq_deps STATIC ${MUGIQ_TEST_DEPS})
 
 # Link with libmugiq.a
-set(EXE_LIBS mugiq mugiq_deps)
+set(EXE_LIBS mugiq mugiq_deps ${LIB_QUDATEST})
 
 # Macro to exclude test for building, if NOT building all tests
 macro(MUGIQ_CHECKTEST TEST_TARGET MUGIQ_BUILD_ALL_TESTS_BOOL)

@@ -118,6 +118,10 @@ set(MUGIQ_QIO OFF CACHE BOOL "Link with QIO library")
 set(MUGIQ_QIO_HOME "" CACHE PATH "path to QIO")
 set(MUGIQ_LIME_HOME "" CACHE PATH "path to LIME")
 
+# QDP
+set(MUGIQ_QDP OFF CACHE BOOL "Link with QDP library")
+set(MUGIQ_QDP_HOME "" CACHE PATH "path to QDP installation")
+
 # MAGMA
 set(MUGIQ_MAGMA OFF CACHE BOOL "Link with MAGMA Library")
 set(MUGIQ_MAGMA_HOME "" CACHE PATH "path to MAGMA, if not set, pkg-config will be attempted")
@@ -184,7 +188,7 @@ find_package(MPI)
 # MPI Comms
 if("${CMAKE_COMMS_TYPE}" STREQUAL "MPI")
   add_definitions(-DMULTI_GPU -DMPI_COMMS)
-  include_directories(SYSTEM ${MPI_CXX_INCLUDE_PATH})
+  include_directories(${MPI_CXX_INCLUDE_PATH})
 endif()
 
 # QMP Comms
@@ -203,8 +207,8 @@ if("${CMAKE_COMMS_TYPE}" STREQUAL "QMP")
   
   add_definitions(-DMULTI_GPU -DQMP_COMMS)
   
-  include_directories(SYSTEM ${MUGIQ_QMP_HOME}/include)
-  include_directories(SYSTEM ${MPI_CXX_INCLUDE_PATH})
+  include_directories(${MUGIQ_QMP_HOME}/include)
+  include_directories(${MPI_CXX_INCLUDE_PATH})
 endif()
 #--------------------------------------------------------------
 #--------------------------------------------------------------
@@ -228,19 +232,16 @@ if(MUGIQ_QUDA)
   if(NOT LIB_QUDA)
     message(FATAL_ERROR "QUDA Library not found")
   endif()
-  if(NOT LIB_QUDATEST)
+  if(MUGIQ_BUILD_ALL_TESTS AND NOT LIB_QUDATEST)
     message(FATAL_ERROR "QUDA_TEST Library not found")
   endif()
 
-  set(MUGIQ_QUDA_LDFLAGS "-L${MUGIQ_QUDA_HOME}/lib -L${MUGIQ_QUDA_HOME}/tests" CACHE STRING "LDFLAGS for QUDA library")
-  set(MUGIQ_QUDA_LIBS "-lquda -lquda_test" CACHE STRING "LIBS for QUDA library")
-  
   add_definitions(-DHAVE_QUDA)
 
-  include_directories(SYSTEM ${MUGIQ_QUDA_HOME}/include)
-  include_directories(SYSTEM ${MUGIQ_QUDA_HOME}/include/externals)
-  include_directories(SYSTEM ${MUGIQ_QUDA_SOURCE}/tests)
-  include_directories(SYSTEM ${MUGIQ_QUDA_SOURCE}/lib)
+  include_directories(${MUGIQ_QUDA_HOME}/include)
+  include_directories(${MUGIQ_QUDA_HOME}/include/externals)
+  include_directories(${MUGIQ_QUDA_SOURCE}/tests)
+  include_directories(${MUGIQ_QUDA_SOURCE}/lib)
 
   set(BUILD_MUGIQ_CUDA_LIB ON CACHE BOOL "Build the MuGiq Library" FORCE)
 endif()
@@ -250,24 +251,21 @@ endif()
 if(MUGIQ_HDF5)  
   if("${MUGIQ_HDF5_HOME}" STREQUAL "")
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIB_HDF5 hdf5)
-    include_directories(SYSTEM ${HDF5_INCLUDEDIR})
-    message("${HDF5_INCLUDEDIR}")
-    find_library(LIB_HDF5 ${HDF5_LIBRARIES} PATH ${HDF5_LIBRARY_DIRS})
-  else()
+    pkg_search_module(LIB_HDF5 REQUIRED hdf5-openmpi hdf5-mpich hdf5-mpi hdf5)
+    include_directories(${LIB_HDF5_INCLUDE_DIRS})
+    set(MUGIQ_HDF5_LDFLAGS "${LIB_HDF5_LDFLAGS}" CACHE STRING "LDFLAGS for HDF5 library")
+   else()
     find_library(LIB_HDF5 libhdf5.a HINTS ${MUGIQ_HDF5_HOME}/lib NO_DEFAULT_PATH)    
+
+    if(NOT LIB_HDF5)
+      message(FATAL_ERROR "HDF5 Library not found!!!!")
+    endif()
+
+    include_directories(${MUGIQ_HDF5_HOME}/include)
+    set(MUGIQ_HDF5_LDFLAGS LIB_HDF5 CACHE STRING "LIBS for HDF5 library")
   endif()
-  
-  if(NOT LIB_HDF5)
-    message(FATAL_ERROR "HDF5 Library not found!!!!")
-  endif()
-  
-  set(MUGIQ_HDF5_LDFLAGS "-L${MUGIQ_HDF5_HOME}/lib" CACHE STRING "LDFLAGS for HDF5 library")
-  set(MUGIQ_HDF5_LIBS "-lhdf5 -lz" CACHE STRING "LIBS for HDF5 library")
   
   add_definitions(-DHDF5_LIB)
-  
-  include_directories(SYSTEM ${MUGIQ_HDF5_HOME}/include)
 endif()
 
 
@@ -311,11 +309,24 @@ if(MUGIQ_QIO)
   
   add_definitions(-DHAVE_QIO)
   
-  include_directories(SYSTEM ${MUGIQ_QIO_HOME}/include)
-  include_directories(SYSTEM ${MUGIQ_LIME_HOME}/include)
+  include_directories(${MUGIQ_QIO_HOME}/include)
+  include_directories(${MUGIQ_LIME_HOME}/include)
 endif(MUGIQ_QIO)
 
+# QDP options
+if(MUGIQ_QDP)
 
+  if(MUGIQ_QDP_HOME STREQUAL "")
+    message(FATAL_ERROR "MUGIQ_QDP_HOME must be specified")
+  endif()
+  execute_process(COMMAND ${MUGIQ_QDP_HOME}/bin/qdp++-config --cxxflags  OUTPUT_VARIABLE MUGIQ_QDP_CFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(COMMAND ${MUGIQ_QDP_HOME}/bin/qdp++-config --ldflags OUTPUT_VARIABLE MUGIQ_QDP_LDFLAGS_INTERNAL OUTPUT_STRIP_TRAILING_WHITESPACE)
+  execute_process(COMMAND ${MUGIQ_QDP_HOME}/bin/qdp++-config --libs    OUTPUT_VARIABLE MUGIQ_QDP_LIBS_INTERNAL OUTPUT_STRIP_TRAILING_WHITESPACE)
+  set(MUGIQ_QDP_LDFLAGS ${MUGIQ_QDP_LDFLAGS_INTERNAL} CACHE STRING "LDFLAGS for QDP++ - should be derived from qio-config --ldflags")
+  set(MUGIQ_QDP_LIBS ${MUGIQ_QDP_LIBS_INTERNAL} CACHE STRING "LIBS for QDP++ - should be derived from qio-config --libs")
+endif() 
+  
+ 
 # MAGMA Options
 if(MUGIQ_MAGMA)
   find_package(OpenMP)
@@ -324,7 +335,7 @@ if(MUGIQ_MAGMA)
   if("${MUGIQ_MAGMA_HOME}" STREQUAL "")
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIB_MAGMA magma)
-    include_directories(SYSTEM ${MAGMA_INCLUDEDIR})
+    include_directories(${MAGMA_INCLUDEDIR})
     message("${MAGMA_INCLUDEDIR}")
     find_library(LIB_MAGMA ${MAGMA_LIBRARIES} PATH ${MAGMA_LIBRARY_DIRS})
     LIST(APPEND LIB_MAGMA ${BLAS_LIBRARIES})
@@ -339,7 +350,7 @@ if(MUGIQ_MAGMA)
 
     # Additional OpenMP linker flags
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_CXX_FLAGS}")
-    include_directories(SYSTEM ${MUGIQ_MAGMA_HOME}/include)
+    include_directories(${MUGIQ_MAGMA_HOME}/include)
 
     # add BLAS and LAPACK libraries
     LIST(APPEND LIB_MAGMA ${BLAS_LIBRARIES})
@@ -366,7 +377,7 @@ if(MUGIQ_PRIMME)
   endif()
   add_definitions(-DPRIMME_LIB)
 
-  include_directories(SYSTEM ${MUGIQ_PRIMME_HOME}/include)
+  include_directories(${MUGIQ_PRIMME_HOME}/include)
   LIST(APPEND LIB_PRIMME ${LIB_PRIMME})
 endif()
 #--------------------------------------------------------------
@@ -399,7 +410,7 @@ find_package(Threads REQUIRED)
 
 # Compiler options and BUILD types
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
+include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(include)
 include_directories(lib)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
