@@ -15,6 +15,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   eigProfile(eigProfile_),
   dirac(nullptr),
   mat(nullptr),
+  matFine(nullptr),
   diracCreated(MUGIQ_BOOL_FALSE),
   eVals_quda(nullptr),
   eVals(nullptr),
@@ -63,6 +64,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   eigProfile(eigProfile_),
   dirac(nullptr),
   mat(nullptr),
+  matFine(nullptr),
   diracCreated(MUGIQ_BOOL_FALSE),
   eVals_quda(nullptr),
   eVals(nullptr),
@@ -94,6 +96,7 @@ Eigsolve_Mugiq::~Eigsolve_Mugiq(){
     delete eVals_sigma;
 
   if(mat) delete mat;
+  if(matFine) delete mat;
   mat = nullptr;
   
   if(useMGenv){
@@ -204,6 +207,8 @@ void Eigsolve_Mugiq::createNewDiracMatrix(){
   else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM)  mat = new DiracMdagM(*dirac);
   else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
   else errorQuda("%s: Unsupported Dirac operator type\n", __func__);
+
+  matFine = new DiracM(*mg_env->mg_solver->d);
 }
 
 
@@ -283,6 +288,13 @@ void Eigsolve_Mugiq::computeEvecs(){
   EigenSolver *eigSolve = EigenSolver::create(eigParams->QudaEigParams, *mat, *eigProfile);
   (*eigSolve)(eVecs, *eVals_quda);
 
+  // Get the right singular vectors if the solver returns the left singular vectors
+  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_Mdag || eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag){
+    for(int i=0; i<eigParams->nEv; i++){
+      gamma5(*eVecs[i], *eVecs[i]);
+    }
+  }
+
   delete eigSolve;
 }
 
@@ -296,13 +308,15 @@ void Eigsolve_Mugiq::computeEvals(){
   std::vector<double> &r = *evals_res;
 
   double kappa = invParams->kappa;
+  DiracMatrix *mat_direct = new DiracM(*dirac);	  
   
   for(int i=0; i<eigParams->nEv; i++){
-    (*mat)(*w,*eVecs[i]); //- w = M*v_i
+    (*mat_direct)(*w,*eVecs[i]); //- w = M*v_i
     if(invParams->mass_normalization == QUDA_MASS_NORMALIZATION) blas::ax(0.25/(kappa*kappa), *w);
+    gamma5(*w, *w);
     lambda[i] = blas::cDotProduct(*eVecs[i], *w) / sqrt(blas::norm2(*eVecs[i])); // lambda_i = (v_i^dag M v_i) / ||v_i||
     Complex Cm1(-1.0, 0.0);
-    blas::caxpby(lambda[i], *eVecs[i], Cm1, *w); // w = lambda_i*v_i - A*v_i
+    blas::caxpby(lambda[i], *eVecs[i], Cm1, *w); // w = lambda_i*v_i - \gamma_5*A*v_i
     r[i] = sqrt(blas::norm2(*w)); // r = ||w||
   }
 
@@ -311,6 +325,7 @@ void Eigsolve_Mugiq::computeEvals(){
     for(int i=0; i<eigParams->nEv; i++) sigma[i] = sqrt(lambda[i].real());
   }
   
+  delete mat_direct;
   delete w;
 }
 
@@ -335,14 +350,53 @@ void Eigsolve_Mugiq::printEvals(){
 }
 
 /**
- * Perform the projection: out = \sum_i v_i dot(v*_i,in)
+ * Perform the projection: out = \sum_i evecs_i * dot(evecs_i*,\gamma_5 * fine_op * in) / eval_i
  */
 void Eigsolve_Mugiq::projectVector(ColorSpinorField &out, ColorSpinorField &in){
-  
-  blas::zero(out);
-  for(int i=0; i<eigParams->nEv; i++){
-    Complex dp = blas::cDotProduct(*eVecs[i], in); // dp = dot(v_i*,in)
-    blas::caxpy(dp,*eVecs[i],out);  // out = dp*v_i + out
+  // Min = gamma_5 * matFine * in
+  ColorSpinorParam csParam(*tmpCSF[0]);
+  ColorSpinorField *Min = ColorSpinorField::Create(csParam);
+  (*matFine)(*Min,in);
+  gamma5(*Min, *Min);
+
+  // Transfer Min to the coarsest level  
+  ColorSpinorField *Min_coarse = nullptr, *Mout_coarse = nullptr;
+  if (computeCoarse && mg_env->nCoarseLevels > 0) {
+    blas::zero(*tmpCSF[1]);
+    mg_env->transfer[0]->R(*tmpCSF[1], *Min);
+    for(int lev=1; lev<mg_env->nCoarseLevels; lev++){
+      blas::zero(*tmpCSF[lev+1]);
+      if(!mg_env->transfer[lev]) errorQuda("%s: Transfer operator for level %d does not exist!\n", __func__, lev);
+      mg_env->transfer[lev]->R(*tmpCSF[lev+1], *tmpCSF[lev]);
+    }
+    Mout_coarse = Min_coarse = tmpCSF[mg_env->nCoarseLevels];
+  } else {
+    Min_coarse = Min;
+    Mout_coarse = &out;
   }
-  
+
+  // s[i] = dot(eVecs[i], Min_coarse)
+  std::vector<Complex> s(eigParams->nEv);
+  std::vector<ColorSpinorField *> Minc_(1, Min_coarse);
+  blas::cDotProduct(s.data(), eVecs, Minc_);
+
+  // Mout_coarse = Sum_i s[i] / evals[i] * eVecs[i]
+  blas::zero(*Mout_coarse);
+  for (int i = 0; i < eigParams->nEv; i++) {
+    s[i] /= (*eVals)[i];
+  }
+  std::vector<ColorSpinorField *> Moutc_(1, Mout_coarse);
+  blas::caxpy(s.data(), eVecs, Moutc_);
+
+  // Transfer Mout_coarse to the fine level  
+  if (computeCoarse && mg_env->nCoarseLevels > 0) {
+    for(int lev=mg_env->nCoarseLevels; lev>1; lev--){
+      blas::zero(*tmpCSF[lev-1]);
+      mg_env->transfer[lev-1]->P(*tmpCSF[lev-1], *tmpCSF[lev]);
+    }
+    blas::zero(out);
+    mg_env->transfer[0]->P(out, *tmpCSF[1]);
+  }
+
+  delete Min;
 }

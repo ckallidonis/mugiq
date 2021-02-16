@@ -75,6 +75,7 @@ private:
   
   const Dirac *dirac;
   DiracMatrix *mat; // The Dirac operator whose eigenpairs we are computing
+  DiracMatrix *matFine; // The Dirac operator whose eigenpairs we are computing
 
   //- This switch is required so that the dirac object is NOT
   //- deleted when NOT created within Eigsolve.
@@ -151,7 +152,7 @@ public:
    */
   void computeEvals();
   
-  /** @brief Perform the projection: out = \sum_i v_i dot(v*_i,in)
+  /** @brief Perform the projection: out = \sum_i evecs_i * dot(evecs_i*,\gamma_5 * fine_op * in) / eval_i
    */
   void projectVector(ColorSpinorField &out, ColorSpinorField &in);
 
@@ -159,21 +160,14 @@ public:
    */
   void printEvals();
 
-  /** @brief Accessor to get the eigenvectors outside of the class
+  /** @brief Accessor to get approx. right singular vector of the given fine/coarse operator
    */
   std::vector<ColorSpinorField *> &getEvecs(){ return eVecs;}
   
-  /** @brief Accessor to get the Quda eigenvalues outside of the class
-   */
-  std::vector<Complex>* getEvalsQuda(){ return eVals_quda;}
-  
-  /** @brief Accessor to get the Eigsolve_Mugiq eigenvalues outside of the class
+  /** @brief Accessor to get the approx. eigenvalues of \gamma_5 * the given fine/coarse operator;
+   *         that is, evals[i] = dot(evecs[i], \gamma_5 * fine/coarse operator * evecs[i])
    */
   std::vector<Complex> *getEvals(){ return eVals;}
-  
-  /** @brief Accessor to get the Eigsolve_Mugiq singular values outside of the class
-   */
-  std::vector<double> *getEvalsSigma(){ return eVals_sigma;}
   
   /** @brief Accessor to get the residual of the computed eigenvalues
    */
