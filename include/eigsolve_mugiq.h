@@ -169,10 +169,6 @@ public:
    */
   std::vector<Complex> *getEvals(){ return eVals;}
   
-  /** @brief Accessor to get the Multigrid environment structure
-   */
-  MG_Mugiq* getMGEnv(){ return mg_env;}
-  
 }; // class Eigsolve_Mugiq 
 
 
