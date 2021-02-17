@@ -169,25 +169,9 @@ public:
    */
   std::vector<Complex> *getEvals(){ return eVals;}
   
-  /** @brief Accessor to get the residual of the computed eigenvalues
-   */
-  std::vector<double>* getEvalsRes(){ return evals_res;}
-
   /** @brief Accessor to get the Multigrid environment structure
    */
   MG_Mugiq* getMGEnv(){ return mg_env;}
-  
-  /** @brief Accessor to get the Mugiq eigsolve parameter structure
-   */
-  MugiqEigParam* getMugiqEigParams(){ return eigParams;}
-  
-  /** @brief Accessor to get the Quda eigsolve parameter structure
-   */
-  QudaEigParam* getQudaEigParams(){ return eigParams->QudaEigParams;}
-  
-  /** @brief Accessor to get the invert parameter structure
-   */
-  QudaInvertParam* getInvParams(){ return invParams;}
   
 }; // class Eigsolve_Mugiq 
 
