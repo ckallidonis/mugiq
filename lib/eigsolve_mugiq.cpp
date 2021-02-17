@@ -320,10 +320,8 @@ void Eigsolve_Mugiq::computeEvals(){
     r[i] = sqrt(blas::norm2(*w)); // r = ||w||
   }
 
-  if(eigParams->diracType == MUGIQ_EIG_OPERATOR_MdagM || eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag){
-    std::vector<double> &sigma = *eVals_sigma;    
-    for(int i=0; i<eigParams->nEv; i++) sigma[i] = sqrt(lambda[i].real());
-  }
+  std::vector<double> &sigma = *eVals_sigma;    
+  for(int i=0; i<eigParams->nEv; i++) sigma[i] = lambda[i].real();
   
   delete mat_direct;
   delete w;
