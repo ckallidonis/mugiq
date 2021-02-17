@@ -208,7 +208,7 @@ void Eigsolve_Mugiq::createNewDiracMatrix(){
   else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
   else errorQuda("%s: Unsupported Dirac operator type\n", __func__);
 
-  matFine = new DiracM(*mg_env->mg_solver->d);
+  matFine = new DiracM(*dirac);
 }
 
 
