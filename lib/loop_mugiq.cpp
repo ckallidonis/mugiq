@@ -281,7 +281,7 @@ void Loop_Mugiq<Float, fieldOrder>::prolongateEvec(ColorSpinorField *fineEvec, C
   if(!eigsolve->computeCoarse) errorQuda("%s: Not supposed to be called when computeCoarse is False\n", __func__);
   if(fieldOrder != QUDA_FLOAT2_FIELD_ORDER) errorQuda("%s: Vector prolongation requires fieldOrder = FLOAT2\n", __func__);
   
-  MG_Mugiq &mg_env = *(eigsolve->getMGEnv());
+  MG_Mugiq &mg_env = *(eigsolve->mg_env);
   
   //- Create one fine and N_coarse temporary coarse fields
   //- Will be used for prolongating the coarse eigenvectors back to the fine lattice  

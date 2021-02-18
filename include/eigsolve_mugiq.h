@@ -74,7 +74,9 @@ private:
   TimeProfile *eigProfile; // Used for profiling
   
   const Dirac *dirac;
+  const Dirac *diracFine;
   DiracMatrix *mat; // The Dirac operator whose eigenpairs we are computing
+  DiracMatrix *matFine; // The Dirac operator whose eigenpairs we are computing
 
   //- This switch is required so that the dirac object is NOT
   //- deleted when NOT created within Eigsolve.
@@ -151,7 +153,7 @@ public:
    */
   void computeEvals();
   
-  /** @brief Perform the projection: out = \sum_i v_i dot(v*_i,in)
+  /** @brief Perform the projection: out = \sum_i evecs_i * dot(evecs_i*,\gamma_5 * fine_op * in) / eval_i
    */
   void projectVector(ColorSpinorField &out, ColorSpinorField &in);
 
@@ -159,41 +161,14 @@ public:
    */
   void printEvals();
 
-  /** @brief Accessor to get the eigenvectors outside of the class
+  /** @brief Accessor to get approx. right singular vector of the given fine/coarse operator
    */
   std::vector<ColorSpinorField *> &getEvecs(){ return eVecs;}
   
-  /** @brief Accessor to get the Quda eigenvalues outside of the class
-   */
-  std::vector<Complex>* getEvalsQuda(){ return eVals_quda;}
-  
-  /** @brief Accessor to get the Eigsolve_Mugiq eigenvalues outside of the class
+  /** @brief Accessor to get the approx. eigenvalues of \gamma_5 * the given fine/coarse operator;
+   *         that is, evals[i] = dot(evecs[i], \gamma_5 * fine/coarse operator * evecs[i])
    */
   std::vector<Complex> *getEvals(){ return eVals;}
-  
-  /** @brief Accessor to get the Eigsolve_Mugiq singular values outside of the class
-   */
-  std::vector<double> *getEvalsSigma(){ return eVals_sigma;}
-  
-  /** @brief Accessor to get the residual of the computed eigenvalues
-   */
-  std::vector<double>* getEvalsRes(){ return evals_res;}
-
-  /** @brief Accessor to get the Multigrid environment structure
-   */
-  MG_Mugiq* getMGEnv(){ return mg_env;}
-  
-  /** @brief Accessor to get the Mugiq eigsolve parameter structure
-   */
-  MugiqEigParam* getMugiqEigParams(){ return eigParams;}
-  
-  /** @brief Accessor to get the Quda eigsolve parameter structure
-   */
-  QudaEigParam* getQudaEigParams(){ return eigParams->QudaEigParams;}
-  
-  /** @brief Accessor to get the invert parameter structure
-   */
-  QudaInvertParam* getInvParams(){ return invParams;}
   
 }; // class Eigsolve_Mugiq 
 
