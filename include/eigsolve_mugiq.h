@@ -74,6 +74,7 @@ private:
   TimeProfile *eigProfile; // Used for profiling
   
   const Dirac *dirac;
+  const Dirac *diracFine;
   DiracMatrix *mat; // The Dirac operator whose eigenpairs we are computing
   DiracMatrix *matFine; // The Dirac operator whose eigenpairs we are computing
 

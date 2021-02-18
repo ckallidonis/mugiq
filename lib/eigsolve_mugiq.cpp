@@ -14,6 +14,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   invParams(eigParams->QudaEigParams->invert_param),
   eigProfile(eigProfile_),
   dirac(nullptr),
+  diracFine(nullptr),
   mat(nullptr),
   matFine(nullptr),
   diracCreated(MUGIQ_BOOL_FALSE),
@@ -32,6 +33,9 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
     //- This is diracCoarseResidual of the QUDA MG class
     dirac = mg_env->diracCoarse;
     if(typeid(*dirac) != typeid(DiracCoarse)) errorQuda("The Coarse Dirac operator must not be preconditioned!\n");
+
+    //-The Fine Dirac operator
+    diracFine = mg_env->mg_solver->d;
   }
   else{
     allocateFineEvecs();
@@ -63,6 +67,7 @@ Eigsolve_Mugiq::Eigsolve_Mugiq(MugiqEigParam *eigParams_,
   invParams(eigParams->QudaEigParams->invert_param),
   eigProfile(eigProfile_),
   dirac(nullptr),
+  diracFine(nullptr),
   mat(nullptr),
   matFine(nullptr),
   diracCreated(MUGIQ_BOOL_FALSE),
@@ -96,7 +101,7 @@ Eigsolve_Mugiq::~Eigsolve_Mugiq(){
     delete eVals_sigma;
 
   if(mat) delete mat;
-  if(matFine) delete mat;
+  if(matFine) delete matFine;
   mat = nullptr;
   
   if(useMGenv){
@@ -208,7 +213,8 @@ void Eigsolve_Mugiq::createNewDiracMatrix(){
   else if (eigParams->diracType == MUGIQ_EIG_OPERATOR_MMdag)  mat = new DiracMMdag(*dirac);
   else errorQuda("%s: Unsupported Dirac operator type\n", __func__);
 
-  matFine = new DiracM(*dirac);
+  if(computeCoarse) matFine = new DiracM(*diracFine);
+  else matFine = new DiracM(*dirac);
 }
 
 
